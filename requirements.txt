@@ -1,0 +1,9 @@
+torch
+transformers
+tree_sitter==0.21.3
+pandas
+numpy
+scikit-learn
+h5py
+javalang
+tqdm

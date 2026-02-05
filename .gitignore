@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.ipynb_checkpoints/
+
+# Datasets (Large Files)
+*.csv
+*.json
+*.h5
+*.hdf5
+# Keep any small config json if needed, but exclude the big datasets
+!draper_config.json 
+
+# Processed Data & Caches
+cached_dataset.pt
+*.pkl
+build/
+*.so
+
+# Model Weights
+*.bin
+*.pt
+*.safetensors
+saved_models/
+checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# System
+.DS_Store
+Thumbs.db
