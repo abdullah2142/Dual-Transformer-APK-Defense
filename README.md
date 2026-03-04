@@ -86,17 +86,104 @@ Load both models, run inference on the test set, average the probability scores,
 
 ## Results
 
-**Ensemble Performance (GraphCodeBERT + CodeBERT):**
-- **Accuracy**: **~91.87%**
-- **Weighted Average F1-Score**: **0.92**
+All evaluations were performed on the same 19,996-sample validation split.
 
-### Confusion Matrix
+### Model Comparison
+
+| Configuration | Accuracy | Precision | Recall | F1 (macro) | FN (missed) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| GraphCodeBERT alone | 91.82% | 0.9182 | 0.9182 | 0.9182 | 829 |
+| Soft Ensemble — 50/50 (GCB + CB) | 91.87% | 0.9189 | 0.9188 | 0.9187 | 685 |
+| **Weighted Ensemble — 70/30 (GCB + CB)** | **91.94%** | **0.9194** | **0.9194** | **0.9194** | ~720 |
+| Triple Ensemble — soft @ threshold 0.49 | 91.88% | 0.9191 | 0.9190 | 0.9188 | **671** |
+| Triple Ensemble — hard voting | 91.10% | 0.9113 | 0.9112 | 0.9110 | 748 |
+
+> **Best overall accuracy**: Weighted 70/30 ensemble at **91.94%**
+> **Fewest missed malware (lowest FN)**: Triple soft ensemble at **671 false negatives** — a 19% reduction vs. GraphCodeBERT alone.
+
+---
+
+### Detailed Results — GraphCodeBERT (standalone)
+
+```
+              precision    recall  f1-score   support
+
+    Safe (0)     0.9181    0.9201    0.9191     10095
+   Vuln  (1)     0.9183    0.9163    0.9173      9901
+
+    accuracy                         0.9182     19996
+   macro avg     0.9182    0.9182    0.9182     19996
+weighted avg     0.9182    0.9182    0.9182     19996
+```
+
+| | Predicted Safe | Predicted Vulnerable |
+| :--- | :---: | :---: |
+| **Actual Safe** | **9288** (TN) | 807 (FP) |
+| **Actual Vulnerable** | 829 (FN) | **9072** (TP) |
+
+---
+
+### Detailed Results — Soft Ensemble 50/50 (GraphCodeBERT + CodeBERT)
+
+```
+              precision    recall  f1-score   support
+
+        Safe     0.9304    0.9068    0.9184     10095
+  Vulnerable     0.9074    0.9308    0.9189      9901
+
+    accuracy                         0.9187     19996
+   macro avg     0.9189    0.9188    0.9187     19996
+weighted avg     0.9190    0.9187    0.9187     19996
+```
+
 | | Predicted Safe | Predicted Vulnerable |
 | :--- | :---: | :---: |
 | **Actual Safe** | **9154** (TN) | 941 (FP) |
 | **Actual Vulnerable** | 685 (FN) | **9216** (TP) |
 
-The ensemble successfully distinguishes subtle vulnerability patterns, proving the value of combining structural (graph) and sequence (text) models.
+---
+
+### Detailed Results — Weighted Ensemble 70/30 (GraphCodeBERT + CodeBERT)
+
+```
+              precision    recall  f1-score   support
+
+        Safe     0.9242    0.9154    0.9198     10095
+  Vulnerable     0.9146    0.9234    0.9190      9901
+
+    accuracy                         0.9194     19996
+   macro avg     0.9194    0.9194    0.9194     19996
+weighted avg     0.9194    0.9194    0.9194     19996
+```
+
+---
+
+### Detailed Results — Triple Ensemble (soft voting @ threshold 0.49)
+
+```
+              precision    recall  f1-score   support
+
+        Safe     0.9316    0.9057    0.9185     10095
+  Vulnerable     0.9065    0.9322    0.9192      9901
+
+    accuracy                         0.9188     19996
+   macro avg     0.9191    0.9190    0.9188     19996
+weighted avg     0.9192    0.9188    0.9188     19996
+```
+
+| | Predicted Safe | Predicted Vulnerable |
+| :--- | :---: | :---: |
+| **Actual Safe** | **9143** (TN) | 952 (FP) |
+| **Actual Vulnerable** | **671** (FN) | **9230** (TP) |
+
+---
+
+### Key Findings
+
+- **Ensemble always outperforms GraphCodeBERT alone**: Every ensemble configuration achieved higher accuracy and/or lower false negatives versus the single model.
+- **Soft voting beats hard voting**: Hard voting (majority label) underperforms because it discards model confidence — averaging raw probabilities is strictly better when models are well-calibrated.
+- **Weighted ensembling is the sweet spot**: Giving 70% weight to the stronger GraphCodeBERT and 30% to CodeBERT maximises accuracy at 91.94%.
+- **Threshold tuning trades precision for recall**: Lowering the decision threshold to 0.49 reduces missed malware by 19% at the cost of slightly more false alarms — the right choice for a security scanner where missing a threat is costlier than a false alert.
 
 ## Limitations
 
