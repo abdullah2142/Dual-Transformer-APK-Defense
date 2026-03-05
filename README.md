@@ -132,7 +132,11 @@ The near-zero optimism bias confirms no overfitting occurred and the model gener
 | Random baseline | 0.5000 | ~0.50 | — |
 | **Best F1 threshold (GraphCodeBERT)** | — | — | **0.45** |
 
-ROC and PR curves are available in `test2_roc_curve.png` and `test2_pr_curve.png`. All three models maintain near-perfect precision (~1.0) up to ~80% recall, which is the critical operating range for a security scanner.
+All three models maintain near-perfect precision (~1.0) up to ~80% recall, which is the critical operating range for a security scanner.
+
+![ROC Curves](results/test2_roc_curve.png)
+
+![Precision-Recall Curves](results/test2_pr_curve.png)
 
 ---
 
@@ -148,7 +152,7 @@ Same GraphCodeBERT backbone trained **with** and **without** DFG-aware attention
 
 > The DFG attention mechanism reduces missed malware by **25%** compared to the identical backbone without structural information. This is the core finding of the ablation study.
 
-Bar chart available in `test3_ablation_bar.png`.
+![DFG Ablation Study](results/test3_ablation_bar.png)
 
 ---
 
