@@ -1,0 +1,48 @@
+Test 7: Imbalanced Class Evaluation
+============================================================
+Threshold: 0.45  |  Ratio: 90% safe / 10% malicious
+
+
+GraphCodeBERT+DFG [balanced 50/50]
+  acc     : 0.9175
+  prec    : 0.9020
+  rec     : 0.9350
+  f1      : 0.9182
+  auc     : 0.9798
+  pr_auc  : 0.9797
+  fn      : 644
+  fp      : 1,006
+  fpr     : 0.0997
+
+GraphCodeBERT+DFG [imbalanced 90/10]
+  acc     : 0.9034
+  prec    : 0.5093
+  rec     : 0.9313
+  f1      : 0.6585
+  auc     : 0.9782
+  pr_auc  : 0.8851
+  fn      : 77
+  fp      : 1,006
+  fpr     : 0.0997
+
+Ensemble [balanced 50/50]
+  acc     : 0.9153
+  prec    : 0.8859
+  rec     : 0.9516
+  f1      : 0.9176
+  auc     : 0.9804
+  pr_auc  : 0.9803
+  fn      : 479
+  fp      : 1,214
+  fpr     : 0.1203
+
+Ensemble [imbalanced 90/10]
+  acc     : 0.8861
+  prec    : 0.4657
+  rec     : 0.9438
+  f1      : 0.6236
+  auc     : 0.9783
+  pr_auc  : 0.8861
+  fn      : 63
+  fp      : 1,214
+  fpr     : 0.1203

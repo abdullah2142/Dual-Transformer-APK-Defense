@@ -139,6 +139,42 @@ Macro mean                      88.75%     0.9236    0.8875
 
 ---
 
+### Test 6 — MLP / TF-IDF Baseline (Lower Bound)
+**File**: `test_6_mlp_baseline.ipynb`  
+**Output image**: `results/test6_baseline_bar.png`
+
+```
+Model                   Accuracy   F1       FN (missed)
+LR + TF-IDF             84.27%     0.8405   3,389
+MLP + TF-IDF            85.53%     0.8554   2,851
+CodeBERT (text-only)    90.44%     0.9044   —
+GraphCodeBERT + DFG     91.82%     0.9182   829
+Ensemble (50/50 soft)   91.87%     0.9187   685
+```
+
+**Paper framing**: The massive gap in missed malware (2,851 for MLP vs 829 for GraphCodeBERT) justifies the computational cost of the deep learning and DFG-aware approach. The problem cannot be trivially solved by treating code as a "bag of words."
+
+**Paper sentence**: *"To justify the use of our dual-transformer architecture, we evaluate a robust Multi-Layer Perceptron trained on TF-IDF bag-of-words features; our DFG-aware model reduces missed vulnerabilities by 71% compared to this baseline (from 2,851 to 829 false negatives)."*
+
+---
+
+### Test 7 — Imbalanced Class Evaluation (90% Safe / 10% Malicious)
+**File**: `test_7_imbalanced_eval.ipynb`  
+**Output image**: `results/test7_precision_recall_bar.png`
+**Threshold**: 0.45
+
+```
+Scenario                Accuracy   Precision   Recall   F1       PR-AUC
+Ensemble (50/50 split)  91.53%     0.8859      0.9516   0.9176   0.9803
+Ensemble (90/10 split)  88.61%     0.4657      0.9438   0.6236   0.8861
+```
+
+**Paper framing**: Under severe class imbalance, recall remains remarkably high (94.38%), which is the critical metric for a security tool. The precision drops to 46.57%, meaning ~53% of flags will be false alarms. The model must not be framed as a frictionless standalone blocker, but rather as an extremely effective, high-recall **triage filter** or first-pass scanner for analysts.
+
+**Paper sentence**: *"Under a realistic 90% safe to 10% malicious class imbalance, the ensemble maintains a robust 94.38% recall, proving its efficacy as a high-recall triage filter, despite an expected drop in precision typical of imbalanced security datasets."*
+
+---
+
 ## 4. Ensemble Results Summary
 
 All variants on the same 19,996-sample validation split:
@@ -212,15 +248,13 @@ Triple Hard Voting            91.10%     0.9110    748
 
 ## 7. Remaining Work (from PAPER_TODO.md)
 
-**Critical**:
-- [ ] MLP/TF-IDF baseline (lower bound — ~1h work)
-- [ ] Imbalanced evaluation at 90/10 class ratio
-
 **High priority**:
 - [ ] APK decompilation pipeline (jadx → function extraction → DFG → classify)
 
 **Writing**:
 - [ ] Paper draft — start with Section 4 (Ablation) since cleanest story
+- [ ] Integrate Test 6 (Baseline) to justify architecture
+- [ ] Integrate Test 7 (Imbalanced) to set realistic expectations (triage filter framing)
 
 ---
 

@@ -9,20 +9,12 @@
 
 ## 🔴 Critical (needed before submission)
 
-- [ ] **Add one published baseline comparison**
-  - CodeBERT alone ✅ (90.44%)
-  - At minimum: report a simple MLP/TF-IDF lower bound — takes ~1h
-- [ ] **Imbalanced evaluation** — re-run inference at a realistic 90% safe / 10% malicious ratio to show real-world robustness; no retraining needed
+*(Test 6 baseline and Test 7 imbalanced evaluation completed and moved to Already Done)*
 
 ---
 
 ## 🟠 High Priority
 
-- [ ] **Per-source accuracy breakdown** (Devign / Draper / LVDAndro / Juliet)
-  - Script: `test_5_per_source_eval.ipynb`
-  - Filter test-set samples by `filename` prefix, report accuracy per source
-  - Key question: does LVDAndro (Android-native) perform differently from C-only sources?
-  - ⚠️ Do NOT use the CodeXGLUE test split — model trained on sampled Devign rows; instead use filename-filtered held-out test set
 - [ ] **APK decompilation pipeline** — end-to-end script:
   1. Decompile `.apk` → Java source with `jadx`
   2. Extract function bodies
@@ -48,6 +40,8 @@
 - [ ] Section 4: Ablation Study (DFG vs no-DFG — use `test3_ablation_bar.png` as Figure 1)
 - [ ] Section 5: Ensemble & System (soft/weighted voting, threshold tuning, APK pipeline diagram)
 - [ ] Section 6: Per-Source Analysis (cross-corpus generalisation table)
+- [ ] Section 7: Baseline Comparison (Test 6) — Justify deep learning over traditional ML
+- [ ] Section 8: Real-World Deployment / Imbalance (Test 7) — Frame model as high-recall triage filter
 - [ ] Pick target venue:
   - **ISSTA / ASE / ICSE** — software engineering + ML framing (best fit)
   - **USENIX Security / IEEE S&P** — only if APK pipeline is complete
@@ -64,3 +58,6 @@
 - [x] Full ensemble comparison (standalone, 50/50, 70/30 weighted, triple soft/hard)
 - [x] All 4 test notebooks + result images pushed to repo
 - [x] README updated with all results and inline figures
+- [x] Per-source accuracy breakdown (Test 5) — LVDAndro 99% vs Devign 66% gap transparently reported
+- [x] MLP/TF-IDF baseline comparison (Test 6) — 71% reduction in false negatives vs MLP
+- [x] Imbalanced evaluation 90/10 (Test 7) — 94.38% recall maintained, precision drops to 46.57%

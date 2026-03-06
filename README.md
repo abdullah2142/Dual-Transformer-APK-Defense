@@ -198,6 +198,37 @@ To assess cross-corpus generalisation, the model was evaluated separately on eac
 
 ---
 
+### Test 6 — MLP / TF-IDF Baseline (Lower Bound)
+
+To demonstrate the necessity of a deep, structural transformer ensemble, we compared against traditional machine learning baselines trained on TF-IDF bag-of-words features.
+
+| Model | Accuracy | ROC-AUC | PR-AUC | F1 | FN (missed) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| LR + TF-IDF | 84.27% | 0.9275 | 0.9252 | 0.8405 | 3,389 |
+| MLP + TF-IDF | 85.53% | 0.9398 | 0.9399 | 0.8554 | 2,851 |
+| **GraphCodeBERT + DFG** | **91.82%** | **0.9798** | **0.9797** | **0.9182** | **829** |
+
+The baseline MLP misses 3.4x more vulnerabilities (2,851 vs 829). This 71% reduction in false negatives confirms that treating code as a "bag of words" is insufficient for robust vulnerability detection, justifying the DFG-aware approach.
+
+![Baseline Comparison](results/test6_baseline_bar.png)
+
+---
+
+### Test 7 — Imbalanced Class Evaluation
+
+To evaluate real-world deployment robustness without retraining, we tested the ensemble on an imbalanced dataset (90% safe / 10% malicious), representative of actual codebases.
+
+| Scenario | Accuracy | Precision | Recall | F1 | PR-AUC |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| Ensemble [Balanced 50/50] | 91.53% | 0.8859 | 0.9516 | 0.9176 | 0.9803 |
+| **Ensemble [Imbalanced 90/10]** | **88.61%** | **0.4657** | **0.9438** | **0.6236** | **0.8861** |
+
+**High-Recall Triage Filter**: While precision naturally drops under severe class imbalance (resulting in ~53% false alarms), the ensemble maintains a **94.38% recall**. In a security context, catching the vulnerability is the highest priority. Thus, the tool is best deployed as a highly effective, first-pass **triage filter** for human analysts rather than a frictionless, standalone blocker.
+
+![Imbalanced Evaluation](results/test7_precision_recall_bar.png)
+
+---
+
 ### Ensemble Comparison
 
 All ensemble variants evaluated on the same 19,996-sample validation split:
@@ -244,6 +275,8 @@ All ensemble variants evaluated on the same 19,996-sample validation split:
 - **No optimism bias**: Test set accuracy (92.02%) matches validation (91.998%) within 0.018% — the reported numbers are genuine (Test 1).
 - **Ensemble always beats the single model**: Every ensemble configuration achieved higher accuracy and/or lower false negatives vs. GraphCodeBERT alone.
 - **Threshold tuning for security**: Lowering the decision threshold from 0.50 → 0.45 further reduces false negatives by 19%, the right tradeoff for a security-critical scanner.
+- **Deep Learning Justified**: The dual-transformer approach reduces missed vulnerabilities by 71% compared to a traditional TF-IDF + MLP baseline, proving structural analysis is necessary (Test 6).
+- **Robust Triage Filter**: Under a realistic 90/10 class imbalance scenario, the ensemble maintains a high recall of 94.38%, proving its utility as a reliable first-pass security scanner despite an expected drop in precision (Test 7).
 
 ## Limitations
 
