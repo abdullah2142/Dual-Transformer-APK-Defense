@@ -156,6 +156,23 @@ Same GraphCodeBERT backbone trained **with** and **without** DFG-aware attention
 
 ---
 
+### Test 4 — Multi-Seed Stability
+
+To verify results are not artefacts of a single random seed, three independent full fine-tuning runs were performed with different seeds (1 epoch each due to compute constraints; full 3-epoch training achieves 91.82% as reported above).
+
+| Seed | Accuracy | ROC-AUC | PR-AUC | F1 (macro) |
+| :--- | :---: | :---: | :---: | :---: |
+| 42 | 87.60% | 0.9562 | 0.9574 | 0.8759 |
+| 123 | 87.51% | 0.9560 | 0.9579 | 0.8751 |
+| 2025 | 86.98% | 0.9554 | 0.9576 | 0.8698 |
+| **mean ± std** | **87.36% ± 0.27%** | **0.9559 ± 0.0004** | **0.9576 ± 0.0002** | **0.8736 ± 0.0027** |
+
+The extremely low standard deviation (±0.27% accuracy, ±0.0004 ROC-AUC) confirms that results are highly stable and independent of random initialisation.
+
+![Multi-Seed Stability](results/test4_multiseed_errorbar.png)
+
+---
+
 ### Ensemble Comparison
 
 All ensemble variants evaluated on the same 19,996-sample validation split:
