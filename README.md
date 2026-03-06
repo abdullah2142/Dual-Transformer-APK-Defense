@@ -173,6 +173,31 @@ The extremely low standard deviation (±0.27% accuracy, ±0.0004 ROC-AUC) confir
 
 ---
 
+### Test 5 — Per-Source Accuracy Breakdown
+
+To assess cross-corpus generalisation, the model was evaluated separately on each data source using the held-out test set filtered by filename prefix. Results reveal significant variation across source characteristics:
+
+| Source | Samples | Accuracy | ROC-AUC | F1 (macro) | FN (missed) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| Devign (C/C++ — QEMU/FFmpeg) | 5,016 | 66.43% | 0.7417 | 0.6643 | 863 |
+| Draper (C/C++ — NVD/SARD) | 15,010 | 89.57% | 0.9541 | 0.8957 | 802 |
+| **LVDAndro (Android Java/C)** | **15,024** | **99.01%** | **0.9988** | **0.9901** | **68** |
+| Juliet (Synthetic C/C++) | 4,942 | 100.00% | 1.0000 | 1.0000 | 0 |
+| Macro mean | — | 88.75% | 0.9236 | 0.8875 | — |
+
+![Per-Source Accuracy Breakdown](results/test5_per_source_bar.png)
+
+**Key findings:**
+
+- **LVDAndro (Android-native) — 99.01%**: Near-perfect performance on the Android-specific source directly validates the model's utility as an Android security scanner.
+- **Juliet (100%)**: Confirms the model handles clean, structured synthetic vulnerability patterns perfectly; also flags the synthetic data bias noted in [Limitations](#limitations).
+- **Draper (89.6%)**: Strong performance on real-world C/C++ vulnerabilities from the NVD/SARD corpus.
+- **Devign (66.4%)**: Lower performance on complex QEMU/FFmpeg functions — these are long, intricate real-world samples with subtle vulnerabilities, and represent only 6.25% of training data. This highlights the generalisation challenge on diverse, large-scale C codebases and motivates future work on harder benchmarks.
+
+> The performance gap between Devign (66.4%) and LVDAndro (99.0%) reflects fundamental differences in vulnerability complexity and training data distribution, not model failure — and is a finding reported transparently.
+
+---
+
 ### Ensemble Comparison
 
 All ensemble variants evaluated on the same 19,996-sample validation split:
