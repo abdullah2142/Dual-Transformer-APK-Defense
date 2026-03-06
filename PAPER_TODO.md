@@ -1,56 +1,66 @@
 # 📝 Paper To-Do
 
-The paper combines three angles into one unified contribution:
-1. **Dataset** — multi-source, cross-language Android vulnerability dataset
-2. **Ablation** — quantified proof that DFG attention is essential (+3.11% acc, −25% FN)
-3. **System** — DFG ensemble with threshold tuning for deployment-ready Android security
+**Unified paper structure** — three angles:
+1. **Ablation** — DFG-aware attention reduces missed malware by 25% (Test 3)
+2. **System** — Ensemble + threshold tuning for deployment-ready Android security; end-to-end APK decompilation pipeline
+3. **Dataset-as-vehicle** — 200k multi-source corpus enables large-scale DFG ablation; per-source analysis shows cross-corpus generalisability
 
 ---
 
 ## 🔴 Critical (needed before submission)
 
-- [ ] **Add baseline comparisons on your dataset**
-  - CodeBERT alone ✅ (already done, 90.44%)
-  - Simple MLP / TF-IDF baseline (lower bound)
-  - At least one Android-specific tool: MaMaDroid or DLDroid
-- [ ] **Evaluate on Devign test split in isolation** (no mixing with other datasets) — needed for apples-to-apples comparison with published numbers
-- [ ] **Run Test 4 (multi-seed, 3 seeds)** to get mean ± std for all ablation metrics — turns single-run observations into statistical claims
+- [ ] **Add one published baseline comparison**
+  - CodeBERT alone ✅ (90.44%)
+  - At minimum: report a simple MLP/TF-IDF lower bound — takes ~1h
+- [ ] **Imbalanced evaluation** — re-run inference at a realistic 90% safe / 10% malicious ratio to show real-world robustness; no retraining needed
 
 ---
 
 ## 🟠 High Priority
 
-- [ ] **Imbalanced evaluation** — re-run final evaluation at a realistic 90% safe / 10% malicious ratio to show real-world robustness
-- [ ] **Per-class / per-vulnerability-type breakdown** — which vulnerability categories (buffer overflow, use-after-free, logic errors) does DFG help most? Use LVDAndro labels for this analysis
-- [ ] **Update README Results section** with Test 3 ablation numbers (DFG vs no-DFG table)
-- [ ] **Push test notebooks** (test_2, test_3, test_4) to the repo once all are finalised
+- [ ] **Per-source accuracy breakdown** (Devign / Draper / LVDAndro / Juliet)
+  - Script: `test_5_per_source_eval.ipynb`
+  - Filter test-set samples by `filename` prefix, report accuracy per source
+  - Key question: does LVDAndro (Android-native) perform differently from C-only sources?
+  - ⚠️ Do NOT use the CodeXGLUE test split — model trained on sampled Devign rows; instead use filename-filtered held-out test set
+- [ ] **APK decompilation pipeline** — end-to-end script:
+  1. Decompile `.apk` → Java source with `jadx`
+  2. Extract function bodies
+  3. Generate DFGs via Tree-sitter (reuse existing pipeline)
+  4. Classify with `model.bin`
+  - This is the concrete system contribution; turns the paper from "model" to "working scanner"
+  - Estimated: 2–3 weeks engineering work
 
 ---
 
 ## 🟡 Medium Priority
 
-- [ ] **Error analysis on misclassified samples** — inspect ~50 false negatives from GraphCodeBERT+DFG; identify patterns (e.g. long functions truncated, uncommon CWE types)
-- [ ] **Calibration check** — plot confidence histogram for correct vs incorrect predictions to verify the model isn't overconfident
-- [ ] **Threshold sensitivity table** — formalise the threshold sweep (Test 2 output) as a table showing precision/recall/F1 at 0.40, 0.45, 0.50, 0.55 for the paper
+- [ ] **Error analysis on ~50 false negatives** — identify patterns (truncated functions, unusual CWE types, short code)
+- [ ] **Calibration check** — confidence histogram for correct vs incorrect predictions
+- [ ] **Threshold sensitivity table** — precision/recall/F1 at 0.40, 0.45, 0.50, 0.55 (formalise Test 2 output)
+- [ ] **Update README** with per-source breakdown results once Test 5 is run
 
 ---
 
-## 🟢 Polish / Writing
+## 🟢 Writing
 
-- [ ] Write Section 3 (Dataset Construction): sources, DFG pipeline, class balance, splits
-- [ ] Write Section 4 (Ablation Study): DFG vs no-DFG, use `test3_ablation_bar.png` as Figure 1
-- [ ] Write Section 5 (Ensemble): soft vs weighted vs hard voting, use `test2_roc_curve.png` and `test2_pr_curve.png` as figures
+- [ ] Section 3: Dataset & Experimental Setup (sources, DFG pipeline, class balance, splits)
+- [ ] Section 4: Ablation Study (DFG vs no-DFG — use `test3_ablation_bar.png` as Figure 1)
+- [ ] Section 5: Ensemble & System (soft/weighted voting, threshold tuning, APK pipeline diagram)
+- [ ] Section 6: Per-Source Analysis (cross-corpus generalisation table)
 - [ ] Pick target venue:
-  - **USENIX Security / Oakland (IEEE S&P)** — security-first framing
-  - **ISSTA / ASE / ICSE** — software engineering + ML framing
-  - **MSR** — if dataset is the primary contribution
+  - **ISSTA / ASE / ICSE** — software engineering + ML framing (best fit)
+  - **USENIX Security / IEEE S&P** — only if APK pipeline is complete
+  - **MSR** — lighter venue, dataset + findings framing
 
 ---
 
 ## ✅ Already Done
 
-- [x] 3-way train/val/test split with zero optimism bias (Test 1: −0.018%)
+- [x] 3-way train/val/test split — zero optimism bias (−0.018%) confirmed (Test 1)
 - [x] ROC-AUC 0.9804, PR-AUC 0.9803 for ensemble (Test 2)
-- [x] DFG ablation: +3.11% accuracy, −282 FN vs no-DFG (Test 3)
+- [x] DFG ablation: +3.11% accuracy, −282 FN, −25% missed malware vs no-DFG (Test 3)
+- [x] Multi-seed stability: 87.36% ± 0.27%, ROC 0.9559 ± 0.0004 across 3 seeds (Test 4)
 - [x] Full ensemble comparison (standalone, 50/50, 70/30 weighted, triple soft/hard)
-- [x] All results documented in README.md
+- [x] All 4 test notebooks + result images pushed to repo
+- [x] README updated with all results and inline figures
