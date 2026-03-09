@@ -251,7 +251,9 @@ When scanning standard applications (e.g., `AntennaPod`, `Aegis`), the system ac
 ### Test 10 — Confidence Calibration in the Wild (Test C)
 **Goal**: Verify that the dual-transformer model maintains its high confidence polarity on completely unseen, real-world native APK software (not just the academic training datasets).
 
-By aggressively parsing the 10 real-world decompiled APKs via our Kaggle pipeline, we extracted exactly **19,508 individual Java functions**, ran them through GraphCodeBERT, and captured the raw float probability scores (`results/test_c_confidence_histogram.png`).
+By aggressively parsing the 10 real-world decompiled APKs via our Kaggle pipeline, we extracted exactly **19,508 individual Java functions**, ran them through GraphCodeBERT, and captured the raw float probability scores.
+
+![Confidence Calibration Histogram](results/test_c_confidence_histogram.png)
 
 **Paper Framing**: The histogram of these 19,508 wild predictions perfectly matches the distribution from the Test 2 validation check. The model maintains extreme confidence calibration when interacting with completely novel code bases from Google Play/F-Droid. Over 95% of standard code logic is binned securely near a 0.0 certainty score, proving that the deep neural network resists hallucinating false positives when exposed to chaotic, real-world data structures outside its training distribution.
 
