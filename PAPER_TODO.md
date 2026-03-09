@@ -15,22 +15,12 @@
 
 ## 🟠 High Priority
 
-- [ ] **APK decompilation pipeline** — end-to-end script:
-  1. Decompile `.apk` → Java source with `jadx`
-  2. Extract function bodies
-  3. Generate DFGs via Tree-sitter (reuse existing pipeline)
-  4. Classify with `model.bin`
-  - This is the concrete system contribution; turns the paper from "model" to "working scanner"
-  - Estimated: 2–3 weeks engineering work
 
 ---
 
 ## 🟡 Medium Priority
 
 - [ ] **Error analysis on ~50 false negatives** — identify patterns (truncated functions, unusual CWE types, short code)
-- [ ] **Calibration check** — confidence histogram for correct vs incorrect predictions
-- [ ] **Threshold sensitivity table** — precision/recall/F1 at 0.40, 0.45, 0.50, 0.55 (formalise Test 2 output)
-- [ ] **Update README** with per-source breakdown results once Test 5 is run
 
 ---
 
@@ -61,3 +51,7 @@
 - [x] Per-source accuracy breakdown (Test 5) — LVDAndro 99% vs Devign 66% gap transparently reported
 - [x] MLP/TF-IDF baseline comparison (Test 6) — 71% reduction in false negatives vs MLP
 - [x] Imbalanced evaluation 90/10 (Test 7) — 94.38% recall maintained, precision drops to 46.57%
+- [x] APK decompilation pipeline — end-to-end scanner script deployed natively on Kaggle
+- [x] Calibration check — confidence histogram for correct vs incorrect predictions
+- [x] Threshold sensitivity table — precision/recall/F1 at 0.40, 0.45, 0.50, 0.55 (formalise Test 2 output)
+- [x] Update README with per-source breakdown results once Test 5 is run

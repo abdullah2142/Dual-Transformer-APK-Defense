@@ -93,8 +93,8 @@ Load both models, run inference on the test set, average the probability scores,
 | **Accuracy** | 91.82% | 88.71% | 90.44% | **91.94%** |
 | **ROC-AUC** | 0.9798 | 0.9615 | 0.9745 | **0.9804** |
 | **PR-AUC** | 0.9797 | 0.9619 | 0.9745 | **0.9803** |
-| **F1 (macro)** | 0.9182 | 0.8871 | — | 0.9194 |
-| **FN (missed malware)** | 829 | 1,111 | — | ~720 |
+| **F1 (macro)** | 0.9182 | 0.8871 | 0.9044 | 0.9194 |
+| **FN (missed malware)** | 829 | 1,111 | 659 | ~720 |
 
 ---
 
@@ -137,6 +137,12 @@ All three models maintain near-perfect precision (~1.0) up to ~80% recall, which
 ![ROC Curves](results/test2_roc_curve.png)
 
 ![Precision-Recall Curves](results/test2_pr_curve.png)
+
+### Test 2b — Confidence Calibration
+
+A reliable security tool must be highly certain when correct, and uncertain when wrong. The confidence map illustrates that accurate inferences strictly cluster at >0.9 certainty, while incorrect predictions group heavily near the uncertainty threshold (0.45).
+
+![Confidence Calibration](results/test2_confidence_histogram.png)
 
 ---
 
