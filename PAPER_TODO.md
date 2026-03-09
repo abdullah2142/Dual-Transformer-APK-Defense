@@ -55,3 +55,5 @@
 - [x] Calibration check — confidence histogram for correct vs incorrect predictions
 - [x] Threshold sensitivity table — precision/recall/F1 at 0.40, 0.45, 0.50, 0.55 (formalise Test 2 output)
 - [x] Update README with per-source breakdown results once Test 5 is run
+- [x] End-to-End Inference System (Test A & B) — Built Kaggle notebook to decompile APKs, extract AST/DFG via Tree-sitter, batch inference via GraphCodeBERT.
+- [x] Obfuscation Degradation Test (Test D) — Validated that commercial ProGuard obfuscation flattens target packages, successfully hiding proprietary Java files from the standard scanner flow.

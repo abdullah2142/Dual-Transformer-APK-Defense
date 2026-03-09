@@ -235,6 +235,19 @@ To evaluate real-world deployment robustness without retraining, we tested the e
 
 ---
 
+### Test 8 & 9 — End-to-End Inference System & Obfuscation Degradation 
+**Goal**: Verify real-world deployment on actual APK files from Kaggle and the impact of commercial obfuscators.
+
+We successfully deployed our trained GraphCodeBERT implementation within a unified Python pipeline orchestrating `jadx` bytecode decompilation, `tree-sitter` Data Flow Graph feature extraction, and batched GPU tensor inference. The pipeline features dynamic token-sliding to handle extremely large developer functions without catastrophic truncation, and utilizes package filtering via `androguard` to exclude bulky 3rd party advert/support libraries.
+
+When scanning standard applications (e.g., `AntennaPod`, `Aegis`), the system accurately filtered target packages and extracted an average of 3,798 developer-owned functions for rapid GPU batch analysis in under 5 minutes per APK. 
+
+**Obfuscation Degradation Finding (Test D)**: Commercial obfuscation heavily degrades automated targeted scanning. When scanning `StarkVPN` (a proprietary app utilizing ProGuard or DexGuard), the obfuscator algorithm had intentionally flattened the semantic directory structure (e.g., stripping the domain `istark/vpn/starkreloaded` down to anonymous `a/b/c.java` paths) to hide developer logic. Consequently, our automated package-filtering system returned precisely **0 functions**. 
+
+**Paper Framing**: Commercial obfuscation prevents targeted API analysis by destroying semantic boundaries. To scan such applications with GraphCodeBERT, analysts must instruct the pipeline to brute-force parse every single Java file in the APK, significantly increasing computational load with 3rd-party bloat.
+
+---
+
 ### Ensemble Comparison
 
 All ensemble variants evaluated on the same 19,996-sample validation split:
