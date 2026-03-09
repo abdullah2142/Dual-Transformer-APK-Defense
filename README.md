@@ -62,8 +62,8 @@ The final classification is governed by an **Ensemble Approach**:
 | `dataset_creation_scripts/lvdandroprocessperfunction.py` | Processes LVDAndro CSVs into function-level samples. |
 | `dataset_creation_scripts/finalizedataset.py` | Merges all processed datasets into `final_dataset.json`. |
 | **Feature Extraction** | |
-| `parser_production.py` | Core library using `tree-sitter` to generate DFGs for C and Java. |
-| `parse.py` | Main preprocessing script. Guesses code language, runs DFG extraction, and caches tensors to `cached_dataset.pt`. |
+| `dataset_creation_scripts/parser_production.py` | Core library using `tree-sitter` to generate DFGs for C and Java. |
+| `dataset_creation_scripts/parse.py` | Main preprocessing script. Guesses code language, runs DFG extraction, and caches tensors to `cached_dataset.pt`. |
 | **Training & Utils** | |
 | `graphcodebert-training.ipynb` | Main Jupyter notebook for training and evaluating models. |
 | `dfg-generation.ipynb` | Notebook version of the DFG generation pipeline. |
@@ -92,7 +92,7 @@ Execute the targeted processing scripts for your datasets to initialize the JSON
 python dataset_creation_scripts/devignprocess.py
 python dataset_creation_scripts/julietprocess.py
 python dataset_creation_scripts/finalizedataset.py
-python parse.py
+python dataset_creation_scripts/parse.py
 ```
 
 **C. Train Ensemble Components**
