@@ -191,7 +191,7 @@ To assess cross-corpus generalisation, the model was evaluated separately on eac
 | Juliet (Synthetic C/C++) | 4,942 | 100.00% | 1.0000 | 1.0000 | 0 |
 | Macro mean | — | 88.75% | 0.9236 | 0.8875 | — |
 
-![Per-Source Accuracy Breakdown](results/test5_per_source_bar.png)
+![Per-Source Accuracy Breakdown](results/test5_per_source_magnified.png)
 
 **Key findings:**
 
@@ -216,7 +216,7 @@ To demonstrate the necessity of a deep, structural transformer ensemble, we comp
 
 The baseline MLP misses 3.4x more vulnerabilities (2,851 vs 829). This 71% reduction in false negatives confirms that treating code as a "bag of words" is insufficient for robust vulnerability detection, justifying the DFG-aware approach.
 
-![Baseline Comparison](results/test6_baseline_bar.png)
+![Baseline Comparison](results/test6_baseline_magnified.png)
 
 ---
 
