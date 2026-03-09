@@ -55,19 +55,19 @@ The final classification is governed by an **Ensemble Approach**:
 | Script Name | Role |
 | :--- | :--- |
 | **Data Processing** | |
-| `devignprocess.py` | Converts Devign dataset to the unified JSON format. |
-| `draperprocess.py` | extracts C/C++ samples from Draper HDF5 files. |
-| `julietprocess.py` | Parses the Juliet Java Test Suite into JSON samples. |
-| `lvdprocess.py` | Processes LVDAndro CSVs into window-based samples. |
-| `lvdandroprocessperfunction.py` | Processes LVDAndro CSVs into function-level samples. |
-| `finalizedataset.py` | Merges all processed datasets into `final_dataset.json`. |
+| `dataset_creation_scripts/devignprocess.py` | Converts Devign dataset to the unified JSON format. |
+| `dataset_creation_scripts/draperprocess.py` | extracts C/C++ samples from Draper HDF5 files. |
+| `dataset_creation_scripts/julietprocess.py` | Parses the Juliet Java Test Suite into JSON samples. |
+| `dataset_creation_scripts/lvdprocess.py` | Processes LVDAndro CSVs into window-based samples. |
+| `dataset_creation_scripts/lvdandroprocessperfunction.py` | Processes LVDAndro CSVs into function-level samples. |
+| `dataset_creation_scripts/finalizedataset.py` | Merges all processed datasets into `final_dataset.json`. |
 | **Feature Extraction** | |
 | `parser_production.py` | Core library using `tree-sitter` to generate DFGs for C and Java. |
 | `parse.py` | Main preprocessing script. Guesses code language, runs DFG extraction, and caches tensors to `cached_dataset.pt`. |
 | **Training & Utils** | |
 | `graphcodebert-training.ipynb` | Main Jupyter notebook for training and evaluating models. |
 | `dfg-generation.ipynb` | Notebook version of the DFG generation pipeline. |
-| `count_samples.py` | Utility to verify dataset size and format. |
+| `dataset_creation_scripts/count_samples.py` | Utility to verify dataset size and format. |
 
 ## How to Reproduce
 
@@ -89,9 +89,9 @@ pip install torch transformers tree_sitter==0.21.3 pandas h5py scikit-learn
 **B. Prepare Data & Generate Features**
 Execute the targeted processing scripts for your datasets to initialize the JSON structures, then use the DFG parser to map the Abstract Syntax Trees into deep-learning tensors:
 ```bash
-python devignprocess.py
-python julietprocess.py
-python finalizedataset.py
+python dataset_creation_scripts/devignprocess.py
+python dataset_creation_scripts/julietprocess.py
+python dataset_creation_scripts/finalizedataset.py
 python parse.py
 ```
 
