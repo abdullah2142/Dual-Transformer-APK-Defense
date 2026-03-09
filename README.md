@@ -12,23 +12,43 @@ The system aims to minimize false positives and cover a wide range of vulnerabil
 
 ## Methodology
 
-### 1. Data Pipeline
-The dataset uses a 1:1 balanced mix of vulnerable to safe samples from:
-- **LVDAndro**: Android-specific vulnerabilities.
+### 1. End-to-End Pipeline Architecture
+The system operates as a unified, automated inference pipeline designed to ingest compiled Android applications and output function-level vulnerability classifications:
+
+```mermaid
+graph TD
+    A[Raw APK File] -->|Jadx Decompilation| B(Java Source Code)
+    B -->|Androguard Analysis| C{Target Package Filter}
+    C -->|Bypass| D[3rd Party / Advert Libraries]
+    C -->|Extract| E[Proprietary Developer Functions]
+    E -->|Tree-Sitter| F(Abstract Syntax Tree - AST)
+    F -->|Semantic Analysis| G(Data Flow Graph - DFG)
+    G -->|Token Sliding Window| H[GraphCodeBERT Ensemble]
+    H -->|GPU Batched Inference| I(Probability Scores)
+    I -->|Threshold = 0.45| J{Classification}
+    J -->|Alert| K[Malicious / Vulnerable]
+    J -->|Pass| L[Safe]
+    
+    style A fill:#4C72B0,stroke:#333,stroke-width:2px,color:#fff
+    style K fill:#C44E52,stroke:#333,stroke-width:2px,color:#fff
+    style L fill:#55A868,stroke:#333,stroke-width:2px,color:#fff
+    style H fill:#8172B2,stroke:#333,stroke-width:2px,color:#fff
+```
+
+### 2. Training Data Pipeline
+The underlying models were trained on a 1:1 balanced mix of ~200,000 vulnerable and safe samples from:
+- **LVDAndro**: Android-specific Java vulnerabilities.
 - **Juliet Test Suite**: Synthetic Java test cases.
 - **Draper (VDISC) & Devign**: Real-world C/C++ vulnerabilities.
 
-### 2. Feature Engineering (DFG)
-**Data Flow Graphs (DFG)** are generated for every code snippet using `parser_production.py`.
-- **Tree-sitter** parses code into ASTs.
-- The system extracts variable usage maps (where variables are defined, used, and updated).
-- These relationships form the graph input for GraphCodeBERT.
+### 3. Feature Engineering (DFG)
+**Data Flow Graphs (DFG)** are dynamically generated for every code snippet via Tree-sitter. The system extracts variable usage maps (tracking where variables are defined, accessed, and updated) to build robust structural bounds that are fed alongside raw tokens into GraphCodeBERT.
 
-### 3. Ensemble Model
-The final prediction is based on an **Ensemble Approach**:
-- **Model A (GraphCodeBERT)**: Trained with Code + DFG inputs.
-- **Model B (CodeBERT)**: Trained on Code only.
-- **Fusion**: Predictions (logits/probabilities) from both models are combined (e.g., averaged) to produce the final classification. This leverages GraphCodeBERT's structural insight and CodeBERT's general robustness.
+### 4. Ensemble Model Fusion
+The final classification is governed by an **Ensemble Approach**:
+- **Model A (GraphCodeBERT)**: Structural model trained with Code + Contextual DFG inputs.
+- **Model B (CodeBERT)**: Lexical model trained natively on Code syntaxes.
+- **Fusion Mechanism**: Raw probability logits from both transformer models are averaged together, dynamically offsetting purely semantic blind spots with robust structural insights.
 
 ## Project Structure & Scripts
 
@@ -51,38 +71,32 @@ The final prediction is based on an **Ensemble Approach**:
 
 ## How to Reproduce
 
-Follow these steps to reproduce the results:
+### 1. Native APK Scanning (End-to-End Pipeline)
+To run the fully automated deployment pipeline against real-world Android applications:
+1. Upload the `FINAL_Kaggle_Scanner_Pipeline.ipynb` script to an accelerated Jupyter environment (e.g., Kaggle GPU P100/T4).
+2. Attach the required dataset containing the compiled GraphCodeBERT + CodeBERT `.bin` model weights and tokenizers.
+3. Place target `.apk` files in the directory mapped within the script.
+4. Execute the notebook. The pipeline will automatically install `jadx`/`tree-sitter`, decompile the APKs, bypass non-target bloatware, apply the dynamic token sliding-window, and output a completed `results/master_summary.csv` and detailed individual JSON vulnerability reports.
 
-### 1. Setup Environment
-Ensure you have Python 3.8+ and install dependencies:
+### 2. Training the Models from Scratch
+If you wish to rebuild the model weights from the raw open-source datasets:
+
+**A. Setup Environment**
 ```bash
 pip install torch transformers tree_sitter==0.21.3 pandas h5py scikit-learn
 ```
 
-### 2. Prepare Data
-Run the processing scripts for your raw datasets. For example:
+**B. Prepare Data & Generate Features**
+Execute the targeted processing scripts for your datasets to initialize the JSON structures, then use the DFG parser to map the Abstract Syntax Trees into deep-learning tensors:
 ```bash
 python devignprocess.py
 python julietprocess.py
-# ... run others as needed
 python finalizedataset.py
-```
-This will create `final_dataset.json`.
-
-### 3. Generate Features (DFG)
-Run the preprocessor to generate Data Flow Graphs and tokenize the data:
-```bash
 python parse.py
 ```
-This transforms `final_dataset.json` into `cached_dataset.pt`.
 
-### 4. Train Models
-Open `graphcodebert-training.ipynb` or convert it to a script.
-- **Step A**: Train with `microsoft/graphcodebert-base`. Save weights.
-- **Step B**: Switch config to `microsoft/codebert-base` (disable DFG inputs if needed). Train and save weights.
-
-### 5. Evaluation
-Load both models, run inference on the test set, average the probability scores, and calculate metrics.
+**C. Train Ensemble Components**
+Launch `graphcodebert-training.ipynb`. Train the architecture iteratively: first utilizing the `microsoft/graphcodebert-base` configuration with explicit DFG feature injection, followed by a purely lexical run utilizing `microsoft/codebert-base`. Save both states to initialize the fusion logic.
 
 ## Results
 
