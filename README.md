@@ -338,6 +338,18 @@ All ensemble variants evaluated on the same 19,996-sample validation split:
 | **Token limit truncation** | Draper | Vulnerable code existing past the 384-token window is unreachable by any sliding-window chunk whose start is benign |
 | **DFG-sparse logic errors** | Draper | Race conditions, arithmetic overflow, and Boolean flag logic express as control-flow patterns, not data-flow edges — invisible to DFG attention |
 
+### Paper Sentences for each category
+
+**Bytecode artefact confusion**: "A prominent source of false negatives originates from LVDAndro samples where JADX decompilation produces semantically fragmented bytecode artefacts — obfuscated variable names (var1, object2) and syntactically invalid method boundaries confound both tree-sitter DFG extraction and the token embedding, causing the model to misclassify the samples as benign utility code."
+
+**Inter-procedural minimal-body functions**: "Single-function static analysis is inherently blind to inter-procedural vulnerabilities. A significant cohort of false negatives consists of minimal-body functions (≤10 lines) whose defect is a missing null-check, incorrect return type, or unverified cross-call invariant — patterns undetectable without call-graph context that a per-function transformer cannot access."
+
+**Kernel/driver domain gap**: "Draper's kernel and hardware driver samples represent the model's most significant blind spot. Kernel-domain C idioms (kzalloc, interrupt handler patterns, GFP flags) are substantially underrepresented in our balanced training corpus — comprising only 6.25% of samples — causing the model to lack sufficient prior experience to distinguish low-level memory management defects from correct driver logic."
+
+**Token limit truncation**: "The fixed 384-token context window of GraphCodeBERT introduces a structural bias against long functions. Analysis of confident false negatives reveals cases where the vulnerable code path resides in the tail of a function body exceeding the token limit; the sliding-window aggregation strategy — taking the maximum probability across overlapping chunks — cannot recover this signal when early function segments appear benign."
+
+**DFG-sparse logic errors**: "Our DFG-attention mechanism is structurally limited to tracking explicit data flows between variable definitions and uses. Logic errors (incorrect Boolean flag accumulation), race conditions, and arithmetic boundary violations that manifest as control-flow paths rather than data-flow edges remain invisible to the structural attention mechanism, representing a fundamental limitation of the DFG-as-structure-signal paradigm."
+
 ### Structural Limitations
 
 - **Static Analysis Scope**: Vulnerabilities that depend on runtime state, external configuration, or complex user interaction flows may be missed.
