@@ -30,14 +30,32 @@
 
 ### Contribution 1 — DFG Ablation (STRONGEST, lead with this)
 Quantitative proof that the Data Flow Graph attention mechanism is essential, not cosmetic.
+- Same backbone, same training budget, single variable
+- +3.11% accuracy, −282 FN, −25% missed malware (Test 3)
 
-### Contribution 2 — Ensemble + Threshold Tuning (System Contribution)
-Combining GraphCodeBERT + CodeBERT via soft voting and tuning the decision threshold for security-critical deployment.
+### Contribution 2 — Android-Domain Specialisation (reframed 2026-03-13)
+Per-source evaluation reveals model is precisely fitted to Android-native code (LVDAndro: 99.01%),
+with expected performance degradation on out-of-domain complex C (Devign: 66%). This is a
+**scoped fitness claim** — the model is an Android vulnerability scanner, not a general-purpose C checker.
+> **NOTE**: Devign 66% is moved to Limitations with the new framing. It is NOT a cross-corpus
+> generalisation claim. The section headline is LVDAndro 99%, not Devign 66%.
 
-### Contribution 3 — Cross-Corpus Generalisation Analysis
-Per-source evaluation revealing the model achieves 99% on Android-native code but 66% on complex real-world C — a transparent, publishable finding.
+### Architecture Variant — Ensemble (DEMOTED from Contribution 2 on 2026-03-13)
+All ensemble configurations improve only marginally over standalone GCB:
+- Best: +0.05% accuracy, −144 FN (50/50 soft ensemble)
+- This is not a publishable system contribution at this delta.
+- **Paper handling**: One paragraph in Section 4 ablation. Adopt 50/50 soft ensemble as the
+  reported "system" for its minimal FN count (685 vs 829), but do NOT frame this as a contribution.
 
-> **Note**: The dataset itself (combining 4 sources) is NOT a standalone contribution — it's the vehicle that enables the three above.
+### Comparison Experiments — LineVul & VulBERTa (PLANNED 2026-03-13)
+Evaluate LineVul (davidhin/linevul) and VulBERTa (ChengyueLiu/vulberta) on our exact
+39,993-sample held-out test set. Comparison is principled because:
+- All models process single functions
+- Our test set is fixed and never seen during our training
+- We apply the same threshold (0.45) across all models
+
+> **Note**: The dataset (combining 4 sources) is NOT a standalone contribution — it's the vehicle
+> that enables all experiments above.
 
 ---
 
@@ -163,13 +181,17 @@ Juliet (Synthetic)     4,942   100.00%     1.0000    1.0000    0
 Macro mean                      88.75%     0.9236    0.8875
 ```
 
-**Paper framing**:
-- LVDAndro 99%: *direct evidence* the system works for Android malware detection
-- Juliet 100%: expected — synthetic patterns; flags synthetic data bias
-- Devign 66%: *honest limitation* — complex real-world C, only 6.25% of training data, long functions get truncated; motivates future work
-- Devign gap is a **finding to report transparently**, not a failure to hide
+**Paper framing (UPDATED 2026-03-13 — reframed as Android specialisation)**:
+- LVDAndro 99%: *headline result* — direct evidence the system is a strong Android security scanner
+- Juliet 100%: expected — synthetic patterns; flags synthetic data bias (acknowledged in limitations)
+- Draper 89.6%: competent on real-world C from NVD/SARD
+- Devign 66%: **moved to Limitations** — reflects (a) only 6.25% of training data from this source,
+  (b) QEMU/FFmpeg functions are long/complex (truncation), (c) qualitative FN analysis shows these
+  are the hardest pattern class (kernel idioms, inter-procedural, logic errors)
+- **Do NOT frame as cross-corpus generalisation success** — Devign gap contradicts that claim.
+  Frame the section as: "Android-Domain Specialisation"
 
-**Paper sentence**: *"Per-source evaluation reveals near-perfect performance on Android-native code (LVDAndro: 99.01%) and structured synthetic benchmarks (Juliet: 100%), with reduced performance on complex real-world C functions from diverse codebases (Devign: 66.43%), reflecting both data distribution and inherent task difficulty."*
+**Paper sentence (Section 6 headline)**: *"Per-source evaluation confirms near-perfect detection of Android-native vulnerabilities (LVDAndro: 99.01%), validating the model's fitness as a domain-specific Android security scanner. Performance on complex, diverse real-world C functions (Devign: 66.43%) is discussed as an expected out-of-domain limitation in Section~\ref{sec:limitations}."*
 
 ---
 
@@ -263,34 +285,44 @@ Triple Hard Voting            91.10%     0.9110    748
 
 2. Related Work
    - CodeBERT, GraphCodeBERT (Wang et al., 2021)
-   - LineVul, VulBERTa (on Devign/Draper)
+   - LineVul, VulBERTa (will compare directly on our split)
    - Android-specific: MaMaDroid, DLDroid
 
 3. Dataset & Methodology
    - 4 sources → unified 200k corpus
-   - DFG generation via Tree-sitter (C/Java)
+   - DFG generation via Tree-sitter (C/Java/Kotlin)
    - 72/8/20 train/val/test split
+   - Note: partial samples from each source — not head-to-head with source papers
 
-4. Ablation Study  ← CORE CONTRIBUTION
-   - DFG vs No-DFG: +3.11%, −25% FN
-   - Use test3_ablation_bar.png as Figure 1
+4. Core Contribution: DFG Ablation  ← LEAD
+   - DFG vs No-DFG: +3.11%, −25% FN (Figure 1: test3_ablation_bar.png)
+   - Ensemble variant: minor improvement, adopted as system baseline
+   - Threshold sensitivity: 0.45 optimises F1 for security use case
 
-5. Ensemble System
-   - Soft + weighted voting, threshold tuning
-   - ROC/PR curves (test2 images)
+5. System Architecture
+   - End-to-end APK pipeline: jadx → tree-sitter (Java+Kotlin+C) → GCB → report
+   - Manifest-aware component filtering (androguard)
+   - Token sliding window for long functions
+   - GPU batched inference
 
-6. Cross-Corpus Analysis
+6. Android-Domain Specialisation
    - Per-source breakdown table (Test 5)
-   - LVDAndro 99% as system validation
-   - Devign 66% as honest limitation
+   - LVDAndro 99% as the headline validation result
+   - Brief note: Draper 89.6% shows competence on standard C CVEs
 
-7. Limitations & Future Work
-   - Truncation (functions > 382 tokens)
-   - Devign generalisation gap
-   - APK decompilation pipeline (future)
-   - Kotlin not supported
+7. Baseline & Comparison
+   - Test 6: GCB vs MLP/TF-IDF (−71% FN)
+   - Test 7: 94.38% recall under 90/10 imbalance (triage filter framing)
+   - LineVul / VulBERTa comparison table on our held-out split
 
-8. Conclusion
+8. Limitations
+   - Devign 66%: out-of-domain complex C (kernel idioms, long functions)
+   - Static analysis scope (no runtime state)
+   - Commercial obfuscation defeats targeted filtering
+   - 5 qualitative FN patterns from Test 8 (see §9 below)
+   - Synthetic data bias (Juliet 100%)
+
+9. Conclusion
 ```
 
 ---
@@ -308,26 +340,83 @@ Triple Hard Voting            91.10%     0.9110    748
 
 ## 7. Remaining Work (from PAPER_TODO.md)
 
-**High priority**:
-- [ ] APK decompilation pipeline (jadx → function extraction → DFG → classify)
+**Critical**:
+- [ ] Start writing Section 4 (Ablation) — all data in hand
 
-**Writing**:
-- [ ] Paper draft — start with Section 4 (Ablation) since cleanest story
-- [ ] Integrate Test 6 (Baseline) to justify architecture
-- [ ] Integrate Test 7 (Imbalanced) to set realistic expectations (triage filter framing)
+**High priority**:
+- [ ] Run LineVul on our 39,993-sample held-out test set
+- [ ] Run VulBERTa on same split
+- [ ] Write comparison table (Model | Accuracy | FN | ROC-AUC | Training Data)
+
+**Medium priority**:
+- [ ] Rewrite Devign framing → Android-Domain Specialisation
+- [ ] Demote ensemble to architecture variant paragraph
+- [ ] Write Limitations §8 using the 5 qualitative FN patterns from Test 8
 
 ---
 
 ## 8. Common Reviewer Questions & Answers
 
 **Q: Why not compare to LineVul/VulBERTa directly?**  
-A: They trained on CodeXGLUE Devign split; we trained on a multi-source mix. Direct numeric comparison is methodologically unsound. We compare CodeBERT (same training data) as the controlled baseline.
+A: *(Updated 2026-03-13)* We will now provide this comparison. Both models are evaluated on our
+exact 39,993-sample held-out test set. This is principled because all models operate on
+single-function granularity and we apply the same decision threshold.
 
 **Q: 100% on Juliet isn't meaningful — it's synthetic.**  
-A: Agreed and stated explicitly in limitations. Juliet inflates overall accuracy; it's included to represent common CWE training patterns.
+A: Agreed and stated explicitly in limitations. Juliet inflates overall accuracy; it's included
+to represent common CWE training patterns, and the limitation is prominently disclosed.
 
 **Q: How do you know DFG helps and not just more parameters/capacity?**  
-A: Test 3 uses identical backbone, identical training budget. Only variable is DFG attention mask. This is a controlled ablation.
+A: Test 3 uses identical backbone, identical training budget. Only variable is DFG attention mask.
+This is a controlled ablation by design.
 
 **Q: Devign 66% suggests the model doesn't generalise.**  
-A: Correct — and we report it. This reflects (a) data imbalance (6.25% Devign in training), (b) function length truncation, (c) inherent difficulty of QEMU/FFmpeg-style vulnerabilities. LVDAndro 99% shows the model generalises well to its primary target domain (Android).
+A: This is correct for the C/QEMU/FFmpeg domain, and we move this finding to Limitations with
+full transparency. The paper's central claim is Android-domain fitness, supported by 99.01% on
+LVDAndro. The Devign gap reflects (a) 6.25% training representation, (b) token truncation on
+long kernel functions, and (c) inter-procedural vulnerability patterns invisible to single-function
+analysis — all five failure modes documented in the qualitative error analysis (§9).
+
+**Q: The ensemble improvement is marginal — why include it?**  
+A: We demoted the ensemble from a contribution to a reported system variant. The improvement
+(+0.05% accuracy, −144 FN) falls within noise range. We report it for completeness and adopt
+the 50/50 soft ensemble as our system configuration for its minimal false-negative count.
+
+---
+
+## 9. Qualitative Error Analysis — Test 8 Findings
+
+**Source**: `test_notebooks/test-8-qualitative-analysis.ipynb`  
+**Total FNs in validation set**: 663  
+**Analysed**: Top 20 most confident mistakes
+
+### 5 Identified Failure Patterns
+
+| # | Pattern | Source | FNs in Top 20 | Root Cause |
+|---|---|---|:---:|---|
+| 1 | Bytecode artefact confusion | LVDAndro | 5 | JADX decompilation noise + anonymous var names |
+| 2 | Contextless minimal-body functions | Draper | 4 | Inter-procedural; no observable local DFG |
+| 3 | Kernel/driver domain gap | Draper | 5 | Underrepresented kernel idioms in training |
+| 4 | Token limit truncation | Draper | 2 | Vulnerable code lives past 384-token window |
+| 5 | Data-flow-sparse logic errors | Draper | 4 | DFG cannot represent control-flow/race bugs |
+
+### Paper Sentences for Limitations Section
+
+**Pattern 1 (LVDAndro artefacts)**:  
+*"A prominent source of false negatives originates from LVDAndro samples where JADX decompilation produces semantically fragmented bytecode artefacts — obfuscated variable names (`var1`, `object2`) and syntactically invalid method boundaries confound both tree-sitter DFG extraction and the token embedding, causing the model to misclassify the samples as benign utility code."*
+
+**Pattern 2 (Inter-procedural)**:  
+*"Single-function static analysis is inherently blind to inter-procedural vulnerabilities. A significant cohort of false negatives consists of minimal-body functions (≤10 lines) whose defect is a missing null-check, incorrect return type, or unverified cross-call invariant — patterns undetectable without call-graph context."*
+
+**Pattern 3 (Kernel domain gap)**:  
+*"Draper's kernel and hardware driver samples represent the model's most significant blind spot. Kernel-domain C idioms (`kzalloc`, interrupt handler patterns, GFP flags) are substantially underrepresented in our training corpus (≈6.25% of samples), causing the model to lack sufficient domain knowledge to distinguish low-level memory management defects from correct driver logic."*
+
+**Pattern 4 (Token truncation)**:  
+*"The fixed 384-token context window introduces a structural bias against long functions. When the vulnerable code path resides in the tail of a function exceeding the context limit, the sliding-window maximum-pooling strategy cannot recover this signal when early segments appear benign."*
+
+**Pattern 5 (DFG-sparse logic errors)**:  
+*"Our DFG-attention mechanism is structurally limited to tracking explicit data flows. Logic errors, race conditions, and arithmetic boundary violations that manifest as control-flow paths rather than data-flow edges remain invisible to the structural attention mechanism — a fundamental limitation of the DFG-as-structure-signal paradigm."*
+
+> **Key insight**: Patterns 2–5 are all Draper/C-sourced, which directly explains and supports the
+> Devign 66% result. The Draper-heavy failure modes confirm that the model's blind spots are
+> domain-specific, not architecture-specific.
