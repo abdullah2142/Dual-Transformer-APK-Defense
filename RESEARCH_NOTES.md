@@ -40,11 +40,20 @@ with expected performance degradation on out-of-domain complex C (Devign: 66%). 
 > **NOTE**: Devign 66% is moved to Limitations with the new framing. It is NOT a cross-corpus
 > generalisation claim. The section headline is LVDAndro 99%, not Devign 66%.
 
-### Reference Baseline — Ensemble (DEMOTED 2026-03-14)
-All ensemble configurations improve only marginally over standalone GCB in balanced sets, and actually underperform in F1-score on imbalanced tests:
-- Balanced Acc Gain: +0.05%
-- Imbalanced F1: 0.6236 (Ensemble) vs **0.6585 (Standalone)**
-- **Paper handling**: Include in baseline comparison tables. Frame as a high-compute alternative that offers diminishing returns. Adopt Standalone GCB+DFG as the primary "system" for its efficiency and better imbalanced-class fitness.
+### Deployment Trade-offs: Standalone vs. Ensemble (Nuanced Framing 2026-03-14)
+Rather than a single "best" model, the project presents a trade-off study between two valid configurations:
+
+1.  **Dual-Transformer Ensemble (Maximum Sensitivity)**:
+    *   **Strength**: Minimises false negatives. Catches **144 more vulnerabilities** than the standalone model (Test 6).
+    *   **Cost**: 2x inference compute; lower precision in imbalanced sets.
+    *   **Use Case**: Deep security audits where even a single missed exploit is catastrophic.
+
+2.  **Standalone GCB+DFG (Production Triage Efficiency)**:
+    *   **Strength**: Superior **F1-score (0.6585 vs 0.6236)** under realistic 90/10 imbalance (Test 7). Higher precision means fewer "false alarms" for analysts.
+    *   **Efficiency**: 2x faster throughput, making wide-scale scanning viable.
+    *   **Use Case**: Day-to-day triage filtering where analyst burnout from "crying wolf" is a primary operational risk.
+
+**Paper handling**: Report both configurations in result tables. Frame the choice as a deployment decision based on the security team's risk tolerance vs. operational capacity.
 
 ### Comparison Experiments — LineVul & VulBERTa (PLANNED 2026-03-13)
 Evaluate LineVul (davidhin/linevul) and VulBERTa (ChengyueLiu/vulberta) on our exact
@@ -225,9 +234,9 @@ GCB+DFG (90/10 split)       90.34%     0.5093      0.9313   0.6585   0.8851
 Ensemble (90/10 reference)  88.61%     0.4657      0.9438   0.6236   0.8861
 ```
 
-**Paper framing**: Under severe class imbalance, recall remains remarkably high (94.38%), which is the critical metric for a security tool. The precision drops to 46.57%, meaning ~53% of flags will be false alarms. The model must not be framed as a frictionless standalone blocker, but rather as an extremely effective, high-recall **triage filter** or first-pass scanner for analysts.
+**Paper framing**: This test reveals the critical tension for real-world deployment. While the **Ensemble** achieves higher recall (94.38%), it does so at the cost of a significantly higher false-alarm rate (Precision 46.57%). The **Standalone GCB+DFG** achieves much better precision (50.93%) and a superior F1-score (0.6585), making it the more balanced triage tool for human analysts. A tool that "cries wolf" too often is often ignored in production; thus, the standalone model represents an optimal middle ground for large-scale scanning.
 
-**Paper sentence**: *"Under a realistic 90% safe to 10% malicious class imbalance, Standalone GraphCodeBERT + DFG maintains a robust 93.13% recall and an F1-score of 0.6585, significantly outperforming the heavy ensemble variant in precision (50.93% vs 46.57%) and F1 (0.6585 vs 0.6236)."*
+**Paper sentence**: *"A comparative evaluation under 90/10 class imbalance highlights a deployment trade-off: while the ensemble variant maximizes sensitivity (94.38% recall), the standalone GCB+DFG configuration yields a superior F1-score (0.6585) and significantly higher precision (50.93% vs 46.57%), suggesting it as a more viable candidate for high-volume automated triage where analyst audit capacity is finite."*
 
 ---
 
@@ -264,10 +273,10 @@ All variants on the same 19,996-sample validation split:
 ```
 Configuration                 Accuracy   F1      FN (missed)
 ─────────────────────────────────────────────────────────────
-GraphCodeBERT alone           91.82%     0.9182    829 (Primary System)
-Soft Ensemble 50/50           91.87%     0.9187    685 (Reference)
-Weighted Ensemble 70/30       91.94%     0.9194   ~720 (Reference)
-Triple Soft @ threshold 0.49  91.88%     0.9188    671 (Reference)
+GraphCodeBERT (GCB+DFG)        91.82%     0.9182    829 (Efficiency/F1 Lead)
+Soft Ensemble 50/50           91.87%     0.9187    685 (Recall Lead)
+Weighted Ensemble 70/30       91.94%     0.9194   ~720
+Triple Soft @ threshold 0.49  91.88%     0.9188    671 (Max Sensitivity)
 Triple Hard Voting            91.10%     0.9110    748
 ```
 

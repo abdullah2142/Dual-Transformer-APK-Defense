@@ -31,7 +31,7 @@
 
 ## 🟡 Medium Priority
 
-- [ ] **Rewrite Section 5 / Contribution 2** — focus on Standalone GraphCodeBERT + DFG as the primary system. One sentence: "We adopt Standalone GraphCodeBERT + DFG as the production system due to its optimal balance of F1 performance (0.9182), high recall, and 2x inference throughput compared to ensemble variants."
+- [ ] **Rewrite Section 5 / Contribution 2** — focus on the Deployment Trade-off study. One sentence: "We adopt a dual-configuration approach, providing an Ensemble for maximum security sensitivity and a Standalone GCB+DFG for high-throughput production triage with superior imbalanced-class F1."
 - [ ] **Rewrite Devign section** — use new framing: "Android-Domain Specialisation". Move Devign 66% to Limitations. LVDAndro 99% becomes the headline for Section 6.
 - [ ] **Qualitative error analysis write-up** (Test 8 done) — 5 failure patterns identified; write 2–3 paragraphs for Limitations section (see analysis in research notes §9)
 
@@ -44,7 +44,7 @@
 - [ ] Section 5: System Architecture (threshold tuning, APK pipeline diagram, Kotlin support)
 - [ ] Section 6: Per-Source Analysis — **reframed** as Android specialisation; LVDAndro 99% headline; Devign gap moved to Limitations
 - [ ] Section 7: Baseline Comparison (Test 6 + LineVul/VulBERTa comparison table)
-- [ ] Section 8: Real-World Deployment / Imbalance (Test 7) — frame Standalone GCB as high-recall triage filter (F1: 0.6585)
+- [ ] Section 8: Real-World Deployment / Imbalance (Test 7) — focus on the Precision/Recall tension; highlight superior F1 of Standalone GCB (0.6585) vs Ensemble (0.6236).
 - [ ] Section 9: Limitations — include 5 FN patterns from Test 8 qualitative analysis
 - [ ] Pick target venue:
   - **ISSTA / ASE / ICSE** — best fit after adding comparison table

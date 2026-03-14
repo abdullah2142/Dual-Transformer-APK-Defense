@@ -8,8 +8,8 @@ The primary objective is to **quantify the contribution of DFG-aware structural 
 
 Core claims:
 1. **DFG attention is essential** — removing it from the same backbone costs +3.11% accuracy and +25% more missed malware (controlled ablation).
-2. **Android-domain specialisation** — Standalone GraphCodeBERT + DFG achieves **99.01%** accuracy on Android-native Java (LVDAndro).
-3. **Optimized for Deployment** — The standalone model is 2x faster than ensemble variants, significantly outperforming them in F1-score (0.6585 vs 0.6236) under realistic 90/10 class imbalance.
+2. **Android-domain specialisation** — the system achieves **99.01%** accuracy on Android-native Java (LVDAndro).
+3. **Deployment Trade-offs** — We evaluate two configurations: a high-efficiency **Standalone GCB+DFG** (optimal F1/Throughput) and a high-recall **Ensemble** (minimum False Negatives).
 
 ## Methodology
 
@@ -45,11 +45,10 @@ The underlying models were trained on a 1:1 balanced mix of ~200,000 vulnerable 
 ### 3. Feature Engineering (DFG)
 **Data Flow Graphs (DFG)** are dynamically generated for every code snippet via Tree-sitter. The system extracts variable usage maps (tracking where variables are defined, accessed, and updated) to build robust structural bounds that are fed alongside raw tokens into GraphCodeBERT.
 
-### 4. Decision Thresholding and Calibration
-Classification is governed by a **calibrated decision threshold of 0.45**, optimized for vulnerability triage. While an ensemble variant with CodeBERT is provided for benchmarking, the **Standalone GraphCodeBERT + DFG** is our primary system because:
-- **Efficiency**: 2x faster batch inference (1.07s/it on T4).
-- **Robustness**: Maintains higher F1 and Precision in imbalanced real-world scenarios compared to ensemble fusion.
-- **Simplicity**: Reduced cold-start overhead and memory footprint in production.
+### 4. Deployment Configurations & Calibration
+Classification is governed by a **calibrated decision threshold of 0.45**. We identify two primary deployment paths:
+- **Maximum Sensitivity (Ensemble)**: A dual-transformer fusion that catches 144 more vulnerabilities than the standalone model, ideal for critical security audits.
+- **Production Triage (Standalone GCB+DFG)**: A high-efficiency model that achieves superior **F1-score (0.6585)** and precision in imbalanced real-world distributions, minimizing "alert fatigue" for human analysts while offering 2x faster throughput.
 
 ## Project Structure & Scripts
 
@@ -139,13 +138,12 @@ The near-zero optimism bias confirms no overfitting occurred and the model gener
 
 ### Test 2 — ROC-AUC and Precision-Recall Analysis
 
-| Model | ROC-AUC | PR-AUC | Accuracy @ 0.5 |
-| :--- | :---: | :---: | :---: |
-| **GraphCodeBERT + DFG (System)**| **0.9798** | **0.9797** | **91.82%** |
-| CodeBERT (baseline) | 0.9745 | 0.9745 | 90.44% |
-| Ensemble (50/50 reference) | 0.9804 | 0.9803 | 91.87% |
-| Random baseline | 0.5000 | ~0.50 | — |
-| **System F1 threshold** | — | — | **0.45** |
+| Model | ROC-AUC | PR-AUC | Accuracy @ 0.5 | FN (missed) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Ensemble (Max Sensitivity)** | **0.9804** | **0.9803** | **91.87%** | **685** |
+| **Standalone (Triage Lead)** | **0.9798** | **0.9797** | **91.82%** | **829** |
+| CodeBERT (baseline) | 0.9745 | 0.9745 | 90.44% | 659 |
+| Random baseline | 0.5000 | ~0.50 | — | — |
 
 All three models maintain near-perfect precision (~1.0) up to ~80% recall, which is the critical operating range for a security scanner.
 
@@ -245,7 +243,7 @@ To evaluate real-world deployment robustness without retraining, we tested the e
 | **GCB+DFG [Imbalanced 90/10]** | **90.34%** | **0.5093** | **0.9313** | **0.6585** | **0.8851** |
 | Ensemble [Imbalanced Ref] | 88.61% | 0.4657 | 0.9438 | 0.6236 | 0.8861 |
 
-**High-Recall Triage Filter**: While precision naturally drops under severe class imbalance (resulting in ~53% false alarms), the ensemble maintains a **94.38% recall**. In a security context, catching the vulnerability is the highest priority. Thus, the tool is best deployed as a highly effective, first-pass **triage filter** for human analysts rather than a frictionless, standalone blocker.
+**Nuanced Deployment Framing**: Under severe class imbalance, the **Ensemble** maximizes vulnerability discovery (94.38% recall), whereas the **Standalone GCB+DFG** provides a more stable triage signal with higher precision (50.93% vs 46.57%) and a superior F1-score (0.6585). For production environments where analyst time is a constrained resource, the standalone model represents an optimal middle ground between sensitivity and noise reduction.
 
 ![Imbalanced Evaluation](results/test7_precision_recall_bar.png)
 
@@ -330,8 +328,8 @@ All ensemble variants evaluated on the same 19,996-sample validation split:
 
 - **DFG Contribution**: Lead finding — DFG attention reduces missed malware by 25% (Test 3).
 - **No optimism bias**: Test set accuracy (92.02%) matches validation within 0.018% (Test 1).
-- **System Choice**: Adopted Standalone GraphCodeBERT + DFG as the production primary for its superior precision and F1 in imbalanced codebases.
-- **Ensemble Benchmarking**: Ensemble variants provide marginal (+0.05%) accuracy gains but higher false-positive rates under imbalance.
+- **Deployment Trade-offs**: The ensemble configuration catches 144 more vulnerabilities (+21% improvement in recall) than the standalone model.
+- **Analyst Workload Optimization**: The Standalone GCB+DFG configuration yields a superior F1-score (0.6585) under imbalance and 2x higher throughput, making it often more suitable for production triage scenarios.
 - **Android-domain specialist**: 99.01% on LVDAndro validates the model for Android security scanning. Devign 66% reflects an out-of-domain limitation, reported transparently with 5 qualitative failure modes identified.
 - **Performance Gain**: The transformer-based approach showed a 71% reduction in missed vulnerabilities compared to a traditional TF-IDF + MLP baseline (Test 6).
 - **Robust Triage Filter**: Under a realistic 90/10 class imbalance, 94.38% recall is maintained (Test 7). Best used as a first-pass scanner for analysts.
