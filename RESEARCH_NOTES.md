@@ -31,7 +31,8 @@
 ### Contribution 1 — DFG Ablation (STRONGEST, lead with this)
 Quantitative proof that the Data Flow Graph attention mechanism is essential, not cosmetic.
 - Same backbone, same training budget, single variable
-- +3.11% accuracy, −282 FN, −25% missed malware (Test 3)
+- +3.11% accuracy, −282 FN, −25% missed malware (Test 3: **Validation set**)
+- **Final re-run on held-out TEST set pending for paper.**
 
 ### Contribution 2 — Android-Domain Specialisation (reframed 2026-03-13)
 Per-source evaluation reveals model is precisely fitted to Android-native code (LVDAndro: 99.01%),
@@ -171,7 +172,8 @@ std     ±0.27%    ±0.0004   ±0.0002  ±0.0027
 
 **Important context**: These are 1-epoch runs. The 91.82% main result uses 3 epochs. These runs prove *variance is low*, not that 87.36% is the peak.
 
-**Paper sentence**: *"To assess training stability, we perform three independent full fine-tuning runs (1 epoch each) obtaining 87.36% ± 0.27% accuracy and ROC-AUC 0.9559 ± 0.0004, confirming low variance across random seeds."*
+**Paper sentence**: *"To assess training stability, we perform three independent full fine-tuning runs (1 epoch each) on the validation split, obtaining 87.36% ± 0.27% accuracy and ROC-AUC 0.9559 ± 0.0004, confirming low variance across random seeds."*
+- **RE-RUN MANDATE**: Re-run on strictly held-out TEST set (N=39,993) before submission.
 
 ---
 

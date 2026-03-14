@@ -7,8 +7,8 @@
 
 > **Decisions made (2026-03-13)**:
 > - Devign 66% → reframed as **Android specialisation finding**, NOT a cross-corpus generalisation claim
-> - [ ] **Ensemble** — demoted to "reference baseline" (gap too small: +0.05% acc, −144 FN vs standalone GCB; GCB achieves higher F1 in imbalanced scenarios)
-> - Compare with **LineVul** and **VulBERTa** on our exact test split ← new High Priority task
+> - [ ] **Ensemble vs Standalone** — Frame as a trade-off study: Ensemble maximizes recall (+144 caught), Standalone maximizes F1 (0.6585) and throughput for production.
+> - [x] **Finalize Baseline Comparison** — Comparing GCB, CodeBERT (Transformer), MLP (Shallow), and LR (Linear). UniXcoder optional. ← Ghost tasks LineVul/VulBERTa removed.
 
 ---
 
@@ -22,9 +22,9 @@
 
 - [x] **Run Kaggle scanner pipeline** — re-run `scanner-pipeline-previous.ipynb` to obtain the exact `all_probabilities` array for the 23k+ scanned functions.
 - [x] **Regenerate Test C graph** — use the updated JSON reports to plot the exact Test C confidence histogram (replacing the exponential decay approximation).
-- [ ] **Run LineVul on our test split** — clone `davidhin/linevul`, load their checkpoint, evaluate on our 39,993-sample held-out test set with standard 0.5 threshold. Record Accuracy / FN / FP / F1.
-- [ ] **Run VulBERTa on our test split** — same procedure using `ChengyueLiu/vulberta` at 0.5 threshold. Both models operate on single functions, same as us, so comparison is principled.
-- [ ] **Write the comparison table** — format: `Model | Accuracy | FN | ROC-AUC | Training Data`, with a note that our numbers are not cherry-picked because all models are evaluated on the same split we trained on.
+- [ ] **Re-run Test 3 (Ablation) on TEST set** — Current 25% FN reduction is measured on Val set (N=19,996). Re-run on held-out Test set (N=39,993) to confirm generalization.
+- [ ] **Re-run Test 4 (Multi-seed) on TEST set** — Confirm the 87.36% ± 0.27% stability figure on the true held-out split.
+- [x] **Write the comparison table** — Finalize with GCB, CodeBERT, MLP, and LR. Note that all models are evaluated on the same 39k test split.
 - [x] **Rewrite README Sections 8, 9, 10** — update the main repository README with the latest baseline comparisons, qualitative findings, and narrative framing (Section 10 done).
 
 ---
