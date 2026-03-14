@@ -8,8 +8,8 @@ The primary objective is to **quantify the contribution of DFG-aware structural 
 
 Core claims:
 1. **DFG attention is essential** — removing it from the same backbone costs +3.11% accuracy and +25% more missed malware (controlled ablation).
-2. **Android-domain specialisation** — the system achieves 99.01% on Android-native Java (LVDAndro) with a trained GraphCodeBERT model.
-3. **Deployment-ready pipeline** — end-to-end APK decompilation → manifest-aware component filtering → DFG inference → JSON vulnerability report.
+2. **Android-domain specialisation** — Standalone GraphCodeBERT + DFG achieves **99.01%** accuracy on Android-native Java (LVDAndro).
+3. **Optimized for Deployment** — The standalone model is 2x faster than ensemble variants, significantly outperforming them in F1-score (0.6585 vs 0.6236) under realistic 90/10 class imbalance.
 
 ## Methodology
 
@@ -24,7 +24,7 @@ graph TD
     C -->|Extract| E[Proprietary Developer Functions]
     E -->|Tree-Sitter| F(Abstract Syntax Tree - AST)
     F -->|Semantic Analysis| G(Data Flow Graph - DFG)
-    G -->|Token Sliding Window| H[GraphCodeBERT Ensemble]
+    G -->|Token Sliding Window| H[GraphCodeBERT + DFG]
     H -->|GPU Batched Inference| I(Probability Scores)
     I -->|Threshold = 0.45| J{Classification}
     J -->|Alert| K[Malicious / Vulnerable]
@@ -45,11 +45,11 @@ The underlying models were trained on a 1:1 balanced mix of ~200,000 vulnerable 
 ### 3. Feature Engineering (DFG)
 **Data Flow Graphs (DFG)** are dynamically generated for every code snippet via Tree-sitter. The system extracts variable usage maps (tracking where variables are defined, accessed, and updated) to build robust structural bounds that are fed alongside raw tokens into GraphCodeBERT.
 
-### 4. Ensemble Model Fusion
-The final classification is governed by an **Ensemble Approach**:
-- **Model A (GraphCodeBERT)**: Structural model trained with Code + Contextual DFG inputs.
-- **Model B (CodeBERT)**: Lexical model trained natively on Code syntaxes.
-- **Fusion Mechanism**: Raw probability logits from both transformer models are averaged together, dynamically offsetting purely semantic blind spots with robust structural insights.
+### 4. Decision Thresholding and Calibration
+Classification is governed by a **calibrated decision threshold of 0.45**, optimized for vulnerability triage. While an ensemble variant with CodeBERT is provided for benchmarking, the **Standalone GraphCodeBERT + DFG** is our primary system because:
+- **Efficiency**: 2x faster batch inference (1.07s/it on T4).
+- **Robustness**: Maintains higher F1 and Precision in imbalanced real-world scenarios compared to ensemble fusion.
+- **Simplicity**: Reduced cold-start overhead and memory footprint in production.
 
 ## Project Structure & Scripts
 
@@ -75,7 +75,7 @@ The final classification is governed by an **Ensemble Approach**:
 ### 1. Native APK Scanning (End-to-End Pipeline)
 To run the fully automated deployment pipeline against real-world Android applications:
 1. Upload the `FINAL_Kaggle_Scanner_Pipeline.ipynb` script to an accelerated Jupyter environment (e.g., Kaggle GPU P100/T4).
-2. Attach the required dataset containing the compiled GraphCodeBERT + CodeBERT `.bin` model weights and tokenizers.
+2. Attach the required dataset containing the `model.bin` weights and tokenizer.
 3. Place target `.apk` files in the directory mapped within the script.
 4. Execute the notebook. The pipeline will automatically install `jadx`/`tree-sitter`, decompile the APKs, bypass non-target bloatware, apply the dynamic token sliding-window, and output a completed `results/master_summary.csv` and detailed individual JSON vulnerability reports.
 
@@ -141,11 +141,11 @@ The near-zero optimism bias confirms no overfitting occurred and the model gener
 
 | Model | ROC-AUC | PR-AUC | Accuracy @ 0.5 |
 | :--- | :---: | :---: | :---: |
-| GraphCodeBERT + DFG | 0.9798 | 0.9797 | 91.82% |
-| CodeBERT (text only) | 0.9745 | 0.9745 | 90.44% |
-| **Ensemble (50/50)** | **0.9804** | **0.9803** | **91.87%** |
+| **GraphCodeBERT + DFG (System)**| **0.9798** | **0.9797** | **91.82%** |
+| CodeBERT (baseline) | 0.9745 | 0.9745 | 90.44% |
+| Ensemble (50/50 reference) | 0.9804 | 0.9803 | 91.87% |
 | Random baseline | 0.5000 | ~0.50 | — |
-| **Best F1 threshold (GraphCodeBERT)** | — | — | **0.45** |
+| **System F1 threshold** | — | — | **0.45** |
 
 All three models maintain near-perfect precision (~1.0) up to ~80% recall, which is the critical operating range for a security scanner.
 
@@ -241,8 +241,9 @@ To evaluate real-world deployment robustness without retraining, we tested the e
 
 | Scenario | Accuracy | Precision | Recall | F1 | PR-AUC |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| Ensemble [Balanced 50/50] | 91.53% | 0.8859 | 0.9516 | 0.9176 | 0.9803 |
-| **Ensemble [Imbalanced 90/10]** | **88.61%** | **0.4657** | **0.9438** | **0.6236** | **0.8861** |
+| GCB+DFG [Balanced 50/50] | 91.75% | 0.9020 | 0.9350 | 0.9182 | 0.9797 |
+| **GCB+DFG [Imbalanced 90/10]** | **90.34%** | **0.5093** | **0.9313** | **0.6585** | **0.8851** |
+| Ensemble [Imbalanced Ref] | 88.61% | 0.4657 | 0.9438 | 0.6236 | 0.8861 |
 
 **High-Recall Triage Filter**: While precision naturally drops under severe class imbalance (resulting in ~53% false alarms), the ensemble maintains a **94.38% recall**. In a security context, catching the vulnerability is the highest priority. Thus, the tool is best deployed as a highly effective, first-pass **triage filter** for human analysts rather than a frictionless, standalone blocker.
 
@@ -253,9 +254,13 @@ To evaluate real-world deployment robustness without retraining, we tested the e
 ### Test 8 & 9 — End-to-End Inference System & Obfuscation Degradation 
 **Goal**: Verify real-world deployment on actual APK files from Kaggle and the impact of commercial obfuscators.
 
-We successfully deployed our trained GraphCodeBERT implementation within a unified Python pipeline orchestrating `jadx` bytecode decompilation, `tree-sitter` Data Flow Graph feature extraction, and batched GPU tensor inference. The pipeline features dynamic token-sliding to handle extremely large developer functions without catastrophic truncation, and utilizes package filtering via `androguard` to exclude bulky 3rd party advert/support libraries.
+We successfully deployed our trained GraphCodeBERT implementation within a unified Python pipeline orchestrating `jadx` bytecode decompilation, `tree-sitter` Data Flow Graph feature extraction, and batched GPU tensor inference. 
 
-When scanning standard applications (e.g., `AntennaPod`, `Aegis`), the system accurately filtered target packages and extracted an average of 3,798 developer-owned functions for rapid GPU batch analysis in under 5 minutes per APK. 
+**Technical Scanner Implementation**:
+- **Multi-Language AST/DFG Parsing**: Native integration of `tree-sitter` parsers for both **Java and Kotlin**, ensuring accurate structural analysis of modern Android codebases.
+- **Package-Aware Component Filtering**: Leverages `androguard` to auto-detect the target application package. The scanner selectively processes only developer-owned source code, effectively filtering out 3rd-party libraries, advertising SDKs (e.g., Google Ads), and support binaries to minimize noise and compute.
+- **Sliding-Window Inference**: To manage the transformer's fixed context window while analyzing real-world long functions, we implemented a **batched sliding-window strategy** (stride = `L/2`). This preserves local semantic context and allows the model to "roll" over thousands of lines of code without catastrophic truncation.
+- **GPU Batching**: All extracted DFG-aware tensors are processed in high-throughput GPU batches (1.07s/it on NVIDIA T4), enabling whole-APK analysis in minutes.
 
 **Obfuscation Degradation Finding (Test D)**: Commercial obfuscation heavily degrades automated targeted scanning. When scanning `StarkVPN` (a proprietary app utilizing ProGuard or DexGuard), the obfuscator algorithm had intentionally flattened the semantic directory structure (e.g., stripping the domain `istark/vpn/starkreloaded` down to anonymous `a/b/c.java` paths) to hide developer logic. Consequently, our automated package-filtering system returned precisely **0 functions**. 
 
@@ -266,13 +271,18 @@ When scanning standard applications (e.g., `AntennaPod`, `Aegis`), the system ac
 ### Test 10 — Confidence Calibration in the Wild (Test C)
 **Goal**: Verify that the dual-transformer model maintains its high confidence polarity on completely unseen, real-world native APK software (not just the academic training datasets).
 
-By aggressively parsing the 10 real-world decompiled APKs via our Kaggle pipeline, we extracted exactly **19,508 individual Java functions**, ran them through GraphCodeBERT, and captured the raw float probability scores.
+By aggressively parsing **13 real-world decompiled APKs** via our Kaggle pipeline, we extracted exactly **23,005 individual Java and Kotlin functions**, ran them through GraphCodeBERT, and captured the raw float probability scores.
+
+The "wild test" corpus was curated to represent a broad spectrum of Android application architectures:
+- **Established Production Apps (F-Droid)**: `AntennaPod` (Podcatcher), `Thunderbird` (Email), `NewPipe` (Media), `Aegis Authenticator` (Security), `Neo Store` (F-Droid client), `Simple Calendar Pro`.
+- **Vulnerable-by-Design Benchmarks**: `AndroGoat`, `Damnvulnerablebank (DVBA)`, `InsecureBankv2`, `InsecureShop`, `Vuldroid`, `AllSafe`.
+- **Kotlin-Native Implementations**: Explicit verification of cross-language robustness via `Neo Store`, `InsecureShop`, `AndroGoat`, and `Simple Calendar`.
 
 ![Confidence Calibration Histogram](results/test_c_confidence_histogram.png)
 
-**Paper Framing**: The histogram of these 19,508 wild predictions perfectly matches the distribution from the Test 2 validation check. The model maintains extreme confidence calibration when interacting with completely novel code bases from Google Play/F-Droid. Over 95% of standard code logic is binned securely near a 0.0 certainty score, proving that the deep neural network resists hallucinating false positives when exposed to chaotic, real-world data structures outside its training distribution.
+**Paper Framing**: The histogram of these 23,005 wild predictions aligns with the distribution observed in the Test 2 validation check. The model demonstrates high confidence polarity (clustering at 0.0 or 1.0) when interacting with novel code bases. Approximately 95% of the analyzed code logic is categorized near a 0.0 certainty score, suggesting that the model maintained stable performance when exposed to real-world data structures outside its training distribution.
 
-**Paper sentence**: *"Extracting and evaluating 19,508 completely novel functions from 10 real-world application binaries confirms the model's robustness; despite operating entirely out-of-distribution, GraphCodeBERT maintained extreme confidence polarity with near-zero false-positive hallucinations, validating its viability as a reliable triage filter for unseen proprietary software."*
+**Paper sentence**: *"Evaluating 23,005 functions from 13 real-world application binaries provides evidence of the model's robustness; despite operating out-of-distribution, GraphCodeBERT maintained consistent confidence polarity, indicating its potential as a reliable triage filter for unseen software."*
 
 ---
 
@@ -318,13 +328,14 @@ All ensemble variants evaluated on the same 19,996-sample validation split:
 
 ### Key Findings
 
-- **DFG is essential**: Removing DFG-aware attention from the same backbone drops accuracy by 3.11% and increases missed malware by 25% (Test 3). This is the core contribution.
-- **No optimism bias**: Test set accuracy (92.02%) matches validation (91.998%) within 0.018% (Test 1).
-- **Ensemble is a modest improvement**: All ensemble variants improve over standalone GCB, but only marginally (+0.05–0.12% accuracy). Adopted as system baseline for minimal false-negative count (685 vs 829), but not a standalone contribution.
+- **DFG Contribution**: Lead finding — DFG attention reduces missed malware by 25% (Test 3).
+- **No optimism bias**: Test set accuracy (92.02%) matches validation within 0.018% (Test 1).
+- **System Choice**: Adopted Standalone GraphCodeBERT + DFG as the production primary for its superior precision and F1 in imbalanced codebases.
+- **Ensemble Benchmarking**: Ensemble variants provide marginal (+0.05%) accuracy gains but higher false-positive rates under imbalance.
 - **Android-domain specialist**: 99.01% on LVDAndro validates the model for Android security scanning. Devign 66% reflects an out-of-domain limitation, reported transparently with 5 qualitative failure modes identified.
-- **Deep Learning Justified**: The transformer reduces missed vulnerabilities by 71% vs a traditional TF-IDF + MLP baseline (Test 6).
+- **Performance Gain**: The transformer-based approach showed a 71% reduction in missed vulnerabilities compared to a traditional TF-IDF + MLP baseline (Test 6).
 - **Robust Triage Filter**: Under a realistic 90/10 class imbalance, 94.38% recall is maintained (Test 7). Best used as a first-pass scanner for analysts.
-- **Out-of-Distribution Calibration**: 19,508 novel wild functions evaluated with near-zero false-positive hallucinations (Test C).
+- **Out-of-Distribution Calibration**: 23,005 novel wild functions evaluated with near-zero false-positive hallucinations (Test C).
 
 ## Limitations
 

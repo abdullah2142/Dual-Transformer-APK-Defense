@@ -6,7 +6,7 @@
 
 ## 1. Project Overview
 
-**What was built**: A dual-model malware/vulnerability classifier that processes Android APK code (Java + C/C++) using GraphCodeBERT with custom Data Flow Graph (DFG) attention, ensembled with a plain CodeBERT baseline.
+**What was built**: A vulnerability classifier that processes Android APK code (Java + C/C++) using GraphCodeBERT with custom Data Flow Graph (DFG) attention. An ensemble variant with CodeBERT is provided for reference benchmarks but the standalone GCB+DFG is the primary system.
 
 **Repository**: `https://github.com/abdullah2142/Dual-Transformer-APK-Defense`
 
@@ -40,12 +40,11 @@ with expected performance degradation on out-of-domain complex C (Devign: 66%). 
 > **NOTE**: Devign 66% is moved to Limitations with the new framing. It is NOT a cross-corpus
 > generalisation claim. The section headline is LVDAndro 99%, not Devign 66%.
 
-### Architecture Variant — Ensemble (DEMOTED from Contribution 2 on 2026-03-13)
-All ensemble configurations improve only marginally over standalone GCB:
-- Best: +0.05% accuracy, −144 FN (50/50 soft ensemble)
-- This is not a publishable system contribution at this delta.
-- **Paper handling**: One paragraph in Section 4 ablation. Adopt 50/50 soft ensemble as the
-  reported "system" for its minimal FN count (685 vs 829), but do NOT frame this as a contribution.
+### Reference Baseline — Ensemble (DEMOTED 2026-03-14)
+All ensemble configurations improve only marginally over standalone GCB in balanced sets, and actually underperform in F1-score on imbalanced tests:
+- Balanced Acc Gain: +0.05%
+- Imbalanced F1: 0.6236 (Ensemble) vs **0.6585 (Standalone)**
+- **Paper handling**: Include in baseline comparison tables. Frame as a high-compute alternative that offers diminishing returns. Adopt Standalone GCB+DFG as the primary "system" for its efficiency and better imbalanced-class fitness.
 
 ### Comparison Experiments — LineVul & VulBERTa (PLANNED 2026-03-13)
 Evaluate LineVul (davidhin/linevul) and VulBERTa (ChengyueLiu/vulberta) on our exact
@@ -90,7 +89,7 @@ Ensemble (50/50)        0.9804    0.9803     91.87%   ← best AUC
 Best F1 threshold        —        —          0.45
 ```
 
-**Paper sentence**: *"The ensemble achieves ROC-AUC 0.9804 and PR-AUC 0.9803, maintaining near-perfect precision up to 80% recall — the critical operating range for a security scanner."*
+**Paper sentence**: *"The Standalone GraphCodeBERT + DFG model achieves a balance of ROC-AUC 0.9798 and PR-AUC 0.9797, maintaining high precision across the critical operating range for a security scanner."*
 
 ---
 
@@ -205,7 +204,7 @@ LR + TF-IDF             84.27%     0.8405   3,389
 MLP + TF-IDF            85.53%     0.8554   2,851
 CodeBERT (text-only)    90.44%     0.9044   659
 GraphCodeBERT + DFG     91.82%     0.9182   829
-Ensemble (50/50 soft)   91.87%     0.9187   685
+Ensemble (50/50 soft)   91.87%     0.9187   685 (Reference)
 ```
 
 **Paper framing**: The massive gap in missed malware (2,851 for MLP vs 829 for GraphCodeBERT) justifies the computational cost of the deep learning and DFG-aware approach. The problem cannot be trivially solved by treating code as a "bag of words."
@@ -220,14 +219,15 @@ Ensemble (50/50 soft)   91.87%     0.9187   685
 **Threshold**: 0.45
 
 ```
-Scenario                Accuracy   Precision   Recall   F1       PR-AUC
-Ensemble (50/50 split)  91.53%     0.8859      0.9516   0.9176   0.9803
-Ensemble (90/10 split)  88.61%     0.4657      0.9438   0.6236   0.8861
+Scenario                    Accuracy   Precision   Recall   F1       PR-AUC
+GCB+DFG (50/50 split)       91.75%     0.9020      0.9350   0.9182   0.9797
+GCB+DFG (90/10 split)       90.34%     0.5093      0.9313   0.6585   0.8851
+Ensemble (90/10 reference)  88.61%     0.4657      0.9438   0.6236   0.8861
 ```
 
 **Paper framing**: Under severe class imbalance, recall remains remarkably high (94.38%), which is the critical metric for a security tool. The precision drops to 46.57%, meaning ~53% of flags will be false alarms. The model must not be framed as a frictionless standalone blocker, but rather as an extremely effective, high-recall **triage filter** or first-pass scanner for analysts.
 
-**Paper sentence**: *"Under a realistic 90% safe to 10% malicious class imbalance, the ensemble maintains a robust 94.38% recall, proving its efficacy as a high-recall triage filter, despite an expected drop in precision typical of imbalanced security datasets."*
+**Paper sentence**: *"Under a realistic 90% safe to 10% malicious class imbalance, Standalone GraphCodeBERT + DFG maintains a robust 93.13% recall and an F1-score of 0.6585, significantly outperforming the heavy ensemble variant in precision (50.93% vs 46.57%) and F1 (0.6585 vs 0.6236)."*
 
 ---
 
@@ -249,11 +249,11 @@ When scanning standard applications (e.g., `AntennaPod`, `Aegis`), the system ac
 ### Test 10 — Confidence Calibration in the Wild (Test C)
 **Goal**: Verify that the dual-transformer model maintains its high confidence polarity on completely unseen, real-world native APK software (not just the academic training datasets).
 
-By aggressively parsing the 10 real-world decompiled APKs via our Kaggle pipeline, we extracted exactly **19,508 individual Java functions**, ran them through GraphCodeBERT, and captured the raw float probability scores (`results/test_c_confidence_histogram.png`).
+By aggressively parsing **13 real-world decompiled APKs** via our Kaggle pipeline, we extracted exactly **23,005 individual Java and Kotlin functions**, ran them through GraphCodeBERT, and captured the raw float probability scores (`results/test_c_confidence_histogram.png`).
 
-**Paper Framing**: The histogram of these 19,508 wild predictions perfectly matches the distribution from the Test 2 validation check. The model maintains extreme confidence calibration when interacting with completely novel code bases from Google Play/F-Droid. Over 95% of standard code logic is binned securely near a 0.0 certainty score, proving that the deep neural network resists hallucinating false positives when exposed to chaotic, real-world data structures outside its training distribution.
+**Paper Framing**: The histogram of these 23,005 wild predictions aligns with the distribution observed in the Test 2 validation check. The model demonstrates high confidence polarity when interacting with novel code bases. Approximately 95% of the analyzed code logic is categorized near a 0.0 certainty score, suggesting that the model maintained stable performance when exposed to real-world data structures outside its training distribution.
 
-**Paper sentence**: *"Extracting and evaluating 19,508 completely novel functions from 10 real-world application binaries confirms the model's robustness; despite operating entirely out-of-distribution, GraphCodeBERT maintained extreme confidence polarity with near-zero false-positive hallucinations, validating its viability as a reliable triage filter for unseen proprietary software."*
+**Paper sentence**: *"Evaluating 23,005 functions from 13 real-world application binaries provides evidence of the model's robustness; despite operating out-of-distribution, GraphCodeBERT maintained consistent confidence polarity, indicating its potential as a reliable triage filter for unseen software."*
 
 ---
 
@@ -264,10 +264,10 @@ All variants on the same 19,996-sample validation split:
 ```
 Configuration                 Accuracy   F1      FN (missed)
 ─────────────────────────────────────────────────────────────
-GraphCodeBERT alone           91.82%     0.9182    829
-Soft Ensemble 50/50           91.87%     0.9187    685
-Weighted Ensemble 70/30       91.94%     0.9194   ~720   ← best accuracy
-Triple Soft @ threshold 0.49  91.88%     0.9188    671   ← fewest missed
+GraphCodeBERT alone           91.82%     0.9182    829 (Primary System)
+Soft Ensemble 50/50           91.87%     0.9187    685 (Reference)
+Weighted Ensemble 70/30       91.94%     0.9194   ~720 (Reference)
+Triple Soft @ threshold 0.49  91.88%     0.9188    671 (Reference)
 Triple Hard Voting            91.10%     0.9110    748
 ```
 
