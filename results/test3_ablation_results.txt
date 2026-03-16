@@ -1,0 +1,19 @@
+Test 3: DFG Ablation Study Results
+=======================================================
+
+Condition A: GraphCodeBERT + DFG
+  Accuracy : 92.0161%
+  ROC-AUC  : 0.9809
+  PR-AUC   : 0.9807
+  TP=18150  FP=1552  FN=1641  TN=18650
+
+Condition B: GraphCodeBERT (no DFG)
+  Accuracy : 88.3330%
+  ROC-AUC  : 0.9597
+  PR-AUC   : 0.9601
+  TP=17515  FP=2390  FN=2276  TN=17812
+
+Delta (A - B):
+  Accuracy: +0.0368
+  ROC-AUC: +0.0212
+  PR-AUC: +0.0206
