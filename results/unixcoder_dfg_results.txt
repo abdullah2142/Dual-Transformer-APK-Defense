@@ -1,0 +1,8 @@
+Model        : UniXcoder + DFG sparse attention
+Split        : 90/10 train/test (no validation)
+Epochs       : 3
+Accuracy     : 89.4029%
+ROC-AUC      : 0.9651
+PR-AUC       : 0.9657
+FN           : 1043
+FP           : 1076

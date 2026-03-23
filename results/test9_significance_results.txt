@@ -1,0 +1,50 @@
+Statistical Significance Testing - McNemar's Test
+============================================================
+
+GCB + DFG vs GCB no-DFG
+  Acc A    : 88.7077%
+  Acc B    : 88.7177%
+  Delta    : -0.0100%
+  b        : 542
+  c        : 544
+  Statistic: 0.0009
+  p-value  : 0.9758
+  Verdict  : NOT significant (p > 0.05)
+
+CodeBERT + DFG vs CodeBERT text
+  Acc A    : 88.4477%
+  Acc B    : 88.4777%
+  Delta    : -0.0300%
+  b        : 485
+  c        : 491
+  Statistic: 0.0256
+  p-value  : 0.8728
+  Verdict  : NOT significant (p > 0.05)
+
+UniXcoder + DFG vs UniXcoder text
+  Acc A    : 89.4029%
+  Acc B    : 89.2829%
+  Delta    : 0.1200%
+  b        : 442
+  c        : 418
+  Statistic: 0.6151
+  p-value  : 0.4329
+  Verdict  : NOT significant (p > 0.05)
+
+GCB + DFG vs UniXcoder + DFG
+  Acc A    : 88.7077%
+  Acc B    : 89.4029%
+  Delta    : -0.6951%
+  b        : 597
+  c        : 736
+  Statistic: 14.2866
+  p-value  : 0.0002
+  Verdict  : SIGNIFICANT (p <= 0.05)
+
+Summary table
+------------------------------------------------------------
+Comparison                                Delta    p-value  Significant
+GCB + DFG vs GCB no-DFG                -0.0100%     0.9758        False
+CodeBERT + DFG vs CodeBERT text        -0.0300%     0.8728        False
+UniXcoder + DFG vs UniXcoder text       0.1200%     0.4329        False
+GCB + DFG vs UniXcoder + DFG           -0.6951%     0.0002         True

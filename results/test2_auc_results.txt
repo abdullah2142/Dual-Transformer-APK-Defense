@@ -2,18 +2,18 @@ Test 2: ROC-AUC and PR-AUC Results
 ==================================================
 
 GraphCodeBERT:
-  ROC-AUC : 0.9798
-  PR-AUC  : 0.9797
-  Acc@0.5 : 91.8184%
+  ROC-AUC : 0.9616
+  PR-AUC  : 0.9622
+  Acc@0.5 : 88.7077%
 
 CodeBERT:
-  ROC-AUC : 0.9745
-  PR-AUC  : 0.9745
-  Acc@0.5 : 90.4431%
+  ROC-AUC : 0.9610
+  PR-AUC  : 0.9616
+  Acc@0.5 : 88.4777%
 
-Ensemble:
-  ROC-AUC : 0.9804
-  PR-AUC  : 0.9803
-  Acc@0.5 : 91.8684%
+UniXcoder:
+  ROC-AUC : 0.9652
+  PR-AUC  : 0.9657
+  Acc@0.5 : 89.2829%
 
-Best F1 Threshold for GraphCodeBERT: 0.45 (F1=0.9182)
+Best F1 Threshold for GraphCodeBERT: 0.25 (F1=0.8860)

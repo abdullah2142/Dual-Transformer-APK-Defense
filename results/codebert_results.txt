@@ -1,0 +1,7 @@
+Split        : 90/10 train/test (no validation)
+Epochs       : 3
+Accuracy     : 88.4777%
+ROC-AUC      : 0.9610
+PR-AUC       : 0.9616
+FN           : 1072
+FP           : 1232

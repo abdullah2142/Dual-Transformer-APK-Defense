@@ -1,224 +1,146 @@
-# 📝 Paper To-Do
+# 📝 Paper To-Do (2026-03-22)
 
-**Unified paper structure — three angles:**
-1. **Ablation** — DFG-aware attention reduces missed malware by ~28% (Test 3, updated) ← LEAD CONTRIBUTION
-2. **Android-Domain Specialisation** — 99% on LVDAndro proves targeted Android fitness; Devign 66% reframed as expected domain gap, not generalisation failure
-3. **Dataset-as-vehicle** — 200k multi-source corpus with parsed DFGs enables large-scale structural ablation + transparent per-source analysis
-
-> **Decisions locked:**
-> - All controlled comparisons use **72/8/20 split, seed 42, sizes 143971/15996/39993**
-> - Production model uses **3 epochs + gradient clipping** — to be retrained with clean split
-> - Ablation (Test 3) and baselines all use **3 epochs** under identical conditions
-> - Test 4 stays at **1 epoch**, reframed as optimisation stability probe (not final accuracy)
-> - **Standalone GCB+DFG** is primary system; ensemble reported as sensitivity variant
-> - Devign 66% → Limitations section only; LVDAndro 99% → Section 6 headline
-> - LineVul / VulBERTa → **closed** (unavailable); replaced by ReGVD as graph-based baseline
-> - MobSF comparison uses **vulnerable function rate** (not binary APK verdict)
-> - Recall figure corrected: **93.13%** (standalone GCB, Test 7) — not 94.38%
+**Status**: All experiments complete. One pre-writing task remains. Then write.
+**Target**: MSR (primary) | EMSE/IST (fallback) | ASE tool track (also viable)
 
 ---
 
-## 🔴 Phase 1 — Retrain foundation (everything depends on this)
+## 🔴 Must do before writing (1 task)
 
-- [ ] **Retrain model2 with clean split** — modify training notebook:
-  - Replace unseeded 90/10 split with `torch.Generator().manual_seed(42)`, sizes `143971/15996/39993`
-  - Add gradient clipping (`scaler.unscale_(optimizer)` + `clip_grad_norm_(..., 1.0)`) before `scaler.step()`
-  - Keep all other hyperparameters identical: `lr=2e-5`, `batch_size=16`, `num_train_epochs=3`
-  - Save new checkpoint — this becomes the new model2 used everywhere
-  - Runtime: ~5–8 hours on Kaggle GPU
+### Task 1 — Statistical significance testing
+- [ ] Create a short notebook that loads `test_probs.npy` + `test_labels.npy` from
+      each training run
+- [ ] Run McNemar's test on every model pair from Table 3:
+  - GCB+DFG vs GCB no-DFG
+  - CodeBERT vs CodeBERT+DFG
+  - UniXcoder vs UniXcoder+DFG
+  - GCB+DFG vs UniXcoder (best vs ours)
+- [ ] Expected result: all p > 0.05 (confirming null result is statistically valid)
+- [ ] Record p-values — add to Section 4 ablation table
+- [ ] Paper sentence to unlock: "Differences between all transformer configurations
+      are not statistically significant (McNemar's test, p > 0.05 for all pairs)"
 
----
+```python
+from statsmodels.stats.contingency_tables import mcnemar
+preds_a = (probs_a[:, 1] >= 0.5).astype(int)
+preds_b = (probs_b[:, 1] >= 0.5).astype(int)
+b = np.sum((preds_a == labels) & (preds_b != labels))
+c = np.sum((preds_a != labels) & (preds_b == labels))
+result = mcnemar([[0, b], [c, 0]], exact=False)
+print(f"p = {result.pvalue:.4f}")
+```
 
-## 🔴 Phase 2 — Fix and rerun ablation (depends on Phase 1)
+## ✅ Completed pre-writing task
 
-- [ ] **Update Test 3 notebook** — now that new model2 matches ablation conditions:
-  - Revert Condition A back to **loading new model2 checkpoint** (no need to train inside notebook)
-  - Remove `train_with_dfg()`, `train_ds_dfg`, `val_ds_dfg` — no longer needed
-  - Keep Condition B (`train_no_dfg()`) with 3 epochs, same split, gradient clipping
-  - Confirm `num_train_epochs = 3` in Args
-  - Confirm `val_ratio` comment corrected to 8% (not 10%)
-  - Confirm hardcoded split sizes match: `train_n=143971, val_n=15996, test_n=39993`
-  - Rerun and save new `test3_ablation_results.txt`
-  - Update paper numbers: accuracy delta, ROC-AUC delta, FN reduction (~28%)
-
----
-
-## 🔴 Phase 3 — Rerun all dependent tests (depends on Phase 1, can parallelise)
-
-- [ ] **Rerun Test 2** — ROC-AUC and PR-AUC with new model2
-  - Expected: ROC-AUC ~0.979, PR-AUC ~0.979 (may shift slightly)
-  - Update PAPER_TODO numbers after run
-
-- [ ] **Rerun Test 5** — per-source breakdown with new model2
-  - Check LVDAndro 99% headline still holds
-  - Check Devign gap still present (expected yes — architectural, not split-dependent)
-
-- [ ] **Rerun Test 7** — imbalanced evaluation with new model2
-  - Report standalone GCB numbers only as primary
-  - Ensemble row as sensitivity variant
-  - Confirm recall figure — target ~93% range
-  - Update Section 8 framing accordingly
-
-- [ ] **Rerun Test 8** — false negative analysis with new model2
-  - New FN count will differ from 663 — update
-  - Re-check whether 7 qualitative patterns still hold
-  - If pattern distribution shifts, update Limitations section notes
+### Task 2 — Confidence calibration histogram (new model)
+- [x] Replaced the notebook plan with `test_c_calibration_newmodel.py`
+- [x] Auto-discovered all downloaded `*_vuln_report.json` files in the workspace
+- [x] Generated `test_c_confidence_histogram_newmodel.png`
+- [x] Generated `test_c_per_apk_histogram_newmodel.png`
+- [x] Generated `test_c_calibration_newmodel.txt`
+- [x] Verified non-flat calibration on 13 APK reports / 23,005 functions
+- [x] Final aggregate: 89.2% below 0.10, 5.6% at or above 0.60, 4.1% above 0.90
 
 ---
 
-## 🟠 Phase 4 — Fix Test 4 (independent, do anytime)
+## ✅ All experimental results complete
 
-- [ ] **Fix Test 4 split and rerun** — already identified fix:
-  - Move `random_split` outside the for loop
-  - Fix generator: `torch.Generator().manual_seed(42)`
-  - Keep `num_train_epochs = 1`
-  - Fix `val_ratio` comment: change `0.10` note to `0.08`
-  - Reframe in paper as **optimisation stability probe**: "variance across random initialisations after one epoch of fine-tuning"
-  - Update numbers in TODO after run (previous stale numbers: 87.12% ± 0.16%, ROC 0.9543 ± 0.0003)
-
----
-
-## 🟠 Phase 5 — Build unified baseline comparison (depends on Phase 1)
-
-- [ ] **Build unified baseline notebook** — one notebook, three models:
-  - **CodeBERT** (`microsoft/codebert-base`) — same `SimpleModel` architecture as training notebook
-  - **UnixCoder** (`microsoft/unixcoder-base`) — identical to CodeBERT, swap model name and tokenizer
-  - **ReGVD** (`rebuff/regvd-model`) — graph-based baseline; needs its own forward pass, same training loop
-  - All three: 72/8/20 split, seed 42, 3 epochs, `lr=2e-5`, `batch_size=16`, gradient clipping
-  - Evaluate all three on same held-out `test_ds` (39,993 samples)
-  - Report: Accuracy, ROC-AUC, PR-AUC, FN, FP at threshold 0.45
-
-- [ ] **Write comparison table** (Section 7):
-
-  | Model | Structure-aware | Accuracy | ROC-AUC | FN |
-  |---|---|---|---|---|
-  | MLP / TF-IDF | No | ~71% | — | high |
-  | CodeBERT | No | TBD | TBD | TBD |
-  | UnixCoder | No | TBD | TBD | TBD |
-  | ReGVD | Yes (graph) | TBD | TBD | TBD |
-  | **GCB + DFG (ours)** | **Yes (DFG)** | **TBD** | **TBD** | **TBD** |
-
-  Note in table: "All models trained for 3 epochs under identical conditions (72/8/20 split, seed 42)."
+| Test | Result |
+|---|---|
+| GCB+DFG training | 88.71%, ROC 0.9616, FN 1184 |
+| CodeBERT | 88.48%, ROC 0.9610, FN 1072 |
+| CodeBERT+DFG | 88.45%, ROC 0.9609, FN 1089 |
+| UniXcoder | 89.28%, ROC 0.9652, FN 1051 |
+| UniXcoder+DFG | 89.40%, ROC 0.9651, FN 1043 |
+| Test 2 ROC curves | Generated |
+| Test 3 Ablation | Δ −0.01%, −10 FN (null) |
+| Test 4 Stability | 87.53% ± 0.11% |
+| Test 5 Per-source | LVD 98.34%, Dev 67.58% |
+| Test 6 MLP | ~71% |
+| Test 7 Imbalanced | Threshold 0.60, F1 0.6585 |
+| Test 8 Qualitative | 1184 FNs, 8 patterns classified |
+| Scanner | 13 APK reports, threshold 0.60 |
 
 ---
 
-## 🟠 Phase 6 — Real-world evaluation / MobSF (independent, do locally)
+## 🟢 Writing order (after Tasks 1 and 2)
 
-- [ ] **Collect APK sample**:
-  - 15–20 confirmed malicious APKs from AndroZoo (filter VirusTotal detections > 5)
-  - 15–20 clean APKs from F-Droid
-  - 30–40 total
+- [ ] **Section 4** — Model comparison and ablation ← START HERE
+  - Table 1: full 6-model comparison
+  - Table 2: ablation (null result)
+  - Table 3: cross-backbone DFG delta (with p-values from Task 1)
+  - Table 4: stability (87.53% ± 0.11%)
+  - Draft sentences in RESEARCH_NOTES Part 5
 
-- [ ] **Run existing pipeline** on all APKs — collect `vulnerable_function_rate` per APK:
-  ```python
-  rate = vulnerable_functions_count / total_functions_scanned
-  ```
+- [ ] **Section 8** — Limitations and qualitative analysis ← WRITE ALONGSIDE 4
+  - 8 failure patterns with paper paragraphs from RESEARCH_NOTES Part 3
+  - P5a + P5b = 8/20 dominant failures — the mechanistic link to Section 4
+  - Concrete examples: class_336, method_1192, field_1000
+  - P1, P7, P2, P3, P6, P4 with paragraphs
 
-- [ ] **Set up MobSF locally**:
-  ```bash
-  docker pull opensecurity/mobile-security-framework-mobsf:latest
-  docker run -it -p 8000:8000 opensecurity/mobile-security-framework-mobsf
-  ```
-  Submit each APK via REST API, collect CVSS risk score per APK
-
-- [ ] **Compare ranking AUC** — not binary verdict:
-  - Compute ROC-AUC of `vulnerable_function_rate` against ground truth maliciousness labels
-  - Compute ROC-AUC of MobSF CVSS score against same labels
-  - Report both in Section 8 as triage utility comparison
-
-- [ ] **Note for paper framing**: pipeline produces vulnerability density signal, not binary APK verdict. Higher rate in malicious APKs confirms signal validity. Precision at function level is expected to be ~50% (consistent with Test 7 imbalanced results).
+- [ ] **Section 3** — Dataset and pipeline
+- [ ] **Section 6** — Per-source analysis
+- [ ] **Section 5** — System architecture (threshold 0.60)
+- [ ] **Section 7** — Real-world deployment (scanner + calibration histogram from script output)
+- [ ] **Section 2** — Related work
+- [ ] **Section 9** — Conclusion
+- [ ] **Section 1** — Introduction (write last)
+- [ ] **Abstract** (write very last)
 
 ---
 
-## 🟢 Writing — do last, after all numbers are final
+## 📊 All numbers ready for writing
 
-Write sections in this order:
+**Table 1**
+```
+MLP/TF-IDF      ~71%      —       —        high FN
+CodeBERT        88.48%   0.9610  0.9616   1,072 FN
+CodeBERT+DFG    88.45%   0.9609  0.9616   1,089 FN
+GCB+DFG (ours)  88.71%   0.9616  0.9622   1,184 FN
+UniXcoder       89.28%   0.9652  0.9657   1,051 FN
+UniXcoder+DFG   89.40%   0.9651  0.9657   1,043 FN
+```
 
-- [ ] **Section 3**: Dataset & Experimental Setup
-  - Sources: LVDAndro, Juliet, Draper, Devign
-  - DFG parsing pipeline — highlight this as a dataset contribution, not just curation
-  - Class balance enforcement, 72/8/20 split, seed 42
-  - One sentence covering training regime consistency: "All controlled comparisons use a fixed 72/8/20 split (seed 42). The ablation and baseline comparisons use 3-epoch training. Multi-seed stability (Test 4) uses a 1-epoch regime to probe optimisation variance independently of convergence."
+**Table 2**
+```
+GCB+DFG    88.71%   0.9616   1,184 FN
+GCB no-DFG 88.72%   0.9612   1,194 FN
+Δ          −0.01%  +0.0004    −10 FN   p=TBD (Task 1)
+```
 
-- [ ] **Section 4**: Ablation Study
-  - Lead with −28% FN reduction, +3.68% accuracy, +0.0212 ROC-AUC
-  - Mention both FN *and* FP reduction — DFG helps both directions
-  - Ensemble as single paragraph: "The soft ensemble reduces FN by a further 144 at the cost of 2× inference time and lower imbalanced-class F1 (0.6236 vs 0.6585). We adopt standalone GCB+DFG for all reported results."
-  - Figure 1: `test3_ablation_bar.png`
+**Table 3 — Cross-backbone DFG delta**
+```
+CodeBERT   88.48%→88.45%   −0.03%   FN+17   p=TBD
+GCB        88.72%→88.71%   −0.01%   FN−10   p=TBD
+UniXcoder  89.28%→89.40%   +0.12%   FN−8    p=TBD
+```
 
-- [ ] **Section 5**: System Architecture
-  - Threshold tuning (0.45 asymmetric — justify in PAPER_DEFENSE §9)
-  - APK pipeline diagram (decompile → parse → DFG → batch inference)
-  - Sliding window for long functions
-  - Kotlin support
-  - Dual-configuration note: standalone for throughput, ensemble for maximum sensitivity
+**Table 4 — Stability**
+```
+87.53% ± 0.11%   ROC 0.9565 ± 0.0003
+```
 
-- [ ] **Section 6**: Per-Source Analysis (Android-Domain Specialisation)
-  - LVDAndro 99% as headline
-  - Draper and Juliet results
-  - Devign 66% mentioned here briefly, explained fully in Limitations
-  - Frame as: model is fit-for-purpose for Android, not a general cross-domain claim
+**Table 5 — Per-source**
+```
+LVDAndro  98.34%   0.9978   51 FN
+Draper    89.43%   0.9507  439 FN
+Juliet   100.00%   1.0000    0 FN
+Devign    67.58%   0.7633  449 FN
+```
 
-- [ ] **Section 7**: Baseline Comparison
-  - Full table: MLP → CodeBERT → UnixCoder → ReGVD → GCB+DFG
-  - Note LineVul and VulBERTa unavailable for direct comparison; cite original papers
-  - Note all models evaluated on same split under same training budget
+**Table 6 — Threshold sensitivity**
+```
+0.60 → Recall 83.41%   F1 0.6585   FPR 7.77%   FN 186
+```
 
-- [ ] **Section 8**: Real-World Deployment
-  - Test 7 imbalanced results (93.13% recall, F1 0.6585, standalone GCB)
-  - Vulnerable function rate framing — triage filter, not binary verdict
-  - MobSF ranking AUC comparison
-  - Obfuscation degradation (Test D — ProGuard defeats package filtering)
-  - Test C calibration: 23,005 functions, near-zero false-positive hallucinations
-
-- [ ] **Section 9**: Limitations
-  - 7 FN failure patterns from Test 8 (verify count against rerun results)
-  - Inter-procedural vulnerability scope limitation
-  - Decompiled code DFG degradation
-  - Devign domain gap
-  - Obfuscation vulnerability
-
-- [ ] **Abstract and Introduction** — write last once all numbers are confirmed
-
-- [ ] **Pick target venue**:
-  - **MSR** — strongest fit given dataset contribution + empirical depth; submit here first
-  - **ISSTA / ASE** — viable after baseline table complete and ReGVD comparison added
-  - **ICSE** — stretch target; needs stronger novelty framing around Android pipeline
-
----
-
-## ✅ Already Done (pre-retraining numbers — will update after Phase 1–3)
-
-- [x] 3-way split design verified — zero optimism bias confirmed (Test 1)
-- [x] ROC-AUC 0.9798, PR-AUC 0.9797 standalone GCB (Test 2 — will rerun)
-- [x] DFG ablation: +3.68% accuracy, −635 FN, ~28% fewer missed malware (Test 3 — on held-out test set)
-- [x] Multi-seed stability: 87.12% ± 0.16%, ROC 0.9543 ± 0.0003 — **stale, split bug present, rerun pending** (Test 4)
-- [x] Per-source breakdown: LVDAndro 99% vs Devign 66% (Test 5 — will rerun)
-- [x] MLP/TF-IDF baseline: 71% reduction in FN vs MLP (Test 6 — no rerun needed, independent)
-- [x] Imbalanced evaluation 90/10: 93.13% recall, F1 0.6585, standalone GCB (Test 7 — will rerun)
-- [x] Qualitative error analysis: FN patterns identified and documented (Test 8 — will rerun)
-- [x] APK decompilation pipeline — JADX + Tree-sitter, Java + Kotlin, manifest-aware filtering
-- [x] Sliding window inference for long functions
-- [x] Threshold sensitivity table: precision/recall/F1 at 0.40–0.65
-- [x] End-to-end inference system (Tests A & B)
-- [x] Obfuscation degradation test (Test D) — ProGuard defeats targeted package filtering
-- [x] Confidence calibration in the wild (Test C) — 23,005 functions, near-zero false positives
-- [x] Ensemble comparison: soft/hard, 50/50, 70/30, triple variants all evaluated
-- [x] PAPER_DEFENSE.md — preemptive reviewer responses drafted
-
----
-
-## 📊 Numbers to update after retraining (current stale values for reference)
-
-| Metric | Current (stale) | Status |
-|---|---|---|
-| Test 2 ROC-AUC | 0.9798 | Rerun after Phase 1 |
-| Test 2 PR-AUC | 0.9797 | Rerun after Phase 1 |
-| Test 3 FN reduction | ~28% / −635 FN | Rerun after Phase 2 |
-| Test 3 accuracy delta | +3.68% | Rerun after Phase 2 |
-| Test 4 accuracy | 87.12% ± 0.16% | Rerun after Phase 4 |
-| Test 4 ROC-AUC | 0.9543 ± 0.0003 | Rerun after Phase 4 |
-| Test 7 recall (standalone) | 93.13% | Rerun after Phase 1 |
-| Test 7 F1 (standalone, imbalanced) | 0.6585 | Rerun after Phase 1 |
-| Test 8 total FN count | 663 | Rerun after Phase 1 |
-| LVDAndro per-source accuracy | 99% | Rerun after Phase 1 |
+**Table 7 — FN pattern distribution (top-20)**
+```
+P5a (full obfuscation)       5/20
+P1  (structural fragment)    4/20
+P5b (Kotlin/lambda)          3/20
+P7  (inter-procedural)       3/20
+P2  (benign surface)         2/20
+P3  (arithmetic edge case)   1/20
+P6  (flag/control flow)      1/20
+P4  (API semantic bypass)    1/20
+```

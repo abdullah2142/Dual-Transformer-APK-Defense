@@ -1,48 +1,49 @@
 Test 7: Imbalanced Class Evaluation
 ============================================================
-Threshold: 0.45  |  Ratio: 90% safe / 10% malicious
+Threshold used: 0.5
+Imbalanced ratio: 90% safe / 10% malicious
 
 
 GraphCodeBERT+DFG [balanced 50/50]
-  acc     : 0.9175
-  prec    : 0.9020
-  rec     : 0.9350
-  f1      : 0.9182
-  auc     : 0.9798
-  pr_auc  : 0.9797
-  fn      : 644
-  fp      : 1,006
-  fpr     : 0.0997
+  acc     : 0.8871
+  prec    : 0.8903
+  rec     : 0.8804
+  f1      : 0.8853
+  auc     : 0.9616
+  pr_auc  : 0.9622
+  fn      : 1,184
+  fp      : 1,074
+  fpr     : 0.1064
 
 GraphCodeBERT+DFG [imbalanced 90/10]
-  acc     : 0.9034
-  prec    : 0.5093
-  rec     : 0.9313
-  f1      : 0.6585
-  auc     : 0.9782
-  pr_auc  : 0.8851
-  fn      : 77
-  fp      : 1,006
-  fpr     : 0.0997
+  acc     : 0.8915
+  prec    : 0.4766
+  rec     : 0.8724
+  f1      : 0.6165
+  auc     : 0.9596
+  pr_auc  : 0.8131
+  fn      : 143
+  fp      : 1,074
+  fpr     : 0.1064
 
 Ensemble [balanced 50/50]
-  acc     : 0.9153
-  prec    : 0.8859
-  rec     : 0.9516
-  f1      : 0.9176
-  auc     : 0.9804
-  pr_auc  : 0.9803
-  fn      : 479
-  fp      : 1,214
-  fpr     : 0.1203
+  acc     : 0.8888
+  prec    : 0.8884
+  rec     : 0.8869
+  f1      : 0.8876
+  auc     : 0.9638
+  pr_auc  : 0.9644
+  fn      : 1,120
+  fp      : 1,103
+  fpr     : 0.1093
 
 Ensemble [imbalanced 90/10]
-  acc     : 0.8861
-  prec    : 0.4657
-  rec     : 0.9438
-  f1      : 0.6236
-  auc     : 0.9783
-  pr_auc  : 0.8861
-  fn      : 63
-  fp      : 1,214
-  fpr     : 0.1203
+  acc     : 0.8896
+  prec    : 0.4720
+  rec     : 0.8796
+  f1      : 0.6143
+  auc     : 0.9609
+  pr_auc  : 0.8217
+  fn      : 135
+  fp      : 1,103
+  fpr     : 0.1093
