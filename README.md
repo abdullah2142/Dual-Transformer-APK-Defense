@@ -205,31 +205,27 @@ than being flat or centered near 0.5.
 
 | File | Role |
 |---|---|
-| `training-notebooks/` | Backbone training notebooks |
-| `test-notebooks/test-2-roc-auc.ipynb` | ROC-AUC / PR-AUC curves |
-| `test-notebooks/test-3-ablation.ipynb` | Controlled DFG ablation |
-| `test-notebooks/test_4_multiseed.ipynb` | Training stability |
-| `test-notebooks/test-5-per-source.ipynb` | Per-source accuracy |
-| `test-notebooks/test-6-mlp-baseline.ipynb` | MLP/TF-IDF baseline |
-| `test-notebooks/test-7-imbalanced-eval.ipynb` | Threshold calibration |
-| `test-notebooks/test-8-qualitative-analysis.ipynb` | FN pattern analysis |
-| `test-notebooks/test-9-significance-testing.ipynb` | Kaggle significance notebook |
-| `scanner-notebooks/` | End-to-end scanner notebook(s) |
-| `scripts/calculate_significance.py` | McNemar significance testing on saved arrays |
-| `scripts/test_c_calibration_newmodel.py` | Calibration plots from downloaded APK JSON reports |
-| `arrays/` | Saved probability and label `.npy` files |
-| `apk-reports/` | Scanner JSON reports from APK runs |
-| `tools/` | Local helper runtime and installer files |
-| `results/` | Generated result text files and figures |
+| `codebert_final_train.ipynb` | Standardized CodeBERT training (90/10 split) |
+| `graphcodebert_final_train.ipynb` | Standardized GraphCodeBERT training (90/10 split) |
+| `unixcoder_final_train.ipynb` | Standardized UniXcoder training (90/10 split) |
+| `regvd_final_train.ipynb` | Standardized ReGVD (GCB backbone) training (90/10 split) |
+| `unixcoder_dfg_final_train.ipynb` | Standardized UniXcoder + DFG attention training (90/10 split) |
+| `scanner-pipeline-final.ipynb` | End-to-end APK decompilation, DFG parsing, and inference |
+| `dfg-generation.ipynb` | Standalone DFG generation and dataset inspection |
+| `dataset_creation_scripts/` | Pipeline for raw APK to JSONL dataset conversion |
+| `test_notebooks/` | Evaluation notebooks (ROC-AUC, Ablation, Stability, etc.) |
+| `results/` | Final experimental plots and classification reports |
+| `requirements.txt` | Python dependencies |
 
 ---
 
 ## Reproducing Results
 
-```powershell
-C:\Users\User\Downloads\Transformer-APK-Defense\tools\python312\python.exe scripts\calculate_significance.py
-C:\Users\User\Downloads\Transformer-APK-Defense\tools\python312\python.exe scripts\test_c_calibration_newmodel.py
-```
-
-All training notebooks are self-contained. Upload to Kaggle GPU, attach
-`dataset_graphcodebert.jsonl`, and run with identical hyperparameters.
+1. **Environment Setup**: Standard Kaggle GPU (P100 or T4) environment is recommended.
+2. **Dataset**: Upload `dataset_graphcodebert.jsonl` to `/kaggle/input/...` or update the `Args` class in the training notebooks.
+3. **Training**: Execute any of the `*_final_train.ipynb` notebooks. They are standardized with **Option A**:
+   - **Split**: 90% train / 10% test (sequential split, manual seed 42).
+   - **Epochs**: 3 (fixed epochs, saves only the final `model.bin`).
+   - **Hyperparameters**: 2 batch size, 2e-5 learning rate, linear decay, FP16 autocast.
+4. **Evaluation**: After training, the notebooks automatically perform inference on the 10% test samples and output classification metrics (ROC-AUC, PR-AUC, Accuracy).
+5. **Ablation & Analysis**: Use the notebooks in `test_notebooks/` for controlled ablation and multi-seed stability checks.
