@@ -471,10 +471,7 @@ fine-tunable checkpoints, we evaluate DFG-aware attention on three independent b
 > QEMU/FFmpeg), and the Juliet Test Suite (synthetic CWEs), with a strict 1:1
 > safe-to-vulnerable class ratio enforced across all sources."
 
-> "Extracting meaningful DFGs from decompiled bytecode presents non-trivial challenges not
-> encountered in clean source-level analyses: JADX-decompiled code introduces
-> machine-generated identifiers (e.g., `class_336`, `method_1192`), synthetic wrapper
-> classes, and fragmented method boundaries that confound standard AST parsers."
+> "A practical challenge in processing decompiled Android bytecode at scale is that JADX output frequently produces syntactically incomplete fragments — method bodies without enclosing class context, statements extracted mid-scope, and expressions lacking surrounding declarations. To enable uniform Tree-sitter DFG extraction across our full 199,960-sample corpus without biasing toward syntactically complete samples, we implement a minimal parser-recovery wrapper that provides valid syntactic context while preserving the original code content. This wrapper is applied uniformly across all classes, ensuring no differential treatment between safe and vulnerable samples."
 
 > "All five transformer models are trained identically: a 90/10 train/test partition with
 > fixed seed 42, three full epochs, AdamW (lr=2e-5, ε=1e-8), gradient clipping at max

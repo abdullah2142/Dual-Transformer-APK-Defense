@@ -34,3 +34,10 @@ checkpoints/
 # System
 .DS_Store
 Thumbs.db
+
+
+#namare
+graph TD.md
+graph TD.pdf
+make_context.py
+Paper_Context.md
