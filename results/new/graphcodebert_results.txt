@@ -1,0 +1,7 @@
+Split        : 82/8/10 train/val/test (validation-based early stopping)
+Epochs       : 5 (best checkpoint at epoch 5)
+Accuracy     : 88.9300%
+ROC-AUC      : 0.9596
+PR-AUC       : 0.9611
+FN           : 1241
+FP           : 972
