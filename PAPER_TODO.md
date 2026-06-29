@@ -14,11 +14,12 @@
   - GCB+DFG vs GCB no-DFG
   - CodeBERT vs CodeBERT+DFG
   - UniXcoder vs UniXcoder+DFG
-  - GCB+DFG vs UniXcoder (best vs ours)
+  - GCB Text vs GCB+DFG
 - [ ] Expected result: all p > 0.05 (confirming null result is statistically valid)
 - [ ] Record p-values — add to Section 4 ablation table
 - [ ] Paper sentence to unlock: "Differences between all transformer configurations
       are not statistically significant (McNemar's test, p > 0.05 for all pairs)"
+      *Note: Must be re-run with latest `.npy` files from the re-train to confirm.*
 
 ```python
 from statsmodels.stats.contingency_tables import mcnemar
@@ -47,29 +48,27 @@ print(f"p = {result.pvalue:.4f}")
 
 | Test | Result |
 |---|---|
-| GCB+DFG training | 88.71%, ROC 0.9616, FN 1184 |
-| CodeBERT | 88.48%, ROC 0.9610, FN 1072 |
-| CodeBERT+DFG | 88.45%, ROC 0.9609, FN 1089 |
-| UniXcoder | 89.28%, ROC 0.9652, FN 1051 |
-| UniXcoder+DFG | 89.40%, ROC 0.9651, FN 1043 |
+| GCB+DFG training | 88.56%, ROC 0.9585, FN 1196 |
+| CodeBERT | [TBD] |
+| CodeBERT+DFG | [TBD] |
+| UniXcoder | [TBD] |
+| UniXcoder+DFG | [TBD] |
 | Test 2 ROC curves | Generated |
-| Test 3 Ablation | Δ −0.01%, −10 FN (null) |
-| Test 4 Stability | 87.53% ± 0.11% |
-| Test 5 Per-source | LVD 98.34%, Dev 67.58% |
-| Test 6 MLP | ~71% |
-| Test 7 Imbalanced | Threshold 0.60, F1 0.6585 |
-| Test 8 Qualitative | 1184 FNs, 8 patterns classified |
-| Scanner | 13 APK reports, threshold 0.60 |
+| Test 3 Stability | [TBD] |
+| Test 4 Per-source | [TBD] |
+| Test 5 MLP | [TBD] |
+| Test 6 Imbalanced | [TBD] |
+| Test 7 Qualitative | [TBD] |
+| Scanner | [TBD] |
 
 ---
 
 ## 🟢 Writing order (after Tasks 1 and 2)
 
-- [ ] **Section 4** — Model comparison and ablation ← START HERE
+- [ ] **Section 4** — Model comparison and empirical results ← START HERE
   - Table 1: full 6-model comparison
-  - Table 2: ablation (null result)
-  - Table 3: cross-backbone DFG delta (with p-values from Task 1)
-  - Table 4: stability (87.53% ± 0.11%)
+  - Table 2: cross-backbone DFG delta (with p-values from Task 1)
+  - Table 3: stability (87.53% ± 0.11%)
   - Draft sentences in RESEARCH_NOTES Part 5
 
 - [ ] **Section 8** — Limitations and qualitative analysis ← WRITE ALONGSIDE 4
@@ -82,6 +81,7 @@ print(f"p = {result.pvalue:.4f}")
 - [ ] **Section 6** — Per-source analysis
 - [ ] **Section 5** — System architecture (threshold 0.60)
 - [ ] **Section 7** — Real-world deployment (scanner + calibration histogram from script output)
+  - [ ] Configure `test_scripts/scanner-pipeline.ipynb` to use the best empirical model (UniXcoder Text-only or UniXcoder+DFG).
 - [ ] **Section 2** — Related work
 - [ ] **Section 9** — Conclusion
 - [ ] **Section 1** — Introduction (write last)
@@ -93,54 +93,48 @@ print(f"p = {result.pvalue:.4f}")
 
 **Table 1**
 ```
-MLP/TF-IDF      ~71%      —       —        high FN
-CodeBERT        88.48%   0.9610  0.9616   1,072 FN
-CodeBERT+DFG    88.45%   0.9609  0.9616   1,089 FN
-GCB+DFG (ours)  88.71%   0.9616  0.9622   1,184 FN
-UniXcoder       89.28%   0.9652  0.9657   1,051 FN
-UniXcoder+DFG   89.40%   0.9651  0.9657   1,043 FN
+MLP/TF-IDF      [TBD]      —       —        [TBD]
+CodeBERT        [TBD]   [TBD]  [TBD]   [TBD] FN
+CodeBERT+DFG    [TBD]   [TBD]  [TBD]   [TBD] FN
+GCB Text        [TBD]   [TBD]  [TBD]   [TBD] FN
+GCB+DFG         [TBD]   [TBD]  [TBD]   [TBD] FN
+UniXcoder       [TBD]   [TBD]  [TBD]   [TBD] FN
+UniXcoder+DFG   [TBD]   [TBD]  [TBD]   [TBD] FN
 ```
 
-**Table 2**
+**Table 2 — Cross-backbone DFG delta**
 ```
-GCB+DFG    88.71%   0.9616   1,184 FN
-GCB no-DFG 88.72%   0.9612   1,194 FN
-Δ          −0.01%  +0.0004    −10 FN   p=TBD (Task 1)
-```
-
-**Table 3 — Cross-backbone DFG delta**
-```
-CodeBERT   88.48%→88.45%   −0.03%   FN+17   p=TBD
-GCB        88.72%→88.71%   −0.01%   FN−10   p=TBD
-UniXcoder  89.28%→89.40%   +0.12%   FN−8    p=TBD
+CodeBERT   [TBD]→[TBD]   [TBD]   FN[TBD]    p=TBD
+GCB        [TBD]→[TBD]   [TBD]   FN[TBD]    p=TBD
+UniXcoder  [TBD]→[TBD]   [TBD]   FN[TBD]   p=TBD
 ```
 
-**Table 4 — Stability**
+**Table 3 — Stability**
 ```
-87.53% ± 0.11%   ROC 0.9565 ± 0.0003
-```
-
-**Table 5 — Per-source**
-```
-LVDAndro  98.34%   0.9978   51 FN
-Draper    89.43%   0.9507  439 FN
-Juliet   100.00%   1.0000    0 FN
-Devign    67.58%   0.7633  449 FN
+[TBD] ± [TBD]   ROC [TBD] ± [TBD]
 ```
 
-**Table 6 — Threshold sensitivity**
+**Table 4 — Per-source**
 ```
-0.60 → Recall 83.41%   F1 0.6585   FPR 7.77%   FN 186
+LVDAndro  [TBD]   [TBD]   [TBD] FN
+Draper    [TBD]   [TBD]  [TBD] FN
+Juliet   [TBD]   [TBD]    [TBD] FN
+Devign    [TBD]   [TBD]  [TBD] FN
 ```
 
-**Table 7 — FN pattern distribution (top-20)**
+**Table 5 — Threshold sensitivity**
 ```
-P5a (full obfuscation)       5/20
-P1  (structural fragment)    4/20
-P5b (Kotlin/lambda)          3/20
-P7  (inter-procedural)       3/20
-P2  (benign surface)         2/20
-P3  (arithmetic edge case)   1/20
-P6  (flag/control flow)      1/20
-P4  (API semantic bypass)    1/20
+0.60 → Recall [TBD]   F1 [TBD]   FPR [TBD]   FN [TBD]
+```
+
+**Table 6 — FN pattern distribution (top-20)**
+```
+P5a (full obfuscation)       [TBD]/[TBD]
+P1  (structural fragment)    [TBD]/[TBD]
+P5b (Kotlin/lambda)          [TBD]/[TBD]
+P7  (inter-procedural)       [TBD]/[TBD]
+P2  (benign surface)         [TBD]/[TBD]
+P3  (arithmetic edge case)   [TBD]/[TBD]
+P6  (flag/control flow)      [TBD]/[TBD]
+P4  (API semantic bypass)    [TBD]/[TBD]
 ```

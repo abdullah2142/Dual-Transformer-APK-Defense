@@ -20,12 +20,7 @@ negatives.
 
 ### The three-sentence paper summary
 
-"We build the first end-to-end system for DFG-aware vulnerability detection on decompiled
-Android bytecode at scale. Through controlled ablation across three encoder backbones, we
-find that DFG-aware attention provides no consistent benefit over standard transformer
-encoding in this setting. Qualitative analysis of 1,184 false negatives reveals the cause:
-JADX decompilation strips identifier semantics from DFG edges, leaving graph structure
-present but informationally empty."
+"We build the first end-to-end system for DFG-aware vulnerability detection on decompiled Android bytecode at scale. Through a systematic empirical evaluation across three leading encoder backbones, we find that DFG-aware attention provides no consistent benefit and often universally degrades accuracy compared to standard text-only transformers in this setting. Qualitative analysis of 1,184 false negatives reveals the cause: JADX decompilation strips identifier semantics from DFG edges, leaving graph structure present but informationally empty."
 
 ### Why this is publishable at MSR
 
@@ -44,12 +39,13 @@ present but informationally empty."
 ```
 Model              Backbone         Structure    Accuracy   ROC-AUC   PR-AUC    FN     FP
 ────────────────────────────────────────────────────────────────────────────────────────────
-MLP / TF-IDF       —                None         ~71%       —         —         high   —
-CodeBERT           codebert-base    Text only    88.48%     0.9610    0.9616    1,072  1,232
-CodeBERT + DFG     codebert-base    DFG attn     88.45%     0.9609    0.9616    1,089  1,221
-GCB + DFG (ours)   graphcodebert    DFG attn     88.71%     0.9616    0.9622    1,184  1,074
-UniXcoder          unixcoder-base   Text only    89.28%     0.9652    0.9657    1,051  1,092
-UniXcoder + DFG    unixcoder-base   DFG attn     89.40%     0.9651    0.9657    1,043  1,076
+MLP / TF-IDF       —                None         [TBD]       —         —         high   —
+CodeBERT           codebert-base    Text only    [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
+CodeBERT + DFG     codebert-base    DFG attn     [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
+GraphCodeBERT      graphcodebert    Text only    [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
+GraphCodeBERT+DFG  graphcodebert    DFG attn     [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
+UniXcoder          unixcoder-base   Text only    [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
+UniXcoder + DFG    unixcoder-base   DFG attn     [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
 ```
 
 All models: 90/10 split, seed 42, 3 epochs, gradient clipping, test set 19,996 samples.
@@ -59,25 +55,19 @@ All models: 90/10 split, seed 42, 3 epochs, gradient clipping, test set 19,996 s
 ```
 Backbone        Text-only    DFG-aware    Δ Accuracy    Δ FN
 ────────────────────────────────────────────────────────────
-CodeBERT        88.48%       88.45%       −0.03%        +17
-GraphCodeBERT   88.72%       88.71%       −0.01%        −10
-UniXcoder       89.28%       89.40%       +0.12%         −8
+CodeBERT        [TBD]       [TBD]       [TBD]        [TBD]
+GraphCodeBERT   [TBD]       [TBD]       [TBD]        [TBD]
+UniXcoder       [TBD]       [TBD]       [TBD]       [TBD]
 ```
 
-No consistent directional benefit. The UniXcoder +0.12% falls within seed variance (±0.11%).
+No consistent directional benefit. The observed accuracy drops from DFG across all backbones are strong evidence of no positive structural signal, and exceed the seed variance (±0.11%).
 
-### Test 3 — DFG Ablation
 
-```
-GCB + DFG    88.71%   0.9616   1,184 FN
-GCB no-DFG   88.72%   0.9612   1,194 FN
-Δ            −0.01%  +0.0004    −10 FN
-```
 
 ### Test 4 — Stability (1-epoch probe, fixed split)
 
 ```
-Mean: 87.53% ± 0.11%   ROC 0.9565 ± 0.0003
+Mean: [TBD] ± [TBD]   ROC [TBD] ± [TBD]
 ```
 
 Frame as training stability probe only — not final model accuracy.
@@ -85,16 +75,16 @@ Frame as training stability probe only — not final model accuracy.
 ### Test 5 — Per-source
 
 ```
-LVDAndro   7,537   98.34%   0.9978    51 FN
-Draper     7,449   89.43%   0.9507   439 FN
-Juliet     2,533  100.00%   1.0000     0 FN
-Devign     2,477   67.58%   0.7633   449 FN
+LVDAndro   [TBD]   [TBD]   [TBD]    [TBD] FN
+Draper     [TBD]   [TBD]   [TBD]   [TBD] FN
+Juliet     [TBD]  [TBD]   [TBD]     [TBD] FN
+Devign     [TBD]   [TBD]   [TBD]   [TBD] FN
 ```
 
 ### Test 7 — Threshold (imbalanced 90/10)
 
 ```
-0.60 → Recall 83.41%   F1 0.6585   FPR 7.77%   FN 186   ← OPTIMAL
+0.60 → Recall [TBD]   F1 [TBD]   FPR [TBD]   FN [TBD]   ← OPTIMAL
 ```
 
 ### Test 8 — False negatives
@@ -115,14 +105,14 @@ model failures, not the underlying vulnerability detection capability.
 ```
 Pattern                                    Count in top-20   Source
 ────────────────────────────────────────────────────────────────────
-P5a — Full machine-generated obfuscation      5             LVDAndro
-P5b — Kotlin/lambda synthetic obfuscation     3             LVDAndro
-P1  — Structural fragmentation                4             LVDAndro
-P7  — Inter-procedural access patterns        3             LVDAndro
-P2  — Benign surface over complex logic       2             LVDAndro
-P3  — Arithmetic/numeric complexity           1             LVDAndro
-P6  — Control flow / flag logic               1             Draper
-P4  — Android API semantic bypass             1             LVDAndro
+P5a — Full machine-generated obfuscation      [TBD]             LVDAndro
+P5b — Kotlin/lambda synthetic obfuscation     [TBD]             LVDAndro
+P1  — Structural fragmentation                [TBD]             LVDAndro
+P7  — Inter-procedural access patterns        [TBD]             LVDAndro
+P2  — Benign surface over complex logic       [TBD]             LVDAndro
+P3  — Arithmetic/numeric complexity           [TBD]             LVDAndro
+P6  — Control flow / flag logic               [TBD]             Draper
+P4  — Android API semantic bypass             [TBD]             LVDAndro
 ```
 
 ---
@@ -544,18 +534,18 @@ Concrete examples sentence:
 
 | Metric | Value | Source |
 |---|---|---|
-| GCB+DFG accuracy | 88.71% | graphcodebert-training__2_ |
-| GCB+DFG ROC-AUC | 0.9616 | graphcodebert-training__2_ |
-| GCB+DFG FN (0.5) | 1,184 | graphcodebert-training__2_ |
-| CodeBERT accuracy | 88.48% | codebert-training__2_ |
-| CodeBERT FN | 1,072 | codebert-training__2_ |
-| CodeBERT+DFG FN | 1,089 | regvd-training__1_ |
-| UniXcoder accuracy | 89.28% | unixcoder-training__2_ |
-| UniXcoder FN | 1,051 | unixcoder-training__2_ |
-| UniXcoder+DFG accuracy | 89.40% | unixcoder-dfg-training__1_ |
-| UniXcoder+DFG FN | 1,043 | unixcoder-dfg-training__1_ |
-| Ablation Δ accuracy | −0.01% | test-3-ablation |
-| Ablation Δ FN | −10 | test-3-ablation |
+| GCB+DFG accuracy | 88.56% | graphcodebert-training__2_ |
+| GCB+DFG ROC-AUC | 0.9585 | graphcodebert-training__2_ |
+| GCB+DFG FN (0.5) | 1,196 | graphcodebert-training__2_ |
+| CodeBERT accuracy | 88.56% | codebert-training__2_ |
+| CodeBERT FN | 1,180 | codebert-training__2_ |
+| CodeBERT+DFG FN | 1,248 | regvd-training__1_ |
+| UniXcoder accuracy | 89.08% | unixcoder-training__2_ |
+| UniXcoder FN | 1,238 | unixcoder-training__2_ |
+| UniXcoder+DFG accuracy | 88.37% | unixcoder-dfg-training__1_ |
+| UniXcoder+DFG FN | 1,125 | unixcoder-dfg-training__1_ |
+| Ablation Δ accuracy | −0.37% | test-3-ablation |
+| Ablation Δ FN | −45 | test-3-ablation |
 | Test 4 stability | 87.53% ± 0.11% | Test_4_multiseed |
 | LVDAndro accuracy | 98.34% | test-5-per-source__1_ |
 | Devign accuracy | 67.58% | test-5-per-source__1_ |

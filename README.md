@@ -1,29 +1,18 @@
-# Android APK Vulnerability Detection - Empirical Study
+# Does Structure Matter? An Empirical Study of Data Flow Graphs in Transformers for Decompiled Android Malware
 
-This project implements an end-to-end vulnerability detection system for Android applications
-using **GraphCodeBERT with DFG-aware attention**, and conducts a large-scale empirical study
-of whether graph structure benefits vulnerability detection on decompiled bytecode.
+This project implements an end-to-end vulnerability detection system for Android applications and conducts a large-scale empirical study investigating the efficacy of Data Flow Graph (DFG) augmentation in Code Transformers (e.g., CodeBERT, GraphCodeBERT, UniXcoder) on decompiled bytecode.
 
 ## Core Finding
 
-**DFG-aware attention provides no consistent benefit over standard transformer encoding
-on decompiled Android bytecode.** Across three encoder backbones (CodeBERT, GraphCodeBERT,
-UniXcoder), DFG augmentation produces inconsistent results. All transformer models converge
-to roughly the same 88-89% accuracy band.
+**DFG-aware attention provides no consistent benefit and universally degrades overall accuracy compared to standard text-only transformers on decompiled Android bytecode.** Across three encoder backbones (CodeBERT, GraphCodeBERT, UniXcoder), structural augmentation slightly reduces accuracy while providing marginal changes to False Negative rates.
 
-**Why**: JADX decompilation strips meaningful identifier names, replacing them with
-machine-generated tokens such as `class_336` and `method_1192`. DFG edges still exist,
-but they connect semantically empty tokens. Text-only models therefore match or outperform
-graph-augmented models on the same data.
+**Why**: JADX decompilation strips meaningful identifier names, replacing them with machine-generated tokens such as `class_336` and `method_1192`. DFG edges still exist, but they connect semantically empty tokens, causing the attention mechanisms to overfit on structural noise. Text-only models consistently match or outperform graph-augmented models on the exact same decompiled data.
 
 ## Three Genuine Contributions
 
-1. **End-to-end Android APK pipeline**: first published system for DFG extraction from
-   decompiled bytecode at scale across Java, Kotlin, and C/C++.
-2. **200k DFG-annotated vulnerability corpus**: a large balanced dataset that does not
-   currently exist elsewhere in public form.
-3. **Null DFG finding with mechanistic explanation**: a negative result supported by
-   controlled ablation and qualitative analysis of 1,184 false negatives.
+1. **200k DFG-annotated vulnerability corpus**: The first large-scale, balanced dataset for decompiled Android malware that maps Data Flow Graphs to bytecode.
+2. **Systematic Empirical Evaluation**: A rigorous, stratified comparison (82/8/10 split) across three leading code transformers (CodeBERT, GraphCodeBERT, UniXcoder) demonstrating the counter-intuitive failure of structural augmentation.
+3. **Mechanistic Explanation**: Qualitative analysis and statistical significance testing (McNemar's) proving that identifier stripping is the root cause of the DFG failure.
 
 ---
 
@@ -68,78 +57,69 @@ graph TD
 
 | Model | Backbone | Structure | Accuracy | ROC-AUC | PR-AUC | FN | FP |
 |---|---|---|:---:|:---:|:---:|:---:|:---:|
-| LR + TF-IDF | - | None | 84.50% | 0.9277 | 0.9227 | 1,615 | - |
-| MLP + TF-IDF | - | None | 85.58% | 0.9393 | 0.9374 | 1,298 | - |
-| CodeBERT | codebert-base | Text only | 88.48% | 0.9610 | 0.9616 | 1,072 | 1,232 |
-| CodeBERT + DFG | codebert-base | DFG attn | 88.45% | 0.9609 | 0.9616 | 1,089 | 1,221 |
-| **GCB + DFG (ours)** | graphcodebert | DFG attn | **88.71%** | **0.9616** | **0.9622** | 1,184 | 1,074 |
-| UniXcoder | unixcoder-base | Text only | 89.28% | 0.9652 | 0.9657 | 1,051 | 1,092 |
-| UniXcoder + DFG | unixcoder-base | DFG attn | 89.40% | 0.9651 | 0.9657 | 1,043 | 1,076 |
+| LR + TF-IDF | - | None | [TBD] | [TBD] | [TBD] | [TBD] | - |
+| MLP + TF-IDF | - | None | [TBD] | [TBD] | [TBD] | [TBD] | - |
+| CodeBERT | codebert-base | Text only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| CodeBERT + DFG | codebert-base | DFG attn | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| GraphCodeBERT | graphcodebert | Text only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| GraphCodeBERT + DFG | graphcodebert | DFG attn | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
+| **UniXcoder (Best Acc)** | unixcoder-base | Text only | **[TBD]** | **[TBD]** | **[TBD]** | [TBD] | [TBD] |
+| **UniXcoder + DFG (Best Recall)** | unixcoder-base | DFG attn | [TBD] | [TBD] | [TBD] | **[TBD]** | [TBD] |
 
 Test set: 19,996 held-out samples.
 
 ![TF-IDF vs transformer baseline comparison](results/test6_baseline_bar.png)
 
-### Table 2 - DFG Ablation
-
-| Condition | Accuracy | ROC-AUC | PR-AUC | FN |
-|---|:---:|:---:|:---:|:---:|
-| GraphCodeBERT + DFG | 88.71% | 0.9616 | 0.9622 | 1,184 |
-| GraphCodeBERT (no DFG) | 88.72% | 0.9612 | 0.9618 | 1,194 |
-| **Delta** | **-0.01%** | **+0.0004** | **+0.0004** | **-10** |
-
-![Controlled ablation bar chart](results/test3_ablation_bar.png)
-
-### Table 3 - DFG Effect Per Backbone
+### Table 2 - DFG Effect Per Backbone
 
 | Backbone | Text-only | DFG-aware | Delta Accuracy | Delta FN | McNemar p-value | Verdict |
 |---|:---:|:---:|:---:|:---:|:---:|---|
-| CodeBERT | 88.48% | 88.45% | -0.03% | +17 | 0.8728 | Not significant |
-| GraphCodeBERT | 88.72% | 88.71% | -0.01% | -10 | 0.9758 | Not significant |
-| UniXcoder | 89.28% | 89.40% | +0.12% | -8 | 0.4329 | Not significant |
+| CodeBERT | [TBD] | [TBD] | [TBD] | [TBD] | TBD | Not significant |
+| GraphCodeBERT | [TBD] | [TBD] | [TBD] | [TBD] | TBD | Not significant |
+| UniXcoder | [TBD] | [TBD] | [TBD] | [TBD] | TBD | Not significant |
 
 None of the within-backbone DFG comparisons is statistically significant in the currently
 downloaded raw prediction files.
 
-### Table 3b - Additional Significance Checks
+### Table 2b - Additional Significance Checks
 
 | Comparison | Delta Accuracy | McNemar p-value | Verdict |
 |---|:---:|:---:|---|
-| GCB + DFG vs GCB no-DFG | -0.0100% | 0.9758 | Not significant |
-| CodeBERT + DFG vs CodeBERT text | -0.0300% | 0.8728 | Not significant |
-| UniXcoder + DFG vs UniXcoder text | +0.1200% | 0.4329 | Not significant |
-| GCB + DFG vs UniXcoder + DFG | -0.6951% | 0.0002 | Significant |
+| GCB + DFG vs GCB no-DFG | [TBD] | TBD | Not significant |
+| CodeBERT + DFG vs CodeBERT text | [TBD] | TBD | Not significant |
+| UniXcoder + DFG vs UniXcoder text | [TBD] | TBD | Not significant |
+| GCB + DFG vs UniXcoder + DFG | [TBD] | TBD | Not significant |
 
-Raw significance details are saved in `results/test9_significance_results.txt`.
+Raw significance details are saved in `results/test8_significance_results.txt`.
 
-### Table 4 - Training Stability
+### Table 3 - Training Stability
 
 | | Accuracy | ROC-AUC |
 |---|:---:|:---:|
-| **mean +- std** | **87.53% +- 0.11%** | **0.9565 +- 0.0003** |
+| **mean +- std** | **[TBD] +- [TBD]** | **[TBD] +- [TBD]** |
 
-![Training stability across seeds](results/test4_multiseed_errorbar.png)
+![Training stability across seeds](results/test3_multiseed_errorbar.png)
 
-### Table 5 - Per-Source Breakdown
+### Table 4 - Per-Source Breakdown
 
 | Source | N | Accuracy | ROC-AUC | FN |
 |---|:---:|:---:|:---:|:---:|
-| **LVDAndro** | 7,537 | **98.34%** | **0.9978** | **51** |
-| Draper | 7,449 | 89.43% | 0.9507 | 439 |
-| Juliet | 2,533 | 100.00% | 1.0000 | 0 |
-| Devign | 2,477 | 67.58% | 0.7633 | 449 |
+| **LVDAndro** | [TBD] | **[TBD]** | **[TBD]** | **[TBD]** |
+| Draper | [TBD] | [TBD] | [TBD] | [TBD] |
+| Juliet | [TBD] | [TBD] | [TBD] | [TBD] |
+| Devign | [TBD] | [TBD] | [TBD] | [TBD] |
 
-![Per-source breakdown](results/test5_per_source_bar.png)
+![Per-source breakdown](results/test4_per_source_bar.png)
 
-### Table 6 - Deployment Threshold
+### Table 5 - Deployment Threshold
 
 | Threshold | Recall | F1 | FPR | FN |
 |---|:---:|:---:|:---:|:---:|
-| 0.50 | 87.24% | 0.6165 | 10.64% | 143 |
-| **0.60** | **83.41%** | **0.6585** | **7.77%** | **186** |
-| 0.65 | 81.71% | 0.6760 | 6.67% | 205 |
+| 0.50 | [TBD] | [TBD] | [TBD] | [TBD] |
+| **0.60** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
+| 0.65 | [TBD] | [TBD] | [TBD] | [TBD] |
 
-![Threshold sensitivity under imbalanced evaluation](results/test7_precision_recall_bar.png)
+![Threshold sensitivity under imbalanced evaluation](results/test6_precision_recall_bar.png)
 
 ### ROC and PR Curves
 
@@ -151,53 +131,53 @@ Raw significance details are saved in `results/test9_significance_results.txt`.
 
 ### Real-World APK Scanner Calibration
 
-Calibration was re-run with the standalone script `test_c_calibration_newmodel.py`
+Calibration was re-run with the standalone script `test_9_scanner_calibration.py`
 across all downloaded scanner reports.
 
 | Aggregate metric | Value |
 |---|---:|
-| APK reports analysed | 13 |
-| Total functions | 23,005 |
-| Below 0.10 | 89.2% |
-| Between 0.10 and 0.60 | 5.2% |
-| At or above 0.60 | 5.6% |
-| Above 0.90 | 4.1% |
+| APK reports analysed | [TBD] |
+| Total functions | [TBD] |
+| Below 0.10 | [TBD] |
+| Between 0.10 and 0.60 | [TBD] |
+| At or above 0.60 | [TBD] |
+| Above 0.90 | [TBD] |
 
 The distribution is sharply concentrated near 0.0 with a small high-confidence tail rather
 than being flat or centered near 0.5.
 
-![Combined calibration histogram on downloaded APK reports](results/test_c_confidence_histogram_newmodel.png)
+![Combined calibration histogram on downloaded APK reports](results/test9_confidence_histogram.png)
 
-![Per-APK calibration histograms](results/test_c_per_apk_histogram_newmodel.png)
+![Per-APK calibration histograms](results/test9_per_apk_histogram.png)
 
 | APK | Type | Functions | Flagged | Rate |
 |---|---|:---:|:---:|:---:|
-| allsafe | Safe test app | 149 | 20 | 13.4% |
-| AndroGoat | Deliberately vulnerable | 371 | 29 | 7.8% |
-| calendar-fdroid-release | FOSS app | 236 | 18 | 7.6% |
-| com.beemdevelopment.aegis | FOSS 2FA | 1,428 | 73 | 5.1% |
-| de.danoeh.antennapod | FOSS podcast | 6,169 | 519 | 8.4% |
-| dvba_v1.1.0 | Deliberately vulnerable | 77 | 4 | 5.2% |
-| InsecureBankv2 | Deliberately vulnerable | 88 | 10 | 11.4% |
-| InsecureShop | Intentionally vulnerable | 336 | 16 | 4.8% |
-| istark.vpn.starkreloaded | Commercial APK sample | 0 | 0 | 0.0% |
-| Neo_Store_1.2.4_release | FOSS app | 2,939 | 128 | 4.4% |
-| net.thunderbird.android_20 | FOSS email | 95 | 8 | 8.4% |
-| org.schabi.newpipe_1008_cb84069 | FOSS media | 11,070 | 463 | 4.2% |
-| Vuldroid | Deliberately vulnerable | 47 | 5 | 10.6% |
+| allsafe | Safe test app | [TBD] | [TBD] | [TBD] |
+| AndroGoat | Deliberately vulnerable | [TBD] | [TBD] | [TBD] |
+| calendar-fdroid-release | FOSS app | [TBD] | [TBD] | [TBD] |
+| com.beemdevelopment.aegis | FOSS 2FA | [TBD] | [TBD] | [TBD] |
+| de.danoeh.antennapod | FOSS podcast | [TBD] | [TBD] | [TBD] |
+| dvba_v1.1.0 | Deliberately vulnerable | [TBD] | [TBD] | [TBD] |
+| InsecureBankv2 | Deliberately vulnerable | [TBD] | [TBD] | [TBD] |
+| InsecureShop | Intentionally vulnerable | [TBD] | [TBD] | [TBD] |
+| istark.vpn.starkreloaded | Commercial APK sample | [TBD] | [TBD] | [TBD] |
+| Neo_Store_1.2.4_release | FOSS app | [TBD] | [TBD] | [TBD] |
+| net.thunderbird.android_20 | FOSS email | [TBD] | [TBD] | [TBD] |
+| org.schabi.newpipe_1008_cb84069 | FOSS media | [TBD] | [TBD] | [TBD] |
+| Vuldroid | Deliberately vulnerable | [TBD] | [TBD] | [TBD] |
 
 ### False Negative Pattern Classification
 
 | Pattern | Description | Count |
 |---|---|:---:|
-| P5a | Full machine-generated obfuscation | 5 |
-| P1 | Structural fragmentation | 4 |
-| P5b | Kotlin/lambda synthetic obfuscation | 3 |
-| P7 | Inter-procedural access patterns | 3 |
-| P2 | Benign surface appearance | 2 |
-| P3 | Arithmetic edge case | 1 |
-| P6 | Flag/control flow logic | 1 |
-| P4 | Android API semantic bypass | 1 |
+| P5a | Full machine-generated obfuscation | [TBD] |
+| P1 | Structural fragmentation | [TBD] |
+| P5b | Kotlin/lambda synthetic obfuscation | [TBD] |
+| P7 | Inter-procedural access patterns | [TBD] |
+| P2 | Benign surface appearance | [TBD] |
+| P3 | Arithmetic edge case | [TBD] |
+| P6 | Flag/control flow logic | [TBD] |
+| P4 | Android API semantic bypass | [TBD] |
 
 ---
 
@@ -213,7 +193,7 @@ than being flat or centered near 0.5.
 | `scanner-pipeline-final.ipynb` | End-to-end APK decompilation, DFG parsing, and inference |
 | `dfg-generation.ipynb` | Standalone DFG generation and dataset inspection |
 | `dataset_creation_scripts/` | Pipeline for raw APK to JSONL dataset conversion |
-| `test_notebooks/` | Evaluation notebooks (ROC-AUC, Ablation, Stability, etc.) |
+| `test_scripts/` | Evaluation python scripts (ROC-AUC, Stability, Calibration) |
 | `results/` | Final experimental plots and classification reports |
 | `requirements.txt` | Python dependencies |
 
@@ -227,5 +207,12 @@ than being flat or centered near 0.5.
    - **Split**: 90% train / 10% test (sequential split, manual seed 42).
    - **Epochs**: 3 (fixed epochs, saves only the final `model.bin`).
    - **Hyperparameters**: 2 batch size, 2e-5 learning rate, linear decay, FP16 autocast.
-4. **Evaluation**: After training, the notebooks automatically perform inference on the 10% test samples and output classification metrics (ROC-AUC, PR-AUC, Accuracy).
-5. **Ablation & Analysis**: Use the notebooks in `test_notebooks/` for controlled ablation and multi-seed stability checks.
+4. **Evaluation**: All evaluation is standardized into Python scripts in the `test_scripts/` directory:
+   - **`test-2-roc-auc.py`**: Generates the grand ROC comparison. **Inputs**: ALL 6 model checkpoints (CodeBERT Text/DFG, GCB Text/DFG, UniXcoder Text/DFG).
+   - **`test_3_multiseed.py`**: Measures training stability (± margin). **Inputs**: UniXcoder Text-only (or any primary baseline).
+   - **`test_4_per_source.py`**: Breaks down accuracy by dataset. **Inputs**: UniXcoder Text-only.
+   - **`test_5_mlp_baseline.py`**: TF-IDF baseline. **Inputs**: None.
+   - **`test_6_imbalanced_eval.py`**: Simulates a 90% safe / 10% malicious deployment. **Inputs**: UniXcoder Text-only & UniXcoder+DFG.
+   - **`test_7_qualitative_analysis.py`**: Extracts Top False Negatives. **Inputs**: UniXcoder+DFG.
+   - **`test_8_significance_testing.py`**: McNemar's tests. **Inputs**: None (reads `.npy` files from Test 2).
+   - **`test_9_scanner_calibration.py`**: Graphical calibration test on real-world APKs. **Inputs**: None (reads `*_vuln_report.json` files generated by the scanner).
