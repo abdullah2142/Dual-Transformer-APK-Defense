@@ -39,25 +39,25 @@ negatives.
 ```
 Model              Backbone         Structure    Accuracy   ROC-AUC   PR-AUC    FN     FP
 ────────────────────────────────────────────────────────────────────────────────────────────
-MLP / TF-IDF       —                None         [TBD]       —         —         high   —
-CodeBERT           codebert-base    Text only    [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
-CodeBERT + DFG     codebert-base    DFG attn     [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
-GraphCodeBERT      graphcodebert    Text only    [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
-GraphCodeBERT+DFG  graphcodebert    DFG attn     [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
-UniXcoder          unixcoder-base   Text only    [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
-UniXcoder + DFG    unixcoder-base   DFG attn     [TBD]     [TBD]    [TBD]    [TBD]  [TBD]
+MLP / TF-IDF       —                None         [TBD]       —         —         [TBD]   —
+CodeBERT           codebert-base    Text only    88.56%     0.9610    0.9625    1,180  1,107
+CodeBERT + DFG     codebert-base    DFG attn     88.54%     0.9604    0.9622    1,248  1,043
+GraphCodeBERT      graphcodebert    Text only    88.93%     0.9596    0.9611    1,241  972
+GraphCodeBERT+DFG  graphcodebert    DFG attn     88.56%     0.9585    0.9597    1,196  1,091
+UniXcoder          unixcoder-base   Text only    89.08%     0.9622    0.9636    1,238  946
+UniXcoder + DFG    unixcoder-base   DFG attn     88.37%     0.9602    0.9612    1,125  1,200
 ```
 
-All models: 90/10 split, seed 42, 3 epochs, gradient clipping, test set 19,996 samples.
+All models: 82/8/10 split, seed 42, early stopping (patience=2), test set 19,996 samples.
 
 ### DFG delta analysis per backbone
 
 ```
 Backbone        Text-only    DFG-aware    Δ Accuracy    Δ FN
 ────────────────────────────────────────────────────────────
-CodeBERT        [TBD]       [TBD]       [TBD]        [TBD]
-GraphCodeBERT   [TBD]       [TBD]       [TBD]        [TBD]
-UniXcoder       [TBD]       [TBD]       [TBD]       [TBD]
+CodeBERT        88.56%       88.54%       −0.02%        +68
+GraphCodeBERT   88.93%       88.56%       −0.37%        −45
+UniXcoder       89.08%       88.37%       −0.71%       −113
 ```
 
 No consistent directional benefit. The observed accuracy drops from DFG across all backbones are strong evidence of no positive structural signal, and exceed the seed variance (±0.11%).

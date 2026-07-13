@@ -39,8 +39,9 @@ graph TD
 
 | Parameter | Value |
 |---|---|
-| Split | 90/10 train/test, seed 42 |
-| Epochs | 3 (fixed, no checkpoint selection) |
+| Split | 82/8/10 train/val/test, seed 42 |
+| Epochs | Up to 5 (early stopping, patience = 2) |
+| Checkpoint selection | Best validation accuracy |
 | Batch size | 16 train / 32 eval |
 | Learning rate | 2e-5 |
 | Optimizer | AdamW, eps = 1e-8 |
@@ -49,22 +50,26 @@ graph TD
 | Code length | 384 tokens |
 | Decision threshold | 0.60 |
 
+> **Note**: Models were retrained with an 8% stratified validation split and
+> validation-based early stopping (patience = 2). The original methodology used a
+> fixed 3-epoch schedule with no checkpoint selection.
+
 ---
 
 ## Results
 
 ### Table 1 - Full Model Comparison
 
-| Model | Backbone | Structure | Accuracy | ROC-AUC | PR-AUC | FN | FP |
-|---|---|---|:---:|:---:|:---:|:---:|:---:|
-| LR + TF-IDF | - | None | [TBD] | [TBD] | [TBD] | [TBD] | - |
-| MLP + TF-IDF | - | None | [TBD] | [TBD] | [TBD] | [TBD] | - |
-| CodeBERT | codebert-base | Text only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| CodeBERT + DFG | codebert-base | DFG attn | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| GraphCodeBERT | graphcodebert | Text only | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| GraphCodeBERT + DFG | graphcodebert | DFG attn | [TBD] | [TBD] | [TBD] | [TBD] | [TBD] |
-| **UniXcoder (Best Acc)** | unixcoder-base | Text only | **[TBD]** | **[TBD]** | **[TBD]** | [TBD] | [TBD] |
-| **UniXcoder + DFG (Best Recall)** | unixcoder-base | DFG attn | [TBD] | [TBD] | [TBD] | **[TBD]** | [TBD] |
+| Model | Backbone | Structure | Accuracy | ROC-AUC | PR-AUC | FN | FP | Best Epoch |
+|---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| LR + TF-IDF | - | None | [TBD] | [TBD] | [TBD] | [TBD] | - | - |
+| MLP + TF-IDF | - | None | [TBD] | [TBD] | [TBD] | [TBD] | - | - |
+| CodeBERT | codebert-base | Text only | 88.5627% | 0.9610 | 0.9625 | 1,180 | 1,107 | 4 |
+| CodeBERT + DFG | codebert-base | DFG attn | 88.5427% | 0.9604 | 0.9622 | 1,248 | 1,043 | 4 |
+| **GCB (text-only)** | graphcodebert | Text only | **88.9300%** | **0.9596** | **0.9611** | **1,241** | **972** | **5** |
+| GCB + DFG | graphcodebert | DFG attn | 88.5600% | 0.9585 | 0.9597 | 1,196 | 1,091 | 5 |
+| UniXcoder | unixcoder-base | Text only | 89.0778% | 0.9622 | 0.9636 | 1,238 | 946 | 4 |
+| UniXcoder + DFG | unixcoder-base | DFG attn | 88.3727% | 0.9602 | 0.9612 | 1,125 | 1,200 | 4 |
 
 Test set: 19,996 held-out samples.
 
@@ -74,9 +79,9 @@ Test set: 19,996 held-out samples.
 
 | Backbone | Text-only | DFG-aware | Delta Accuracy | Delta FN | McNemar p-value | Verdict |
 |---|:---:|:---:|:---:|:---:|:---:|---|
-| CodeBERT | [TBD] | [TBD] | [TBD] | [TBD] | TBD | Not significant |
-| GraphCodeBERT | [TBD] | [TBD] | [TBD] | [TBD] | TBD | Not significant |
-| UniXcoder | [TBD] | [TBD] | [TBD] | [TBD] | TBD | Not significant |
+| CodeBERT | 88.5627% | 88.5427% | −0.020% | +68 | TBD | Not significant |
+| GraphCodeBERT | 88.9300% | 88.5600% | −0.370% | −45 | TBD | Not significant |
+| UniXcoder | 89.0778% | 88.3727% | −0.705% | −113 | TBD | Not significant |
 
 None of the within-backbone DFG comparisons is statistically significant in the currently
 downloaded raw prediction files.
@@ -85,10 +90,10 @@ downloaded raw prediction files.
 
 | Comparison | Delta Accuracy | McNemar p-value | Verdict |
 |---|:---:|:---:|---|
-| GCB + DFG vs GCB no-DFG | [TBD] | TBD | Not significant |
-| CodeBERT + DFG vs CodeBERT text | [TBD] | TBD | Not significant |
-| UniXcoder + DFG vs UniXcoder text | [TBD] | TBD | Not significant |
-| GCB + DFG vs UniXcoder + DFG | [TBD] | TBD | Not significant |
+| GCB + DFG vs GCB no-DFG | −0.370% | TBD | Not significant |
+| CodeBERT + DFG vs CodeBERT text | −0.020% | TBD | Not significant |
+| UniXcoder + DFG vs UniXcoder text | −0.705% | TBD | Not significant |
+| GCB + DFG vs UniXcoder + DFG | +0.1873% | TBD | Not significant |
 
 Raw significance details are saved in `results/test8_significance_results.txt`.
 

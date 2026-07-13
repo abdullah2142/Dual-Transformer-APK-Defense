@@ -49,10 +49,10 @@ print(f"p = {result.pvalue:.4f}")
 | Test | Result |
 |---|---|
 | GCB+DFG training | 88.56%, ROC 0.9585, FN 1196 |
-| CodeBERT | [TBD] |
-| CodeBERT+DFG | [TBD] |
-| UniXcoder | [TBD] |
-| UniXcoder+DFG | [TBD] |
+| CodeBERT | 88.56% |
+| CodeBERT+DFG | 88.54% |
+| UniXcoder | 89.08% |
+| UniXcoder+DFG | 88.37% |
 | Test 2 ROC curves | Generated |
 | Test 3 Stability | [TBD] |
 | Test 4 Per-source | [TBD] |
@@ -93,20 +93,20 @@ print(f"p = {result.pvalue:.4f}")
 
 **Table 1**
 ```
-MLP/TF-IDF      [TBD]      —       —        [TBD]
-CodeBERT        [TBD]   [TBD]  [TBD]   [TBD] FN
-CodeBERT+DFG    [TBD]   [TBD]  [TBD]   [TBD] FN
-GCB Text        [TBD]   [TBD]  [TBD]   [TBD] FN
-GCB+DFG         [TBD]   [TBD]  [TBD]   [TBD] FN
-UniXcoder       [TBD]   [TBD]  [TBD]   [TBD] FN
-UniXcoder+DFG   [TBD]   [TBD]  [TBD]   [TBD] FN
+MLP/TF-IDF      [TBD]      [TBD]  [TBD]   [TBD] FN
+CodeBERT        88.56%   0.9610  0.9625   1,180 FN
+CodeBERT+DFG    88.54%   0.9604  0.9622   1,248 FN
+GCB Text        88.93%   0.9596  0.9611   1,241 FN
+GCB+DFG         88.56%   0.9585  0.9597   1,196 FN
+UniXcoder       89.08%   0.9622  0.9636   1,238 FN
+UniXcoder+DFG   88.37%   0.9602  0.9612   1,125 FN
 ```
 
 **Table 2 — Cross-backbone DFG delta**
 ```
-CodeBERT   [TBD]→[TBD]   [TBD]   FN[TBD]    p=TBD
-GCB        [TBD]→[TBD]   [TBD]   FN[TBD]    p=TBD
-UniXcoder  [TBD]→[TBD]   [TBD]   FN[TBD]   p=TBD
+CodeBERT   88.56%→88.54%   −0.02%   FN+68    p=TBD
+GCB        88.93%→88.56%   −0.37%   FN−45    p=TBD
+UniXcoder  89.08%→88.37%   −0.71%   FN−113   p=TBD
 ```
 
 **Table 3 — Stability**
