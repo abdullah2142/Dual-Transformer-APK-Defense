@@ -21,6 +21,11 @@
       are not statistically significant (McNemar's test, p > 0.05 for all pairs)"
       *Note: Must be re-run with latest `.npy` files from the re-train to confirm.*
 
+### Task 1b — Re-run Test 3 (Multi-seed stability)
+- [ ] Run `test-3-seed42.ipynb`, `test-3-seed123.ipynb`, and `test-3-seed2025.ipynb` on Kaggle in parallel.
+- [ ] The original notebook timed out at 12 hours. It is now split into three with `tqdm` output suppressed.
+- [ ] After they finish, run `test_scripts/test_3_multiseed.py` (or a local aggregator script) to get the final mean/std numbers.
+
 ```python
 from statsmodels.stats.contingency_tables import mcnemar
 preds_a = (probs_a[:, 1] >= 0.5).astype(int)

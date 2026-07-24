@@ -51,7 +51,9 @@ graph TD
 | Decision threshold | 0.60 |
 
 > **Note**: Models were retrained with an 8% stratified validation split and
-> validation-based early stopping (patience = 2). The original methodology used a
+> validation-based early stopping (patience = 2, max 5 epochs). Both GraphCodeBERT models 
+> (Text-only and DFG) were given a higher ceiling (max 10 epochs, patience = 3) as they 
+> converge later, but both still converged at epoch 5. The original methodology used a
 > fixed 3-epoch schedule with no checkpoint selection.
 
 ---

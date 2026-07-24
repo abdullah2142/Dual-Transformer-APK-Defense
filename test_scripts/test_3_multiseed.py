@@ -276,7 +276,7 @@ def train_one_seed(model, train_ds, val_ds, seed):
     for epoch in range(args.num_train_epochs):
         model.train()
         tr_loss = 0.0
-        for batch in tqdm(loader, desc=f"  [seed {seed}] Epoch {epoch}"):
+        for batch in tqdm(loader, desc=f"  [seed {seed}] Epoch {epoch}", disable=True):
             inp = {
                 'input_ids': batch['input_ids'].to(args.device),
                 'p_ids':     batch['p_ids'].to(args.device),

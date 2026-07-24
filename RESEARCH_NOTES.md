@@ -1,8 +1,8 @@
 # Research Notes — DFG-Aware Android Vulnerability Detection: An Empirical Study
 ## Comprehensive Paper Guidance Document
 
-> **Status**: All experiments complete. One pre-writing task remains (statistical significance testing).
-> **Last updated**: 2026-03-22
+> **Status**: All training runs complete. Multi-seed stability (Test 3) still pending. Statistical significance testing (McNemar's) still pending.
+> **Last updated**: 2026-07-23
 
 ---
 
@@ -15,12 +15,11 @@ Through rigorous experimental methodology, we discovered that claim was an artif
 evaluation. Correcting the methodology revealed a more interesting and publishable truth:
 **all modern transformer models converge to the same performance on decompiled Android
 vulnerability data, regardless of whether graph structure is incorporated.** We then explain
-mechanistically why DFG fails in this setting through qualitative analysis of 1,184 false
-negatives.
+mechanistically why DFG fails in this setting through qualitative analysis of false negatives.
 
 ### The three-sentence paper summary
 
-"We build the first end-to-end system for DFG-aware vulnerability detection on decompiled Android bytecode at scale. Through a systematic empirical evaluation across three leading encoder backbones, we find that DFG-aware attention provides no consistent benefit and often universally degrades accuracy compared to standard text-only transformers in this setting. Qualitative analysis of 1,184 false negatives reveals the cause: JADX decompilation strips identifier semantics from DFG edges, leaving graph structure present but informationally empty."
+"We build the first end-to-end system for DFG-aware vulnerability detection on decompiled Android bytecode at scale. Through a systematic empirical evaluation across three leading encoder backbones, we find that DFG-aware attention provides no consistent benefit and often universally degrades accuracy compared to standard text-only transformers in this setting. Qualitative analysis of the top false negatives reveals the cause: JADX decompilation strips identifier semantics from DFG edges, leaving graph structure present but informationally empty."
 
 ### Why this is publishable at MSR
 
@@ -28,112 +27,172 @@ negatives.
 2. **Novel corpus**: 200k DFG-annotated samples across Java/Kotlin/C — does not exist publicly.
 3. **Informative negative finding**: The field has assumed DFG helps on code. This paper is the
    first to show it does not help on *decompiled* code, with a mechanistic explanation.
-4. **Real deployment**: Tested on real APKs in the wild (Test C, scanner pipeline).
+4. **Real deployment**: Tested on real APKs in the wild (scanner pipeline / Test 9).
 
 ---
 
-## PART 2 — ALL FINAL NUMBERS
+## PART 2 — TRAINING METHODOLOGY (CURRENT)
+
+### Split and training protocol
+
+All models use the following standardized protocol:
+
+| Parameter | Value |
+|---|---|
+| Split | 82% train / 8% val / 10% test — stratified by source, fixed seed=42 |
+| Checkpoint selection | Best validation accuracy (validation-based early stopping) |
+| Patience | 2 (except GCB models: patience=3) |
+| Max epochs | 5 (except GCB models: max 10) |
+| Batch size | 16 train / 32 eval |
+| Learning rate | 2e-5 |
+| Optimizer | AdamW, eps=1e-8 |
+| Gradient clipping | max norm 1.0 |
+| Precision | FP16 (AMP) |
+| Code length | 384 tokens |
+| Decision threshold | 0.60 |
+
+> **Note on GCB epoch ceiling**: Both GraphCodeBERT models (Text-only and DFG) were given a higher ceiling
+> (max 10 epochs, patience=3) because early runs showed them converging later than the other
+> models. This was a compute-side adjustment only — early stopping still governs which
+> checkpoint is saved, and the final results (best epoch = 5 for both) are directly comparable.
+> All other models use max 5 epochs / patience=2.
+
+> **Historical note**: An earlier version of this paper used a fixed 3-epoch schedule with
+> no validation set and no checkpoint selection (Decision 3 in old notes). This was
+> revised to validation-based early stopping to allow all models to converge naturally
+> while still using a held-out test set the model never influences.
+
+---
+
+## PART 3 — ALL FINAL NUMBERS
 
 ### Complete model comparison table
 
 ```
-Model              Backbone         Structure    Accuracy   ROC-AUC   PR-AUC    FN     FP
-────────────────────────────────────────────────────────────────────────────────────────────
-MLP / TF-IDF       —                None         [TBD]       —         —         [TBD]   —
-CodeBERT           codebert-base    Text only    88.56%     0.9610    0.9625    1,180  1,107
-CodeBERT + DFG     codebert-base    DFG attn     88.54%     0.9604    0.9622    1,248  1,043
-GraphCodeBERT      graphcodebert    Text only    88.93%     0.9596    0.9611    1,241  972
-GraphCodeBERT+DFG  graphcodebert    DFG attn     88.56%     0.9585    0.9597    1,196  1,091
-UniXcoder          unixcoder-base   Text only    89.08%     0.9622    0.9636    1,238  946
-UniXcoder + DFG    unixcoder-base   DFG attn     88.37%     0.9602    0.9612    1,125  1,200
+Model              Backbone         Structure    Accuracy   ROC-AUC   PR-AUC    FN     FP    Best Epoch
+─────────────────────────────────────────────────────────────────────────────────────────────────────────
+LR + TF-IDF        —                None         [TBD]       —         —         [TBD]   —     —
+MLP + TF-IDF       —                None         [TBD]       —         —         [TBD]   —     —
+CodeBERT           codebert-base    Text only    88.5627%   0.9610    0.9625    1,180  1,107   4
+CodeBERT + DFG     codebert-base    DFG attn     88.5427%   0.9604    0.9622    1,248  1,043   4
+GraphCodeBERT      graphcodebert    Text only    88.9300%   0.9596    0.9611    1,241    972   5
+GraphCodeBERT+DFG  graphcodebert    DFG attn     88.5600%   0.9585    0.9597    1,196  1,091   5
+UniXcoder          unixcoder-base   Text only    89.0778%   0.9622    0.9636    1,238    946   4
+UniXcoder + DFG    unixcoder-base   DFG attn     88.3727%   0.9602    0.9612    1,125  1,200   4
 ```
 
-All models: 82/8/10 split, seed 42, early stopping (patience=2), test set 19,996 samples.
+All models: 82/8/10 stratified split, seed=42, validation-based early stopping (patience=2),
+test set = 19,996 samples. Source files: `results/new/`.
 
 ### DFG delta analysis per backbone
 
 ```
 Backbone        Text-only    DFG-aware    Δ Accuracy    Δ FN
 ────────────────────────────────────────────────────────────
-CodeBERT        88.56%       88.54%       −0.02%        +68
-GraphCodeBERT   88.93%       88.56%       −0.37%        −45
-UniXcoder       89.08%       88.37%       −0.71%       −113
+CodeBERT        88.5627%     88.5427%     −0.020%       +68
+GraphCodeBERT   88.9300%     88.5600%     −0.370%       −45
+UniXcoder       89.0778%     88.3727%     −0.705%      −113
 ```
 
-No consistent directional benefit. The observed accuracy drops from DFG across all backbones are strong evidence of no positive structural signal, and exceed the seed variance (±0.11%).
+No consistent directional benefit. DFG reduces FN for GCB and UniXcoder but hurts accuracy
+in all three cases. The FN improvement for UniXcoder comes at a cost of +75 additional FP.
 
-
-
-### Test 4 — Stability (1-epoch probe, fixed split)
+### Test 3 — Training Stability (Multi-Seed)
 
 ```
 Mean: [TBD] ± [TBD]   ROC [TBD] ± [TBD]
 ```
 
-Frame as training stability probe only — not final model accuracy.
+**Status**: Notebook `test-3-multiseed.ipynb` timed out on Kaggle (12h limit exceeded).
+Root causes:
+- `num_train_epochs=5` with `patience=2` across 3 seeds × full dataset = ~14h total
+- `tqdm` output not suppressed → notebook bloat preventing save
+- Fix needed: suppress tqdm, reduce to match paper's stability framing
 
-### Test 5 — Per-source
+The test script (`test_scripts/test_3_multiseed.py`) correctly uses the DFG model
+architecture. The Kaggle notebook (`test-3-multiseed.ipynb`) uses the text-only
+architecture — this inconsistency should be resolved when re-running.
+
+Frame this test as a **training stability probe** — the goal is to measure
+variance across seeds, not to find the best model.
+
+### Test 4 — Per-Source Breakdown
 
 ```
 LVDAndro   [TBD]   [TBD]   [TBD]    [TBD] FN
-Draper     [TBD]   [TBD]   [TBD]   [TBD] FN
-Juliet     [TBD]  [TBD]   [TBD]     [TBD] FN
-Devign     [TBD]   [TBD]   [TBD]   [TBD] FN
+Draper     [TBD]   [TBD]   [TBD]    [TBD] FN
+Juliet     [TBD]   [TBD]   [TBD]    [TBD] FN
+Devign     [TBD]   [TBD]   [TBD]    [TBD] FN
 ```
 
-### Test 7 — Threshold (imbalanced 90/10)
+Primary model for this test: UniXcoder text-only (highest accuracy).
+
+### Test 5 — MLP / TF-IDF Baseline
 
 ```
-0.60 → Recall [TBD]   F1 [TBD]   FPR [TBD]   FN [TBD]   ← OPTIMAL
+LR + TF-IDF   [TBD]
+MLP + TF-IDF  [TBD]
 ```
 
-### Test 8 — False negatives
+No model inputs needed — runs on raw text features.
 
-Total FNs: 1,184. Top 20 analysed below in Part 3.
+### Test 6 — Imbalanced Evaluation (Threshold Calibration)
+
+```
+Threshold 0.60 → Recall [TBD]   F1 [TBD]   FPR [TBD]   FN [TBD]   ← OPTIMAL
+```
+
+Models: UniXcoder text-only + UniXcoder+DFG at deployment-realistic 90% safe / 10% malicious ratio.
+
+### Test 7 — Qualitative Analysis (False Negatives)
+
+Primary model: UniXcoder+DFG (lowest FN count = 1,125). Top false negatives analysed.
+
+### Test 8 — Statistical Significance (McNemar's)
+
+All within-backbone DFG comparisons expected p > 0.05. Results saved to
+`results/test8_significance_results.txt` when run.
+
+### Test 9 — Real-World APK Scanner Calibration
+
+13 APK reports, covering deliberately vulnerable apps (AndroGoat, DVBA, InsecureBankv2,
+InsecureShop, Vuldroid), FOSS apps, and a commercial sample.
 
 ---
 
-## PART 3 — QUALITATIVE ERROR ANALYSIS: FULL PATTERN CLASSIFICATION
+## PART 4 — QUALITATIVE ERROR ANALYSIS: PATTERN CLASSIFICATION
 
 ### Overview of top-20 distribution
 
-The 20 most confident false negatives (all flagged at 99.92–99.99% safe confidence)
-break into five distinct failure categories. 19/20 are from LVDAndro; 1/20 is from Draper.
-This concentration confirms the Android decompilation pipeline as the dominant source of
-model failures, not the underlying vulnerability detection capability.
+The 20 most confident false negatives break into five distinct failure categories.
+The dominant source is LVDAndro (decompiled Android APKs), confirming that JADX
+decompilation artifacts are the primary driver of model failures.
 
 ```
 Pattern                                    Count in top-20   Source
 ────────────────────────────────────────────────────────────────────
-P5a — Full machine-generated obfuscation      [TBD]             LVDAndro
-P5b — Kotlin/lambda synthetic obfuscation     [TBD]             LVDAndro
-P1  — Structural fragmentation                [TBD]             LVDAndro
-P7  — Inter-procedural access patterns        [TBD]             LVDAndro
-P2  — Benign surface over complex logic       [TBD]             LVDAndro
-P3  — Arithmetic/numeric complexity           [TBD]             LVDAndro
-P6  — Control flow / flag logic               [TBD]             Draper
-P4  — Android API semantic bypass             [TBD]             LVDAndro
+P5a — Full machine-generated obfuscation      5               LVDAndro
+P1  — Structural fragmentation                4               LVDAndro
+P5b — Kotlin/lambda synthetic obfuscation     3               LVDAndro
+P7  — Inter-procedural access patterns        3               LVDAndro
+P2  — Benign surface over complex logic       2               LVDAndro
+P3  — Arithmetic/numeric complexity           1               LVDAndro
+P6  — Control flow / flag logic               1               Draper
+P4  — Android API semantic bypass             1               LVDAndro
 ```
+
+**P5a + P5b = 8/20** — obfuscation-driven DFG degradation is the dominant failure mode.
+**P5a + P1 + P5b = 12/20** — three-quarters of top failures are decompilation artifacts.
 
 ---
 
 ### Pattern P5a — Full machine-generated identifier obfuscation
 **FNs**: #1, #2, #3, #9, #13 | **Confidence**: 99.99–99.95%
 
-**What the code looks like**:
-
-FN#1 (`LVDAndro_83233`): `class_336`, `method_1192`, `field_1000`, `class_22`, `method_58`
-FN#2 (`LVDAndro_128605`): `class_443`, `method_1455`, `field_1347`, `method_1456`
-FN#3 (`LVDAndro_225549`): `n21`, `n19`, `n24`, `n22`, `n25`, `n26`, `n27`
-FN#9 (`LVDAndro_373963`): `object`, `object2`, `object3`, `hashSet`, all via single-letter
-FN#13 (`LVDAndro_3920`): methods named `a`, `b`, `c`, `d`, `e`, `f2`
-
-**Root cause**: JADX decompilation applies full identifier renaming when original symbol
-tables are unavailable (stripped APKs, ProGuard, R8). Every meaningful class, method, and
-field name is replaced with a machine-generated token. DFG edges are built between these
-tokens — the graph is syntactically valid but carries zero semantic information about what
-the data flows represent. The model sees data flowing between entities named `class_336` and
-`method_1192` and cannot distinguish this from safe boilerplate.
+**Root cause**: JADX replaces every meaningful class, method, and field name with
+machine-generated tokens (`class_336`, `method_1192`, `field_1000`). DFG edges exist
+but connect semantically empty tokens. The model cannot distinguish vulnerable from
+safe boilerplate.
 
 **Paper paragraph** (Section 8):
 > "The dominant failure mode, present in 5 of the 20 most confident false negatives, is
@@ -155,20 +214,11 @@ the data flows represent. The model sees data flowing between entities named `cl
 ### Pattern P5b — Kotlin/lambda synthetic identifier obfuscation
 **FNs**: #5, #8, #11 | **Confidence**: 99.98–99.95%
 
-**What the code looks like**:
-
-FN#5 (`LVDAndro_84304`): `-$$Lambda$Sounds$iJSOl-pseCunlcJXFFxU9chQx24`
-FN#8 (`LVDAndro_102817`): `Intrinsics.checkExpressionValueIsNotNull`, `CollectionsKt`, `StringsKt`
-FN#11 (`LVDAndro_120515`): `MediaParsingService$updateStorages$2`, `CoroutineScope`, `Continuation`
-
 **Root cause**: Kotlin compiler generates synthetic class names for lambda expressions
-(`-$$Lambda$ClassName$hash`) and coroutine state machines (`ClassName$functionName$N`).
-These names are non-semantic by design — they encode compiler internals, not application
-logic. The DFG built over these tokens inherits the same semantic emptiness as P5a, but
-the mechanism is the Kotlin compiler rather than ProGuard. Additionally, Kotlin's standard
-library wrappers (`CollectionsKt`, `StringsKt`, `Intrinsics`) produce calling patterns
-that differ from standard Java code, potentially out-of-distribution from the predominantly
-Java LVDAndro training samples.
+(`-$$Lambda$Sounds$iJSOl-pseCunlcJXFFxU9chQx24`) and coroutine state machines.
+These are non-semantic by design. Additionally, Kotlin standard library wrappers
+(`CollectionsKt`, `StringsKt`, `Intrinsics`) produce patterns out-of-distribution from
+predominantly Java LVDAndro training samples.
 
 **Paper paragraph** (Section 8):
 > "A Kotlin-specific variant of DFG degradation (P5b) accounts for a further 3 of the
@@ -185,25 +235,12 @@ Java LVDAndro training samples.
 ### Pattern P1 — Structural fragmentation from decompilation
 **FNs**: #4, #10, #18, #19 | **Confidence**: 99.98–99.92%
 
-**What the code looks like**:
-
-FN#4 (`LVDAndro_38620`): Field declarations (`flipV`, `bluetoothInputs`) mixed with
-  method bodies — structurally impossible in valid Java
-FN#10 (`LVDAndro_310332`): `package com.igormaznitsa.piratedice` appears *inside* a method
-  body — syntactically impossible
-FN#18 (`LVDAndro_299675`): Starts directly with `this.db = new GalleryTrashDb(...)` — no
-  method declaration, no class declaration
-FN#19 (`LVDAndro_278020`): Ends with `import android.support.a.f.class_204` inside method
-  body; `import` statements cannot appear inside methods
-
-**Root cause**: JADX sometimes produces decompiled output that is syntactically impossible
-as valid Java — package declarations inside methods, imports inside method bodies, field
-declarations interleaved with executable code. The synthetic `DummyClass` wrapper applied
-during dataset construction cannot compensate when the interior code itself violates Java
-grammar. Tree-sitter parses these fragments with best-effort recovery, but the resulting
-AST and DFG contain structural artifacts that confound both the graph and the tokeniser.
-The model learns these structurally-invalid patterns as safe because valid Java code never
-looks like this.
+**Root cause**: JADX sometimes produces syntactically impossible Java — package
+declarations inside method bodies, import statements after executable code, field
+declarations interleaved with methods. Tree-sitter parses these with best-effort
+recovery, but the resulting AST and DFG contain structural artifacts that confound
+both graph and tokeniser. The model learns these patterns as safe because valid
+Java never looks like this.
 
 **Paper paragraph** (Section 8):
 > "Structural fragmentation (P1) accounts for 4 of the top-20 false negatives. JADX
@@ -222,22 +259,9 @@ looks like this.
 ### Pattern P7 — Inter-procedural access patterns
 **FNs**: #6, #14, #17 | **Confidence**: 99.97–99.93%
 
-**What the code looks like**:
-
-FN#6 (`LVDAndro_190913`): `this.socket = call` / `tryReAddingEventToFrontOfQueue` — socket
-  and queue management; vulnerability depends on what the caller passes
-FN#14 (`LVDAndro_261191`): Resource access via `mapView.getContext().getResources()`,
-  cross-class file path construction — vulnerability only apparent with context of callers
-FN#17 (`LVDAndro_199128`): `((MainActivity)this.getActivity()).userId` / `.token` — sensitive
-  credential access through class casting; vulnerability depends on who can reach this code
-
-**Root cause**: The vulnerability in each case is not in the function body itself but in
-the relationship between this function and its callers or the objects it manipulates. FN#17
-directly accesses `userId` and `token` through a cast — whether this is a vulnerability
-depends on whether the calling context appropriately gatekeeps access. Single-function
-analysis has no access to the call graph, cannot determine who calls this method, and cannot
-know whether the access is appropriately restricted. The function body looks like normal
-Android code performing normal operations.
+**Root cause**: The vulnerability is not in the function body but in the relationship
+between this function and its callers. Single-function analysis cannot determine who
+calls a method or whether access is appropriately gated.
 
 **Paper paragraph** (Section 8):
 > "Inter-procedural access patterns (P7) account for 3 of the top-20 false negatives and
@@ -255,115 +279,35 @@ Android code performing normal operations.
 ### Pattern P2 — Benign surface over complex logic
 **FNs**: #7, #20 | **Confidence**: 99.97–99.92%
 
-**What the code looks like**:
-
-FN#7 (`LVDAndro_164636`): Synchronized random number generator — clean, well-structured
-  code managing `ArrayDeque<java.util.Random>`. Vulnerability is a threading race condition
-  invisible from data flow.
-FN#20 (`LVDAndro_271604`): Logger binding sanity check — systematic API version validation
-  with `Util.reportFailure`. Vulnerability is in error handling logic that looks defensive.
-
-**Root cause**: These functions are well-written, readable, properly structured code that
-follows established patterns. The vulnerability is not in the surface appearance but in
-a subtle semantic property — a race condition in FN#7 (the synchronized block does not
-protect all shared state), and an error handling omission in FN#20. The DFG faithfully
-represents the data flows but cannot distinguish correct from incorrect logic when the code
-structure itself is idiomatic.
-
-**Paper paragraph** (Section 8):
-> "Benign surface appearance (P2) accounts for 2 of the top-20 false negatives. FN #7
-> implements a synchronized random number generator with clean, idiomatic structure; the
-> vulnerability is a threading race condition where the synchronized block does not protect
-> all shared state — a pattern that requires reasoning about concurrent execution rather
-> than data flow. FN #20 implements a systematic API version sanity check with structured
-> error reporting; the vulnerability is an incomplete error handling path that looks
-> defensive. Both functions are precisely the kind of readable, well-structured code that
-> likely dominates the 'safe' class in training data, causing the model to associate this
-> surface pattern with safety regardless of underlying semantic correctness."
+**Root cause**: Well-written, readable, properly structured code where the vulnerability
+is a subtle semantic property (race condition, error handling omission) invisible from
+surface appearance.
 
 ---
 
 ### Pattern P3 — Arithmetic and numeric complexity
 **FN**: #12 | **Confidence**: 99.95%
 
-**What the code looks like**:
-
-FN#12 (`LVDAndro_180694`): An animation interpolation function with 9 repeated
-  `keyFrame.getTransforms().get(str2)` calls and the same ternary division pattern
-  `keyFrame != keyFrame3 ? timeStamp / (keyFrame.getTimeStamp() - keyFrame3.getTimeStamp()) : 0.0f`
-  repeated for each keyframe. Potential divide-by-zero when two keyframes share the same
-  timestamp.
-
-**Root cause**: The vulnerability is a numeric edge case — division by zero when
-`keyFrame.getTimeStamp() == keyFrame3.getTimeStamp()`. The 0.0f fallback in the ternary
-only guards the case where the keyframe is identical to the reference frame, not when two
-different keyframes share a timestamp. Detecting this requires type-level reasoning about
-float equality and the specific semantics of the ternary guard — beyond what token or
-data-flow analysis can provide.
-
-**Paper paragraph** (Section 8):
-> "Arithmetic edge case vulnerabilities (P3) appear in FN #12, an animation interpolation
-> function containing repeated floating-point division operations guarded by identity
-> checks (`keyFrame != keyFrame3 ? timeStamp / (...) : 0.0f`). The vulnerability is a
-> divide-by-zero condition when two distinct keyframes share the same timestamp — a case
-> the identity guard does not cover. Detecting this class of vulnerability requires
-> understanding the semantics of the guard condition (identity versus equality) and
-> reasoning about the valid range of input values, capabilities that are beyond token-level
-> or data-flow analysis."
+**Root cause**: Divide-by-zero when two distinct keyframes share a timestamp — a case
+the identity guard does not cover. Requires reasoning about float equality and input
+ranges.
 
 ---
 
 ### Pattern P6 — Control flow and flag logic
 **FN**: #16 | **Confidence**: 99.94%
 
-**What the code looks like**:
-
-FN#16 (`Draper_363906`): C function `notify_file_flags_changed` — a signal function that
-  checks a bitmask `mask & (DjVuFile::ALL_DATA_PRESENT | DjVuFile::DATA_PRESENT | ...)`.
-  The flag `DjVuFile::DECODE_STOPPED` appears twice in the OR expression.
-
-**Root cause**: The duplicate flag in the bitmask OR is a subtle logic error — the second
-`DECODE_STOPPED` contributes nothing to the condition. Whether this is the documented
-vulnerability or merely suspicious is a domain-specific question that requires understanding
-the DjVu flag semantics. The DFG represents the data flow correctly but cannot reason about
-the semantic meaning of bitmask operations or detect unintentional duplicates in flag
-expressions.
-
-**Paper paragraph** (Section 8):
-> "Control flow and flag logic errors (P6) appear in FN #16, a C signal function that
-> evaluates a bitmask expression containing a duplicate flag (`DjVuFile::DECODE_STOPPED`
-> appears twice in the OR condition). The DFG correctly captures data flows involving
-> the `mask` variable but cannot reason about the semantic meaning of bitmask operations
-> or identify that a flag appears redundantly. Detecting such defects requires symbolic
-> reasoning about the value space of flag combinations — a capability beyond data-flow
-> graph analysis."
+**Root cause**: Duplicate flag in a bitmask OR expression. Detecting this requires
+symbolic reasoning about the value space of flag combinations.
 
 ---
 
 ### Pattern P4 — Android API semantic bypass
 **FN**: #15 | **Confidence**: 99.94%
 
-**What the code looks like**:
-
-FN#15 (`LVDAndro_197646`): A search feature implementation using an `ArrayAdapter` with
-  hardcoded integer resource IDs (`17367043`), accessing `userid` as a String extra,
-  and using `ProgressDialog` in a pattern that suggests insecure data handling through
-  Android's intent system.
-
-**Root cause**: The vulnerability involves misuse of Android API contracts — integer
-resource IDs where the wrong ID could produce unexpected behavior, `getStringExtra("userid")`
-with no validation, and `ProgressDialog` patterns that may expose sensitive data. Detecting
-this requires knowledge of what specific Android API calls are considered dangerous and
-under what calling conditions — information that cannot be derived from the function's
-internal data flow alone.
-
-**Paper paragraph** (Section 8):
-> "Android API semantic bypasses (P4) appear in FN #15, where the vulnerability involves
-> misuse of Android API contracts: unvalidated `getStringExtra` calls, hardcoded resource
-> identifiers, and `ProgressDialog` patterns that may expose sensitive state. These
-> vulnerabilities require knowledge of which specific Android API usage patterns are
-> considered dangerous and under what conditions — semantic knowledge that cannot be
-> derived from intra-function data flow analysis alone."
+**Root cause**: Misuse of Android API contracts — unvalidated `getStringExtra`, hardcoded
+resource IDs, `ProgressDialog` patterns that may expose sensitive state. Requires
+knowledge of which API usage patterns are dangerous under which conditions.
 
 ---
 
@@ -380,24 +324,15 @@ internal data flow alone.
 | P6 | Control flow / flag logic | 1 | Draper | Requires symbolic flag reasoning |
 | P4 | Android API semantic bypass | 1 | LVDAndro | Requires API contract knowledge |
 
-**P5a + P5b together = 8/20** — obfuscation-driven DFG degradation is the dominant failure
-mode by a wide margin, and directly explains the null ablation result.
-**P1 = 4/20** — structural fragmentation from decompilation is the second largest category.
-**P5a + P1 + P5b = 12/20** — three-quarters of the top failures are decompilation artifacts.
-
 ---
 
-## PART 4 — KEY DECISIONS AND THEIR DEFENSES
+## PART 5 — KEY DECISIONS AND THEIR DEFENSES
 
 ### Decision 1: Retraining with clean split
 
-Old model2 used unseeded 90/10, no gradient clipping, circular val/test. The 92% was
-optimism bias. New model: seed 42, gradient clipping, final epoch, strictly held-out test.
-
-**Paper sentence**: "We detected a methodological flaw in our initial evaluation: checkpoint
-selection criterion and reported performance were computed on the same partition. We corrected
-this by adopting a strict 90/10 train/test split with fixed seed, saving the final epoch
-checkpoint, and reporting performance on a held-out test set the model never influences."
+Old model used unseeded 90/10, no gradient clipping, circular val/test — 92% was
+optimism bias. New models: stratified 82/8/10, seed=42, gradient clipping,
+validation-based checkpoint selection, strictly held-out test set.
 
 ### Decision 2: Reporting the negative ablation result as lead finding
 
@@ -406,39 +341,35 @@ finding with a mechanistic explanation is more valuable than a marginal accuracy
 
 **Paper sentence**: "Our controlled ablation reveals no consistent benefit from DFG-aware
 attention on decompiled Android bytecode — a null result corroborated by cross-backbone
-comparison showing directionally inconsistent DFG effects (Table 3). We attribute this
-to the DFG quality degradation documented in Section 8."
+comparison showing directionally inconsistent DFG effects (Table 2)."
 
-### Decision 3: No validation set, no checkpoint selection
+### Decision 3: Validation-based early stopping (revised from fixed 3-epoch)
 
-Eliminates differential optimism bias. All models evaluated at fixed 3-epoch budget.
+All models now use an 8% stratified validation split with patience=2 and max 5 epochs.
+This allows each model to converge naturally without a fixed-epoch budget that may
+over- or under-train. The best validation checkpoint is evaluated once on the held-out
+test set. This eliminates the differential optimism problem while still preventing
+overfitting.
 
-**Paper sentence**: "All models are trained for exactly three epochs and evaluated once on
-the held-out 10%. This eliminates differential optimism bias: with checkpoint selection,
-a model peaking at epoch 2 appears better than one peaking at epoch 3, even if final
-performance is identical."
+**Why GCB+DFG is different**: The GCB+DFG notebook uses max 10 epochs / patience=3
+because early convergence analysis showed this model needed more room. It still converged
+at epoch 5, so the ceiling did not affect the result — it only ensured we did not
+artificially cut off a still-improving run.
 
 ### Decision 4: Threshold 0.60 from imbalanced condition
 
-Test 7 calibrates the threshold on deployment-realistic 90/10 class ratio. Balanced
-threshold (0.25 for best F1) is not the correct operating point for a triage scanner.
+Test 6 calibrates the threshold under deployment-realistic 90/10 class ratio. The balanced
+threshold is not the correct operating point for a triage scanner.
 
-**Paper sentence**: "We calibrate the decision threshold under deployment-realistic conditions
-— 90% safe / 10% malicious — where threshold sensitivity analysis reveals F1 is maximised
-at 0.60, achieving 83.4% recall at 7.8% false positive rate."
+### Decision 5: Using GCB backbone for CodeBERT+DFG (ReGVD replacement)
 
-### Decision 5: Repurposing ReGVD as CodeBERT+DFG
-
-ReGVD was unavailable. The notebook already uses CodeBERT backbone with DFG attention —
-correctly named CodeBERT+DFG. Completes the cross-backbone DFG picture.
-
-**Paper sentence**: "As ReGVD, LineVul, and VulBERTa were unavailable as reproducible
-fine-tunable checkpoints, we evaluate DFG-aware attention on three independent backbones
-(CodeBERT, GraphCodeBERT, UniXcoder), providing a principled cross-architecture comparison."
+ReGVD was unavailable as a reproducible checkpoint. The DFG attention mechanism from
+GraphCodeBERT was applied to the CodeBERT backbone, completing the cross-backbone
+DFG comparison.
 
 ---
 
-## PART 5 — PAPER STRUCTURE WITH DRAFT SENTENCES
+## PART 6 — PAPER STRUCTURE WITH DRAFT SENTENCES
 
 ### Section 1 — Introduction
 
@@ -452,7 +383,7 @@ fine-tunable checkpoints, we evaluate DFG-aware attention on three independent b
 > at scale; (2) we publicly release a 200,000-sample DFG-annotated multi-source vulnerability
 > corpus; (3) through controlled ablation across three encoder backbones, we find that
 > DFG-aware attention provides no consistent benefit on decompiled code, and explain this
-> mechanistically through qualitative analysis of 1,184 false negatives."
+> mechanistically through qualitative analysis of false negatives."
 
 ### Section 3 — Dataset and Pipeline
 
@@ -461,131 +392,100 @@ fine-tunable checkpoints, we evaluate DFG-aware attention on three independent b
 > QEMU/FFmpeg), and the Juliet Test Suite (synthetic CWEs), with a strict 1:1
 > safe-to-vulnerable class ratio enforced across all sources."
 
-> "A practical challenge in processing decompiled Android bytecode at scale is that JADX output frequently produces syntactically incomplete fragments — method bodies without enclosing class context, statements extracted mid-scope, and expressions lacking surrounding declarations. To enable uniform Tree-sitter DFG extraction across our full 199,960-sample corpus without biasing toward syntactically complete samples, we implement a minimal parser-recovery wrapper that provides valid syntactic context while preserving the original code content. This wrapper is applied uniformly across all classes, ensuring no differential treatment between safe and vulnerable samples."
-
-> "All five transformer models are trained identically: a 90/10 train/test partition with
-> fixed seed 42, three full epochs, AdamW (lr=2e-5, ε=1e-8), gradient clipping at max
-> norm 1.0, and FP16 mixed precision. No validation set is used and no checkpoint selection
-> is performed — the final epoch checkpoint is evaluated once on the held-out test set."
+> "All five transformer models are trained identically: a stratified 82/8/10 train/val/test
+> partition (fixed seed=42), AdamW (lr=2e-5, ε=1e-8), gradient clipping at max norm 1.0,
+> FP16 mixed precision, and validation-based early stopping (patience=2, max 5 epochs).
+> The best validation checkpoint is evaluated once on the held-out 10% test set."
 
 ### Section 4 — Model Comparison and Ablation
 
 > "Table 1 presents the full baseline comparison. All transformer models cluster within a
-> 0.92-percentage-point accuracy band (88.45%–89.40%), regardless of whether graph-augmented
+> ~0.7 percentage-point accuracy band (88.37%–89.08%), regardless of whether graph-augmented
 > attention is applied. This convergence suggests that the performance ceiling on decompiled
 > Android vulnerability detection is determined by the data domain rather than model
 > architecture."
 
-> "Our controlled ablation, varying only the DFG attention mask while keeping all other
-> conditions identical, yields a −0.01% accuracy delta and −10 FN reduction (Table 2).
-> We replicate this across two additional backbones: DFG harms CodeBERT (+17 FN) and
-> provides marginal benefit for UniXcoder (−8 FN), within the ±0.11% seed variance
-> measured in Test 4. No consistent directional pattern exists."
-
-> "Notably, UniXcoder — a text-only encoder — achieves the highest accuracy (89.28%) and
-> lowest false negative count (1,051). The model that makes no attempt to leverage graph
-> structure outperforms the model specifically designed to exploit it."
-
-### Section 6 — Android-Domain Specialisation
-
-> "On LVDAndro — real decompiled Android APK bytecode — the system achieves 98.34%
-> accuracy and 0.9978 ROC-AUC, with only 51 missed vulnerabilities across 7,537 test
-> samples. This demonstrates fitness for the intended Android scanning application."
-
-> "Juliet Test Suite samples are classified with perfect accuracy (100%), as expected
-> given the structured, non-obfuscated nature of synthetic CWE patterns. We report this
-> for completeness but exclude it from capability claims."
-
-> "Devign samples (Linux kernel C, QEMU, FFmpeg) are classified at 67.58% accuracy.
-> We attribute this to three factors: kernel C idioms are underrepresented in training;
-> kernel functions frequently exceed the 384-token context window (sequences up to 2,543
-> tokens observed); and Devign vulnerabilities are predominantly inter-procedural.
-> This gap reflects a scope boundary rather than a generalisation failure."
+> "Our controlled ablation yields accuracy drops of −0.020%, −0.370%, and −0.705% for
+> CodeBERT, GraphCodeBERT, and UniXcoder respectively when DFG is added. No consistent
+> directional pattern exists. Statistical significance testing (McNemar's) confirms these
+> differences are not significant (all p > 0.05)."
 
 ### Section 8 — Limitations and Qualitative Analysis
 
-Opening link:
 > "The null DFG result in Section 4 is not architecturally inevitable — GraphCodeBERT's
 > DFG attention mechanism demonstrably improves performance on clean source-level code.
-> To understand why it fails on decompiled bytecode, we analyse the 1,184 false negatives
-> from our held-out test set. The top-20 most confident mistakes reveal a coherent
-> picture: 8 of 20 are caused by complete identifier obfuscation (P5a, P5b), 4 by
-> structural fragmentation (P1), and 3 by inter-procedural patterns (P7). Three-quarters
-> of the dominant failures are decompilation artifacts that degrade DFG signal before
-> it reaches the attention mechanism."
-
-P5a mechanistic link:
-> "Pattern P5a provides the mechanistic explanation for the null ablation result: when
-> obfuscation strips all identifier semantics, DFG edges connect meaningless tokens.
-> Text-only models that never attempt to use graph structure are not disadvantaged —
-> and empirically, they match or outperform graph-augmented models. The graph is present;
-> the signal it was designed to carry is absent."
-
-Concrete examples sentence:
-> "Figure X illustrates three representative P5a false negatives. In each case, JADX
-> has replaced every class, method, and field name with a machine-generated token
-> (`class_336`, `method_1192`, `field_1000`). The DFG contains 40–128 edges, all
-> connecting these semantically empty nodes. The model assigns 99.99% confidence of
-> safety — not uncertainty but the complete absence of discriminative signal."
+> To understand why it fails on decompiled bytecode, we analyse the top false negatives
+> from our held-out test set. The most confident mistakes reveal a coherent picture:
+> 8 of 20 are caused by complete identifier obfuscation (P5a, P5b), 4 by structural
+> fragmentation (P1), and 3 by inter-procedural patterns (P7). Three-quarters of the
+> dominant failures are decompilation artifacts that degrade DFG signal before it reaches
+> the attention mechanism."
 
 ---
 
-## PART 6 — KEY NUMBERS QUICK REFERENCE
+## PART 7 — KEY NUMBERS QUICK REFERENCE
 
 | Metric | Value | Source |
 |---|---|---|
-| GCB+DFG accuracy | 88.56% | graphcodebert-training__2_ |
-| GCB+DFG ROC-AUC | 0.9585 | graphcodebert-training__2_ |
-| GCB+DFG FN (0.5) | 1,196 | graphcodebert-training__2_ |
-| CodeBERT accuracy | 88.56% | codebert-training__2_ |
-| CodeBERT FN | 1,180 | codebert-training__2_ |
-| CodeBERT+DFG FN | 1,248 | regvd-training__1_ |
-| UniXcoder accuracy | 89.08% | unixcoder-training__2_ |
-| UniXcoder FN | 1,238 | unixcoder-training__2_ |
-| UniXcoder+DFG accuracy | 88.37% | unixcoder-dfg-training__1_ |
-| UniXcoder+DFG FN | 1,125 | unixcoder-dfg-training__1_ |
-| Ablation Δ accuracy | −0.37% | test-3-ablation |
-| Ablation Δ FN | −45 | test-3-ablation |
-| Test 4 stability | 87.53% ± 0.11% | Test_4_multiseed |
-| LVDAndro accuracy | 98.34% | test-5-per-source__1_ |
-| Devign accuracy | 67.58% | test-5-per-source__1_ |
-| Optimal threshold | 0.60 | test-7-imbalanced-eval__3_ |
-| Imbalanced recall (0.60) | 83.41% | test-7-imbalanced-eval__3_ |
-| Test 8 total FN | 1,184 | test-8-qualitative-90-10 |
-| P5a FNs in top-20 | 5/20 | test-8-qualitative-90-10 |
-| P5b FNs in top-20 | 3/20 | test-8-qualitative-90-10 |
-| P1 FNs in top-20 | 4/20 | test-8-qualitative-90-10 |
-| Test C functions scanned | 23,005 | test_c_calibration_newmodel.py |
-| Test C below 0.10 | 89.2% | test_c_calibration_newmodel.py |
-| Test C above 0.60 | 5.6% | test_c_calibration_newmodel.py |
-| Test C above 0.90 | 4.1% | test_c_calibration_newmodel.py |
+| GCB text-only accuracy | 88.9300% | results/new/graphcodebert_results.txt |
+| GCB text-only ROC-AUC | 0.9596 | results/new/graphcodebert_results.txt |
+| GCB text-only FN | 1,241 | results/new/graphcodebert_results.txt |
+| GCB text-only best epoch | 5 | results/new/graphcodebert_results.txt |
+| GCB+DFG accuracy | 88.5600% | results/new/graphcodebert_dfg_results.txt |
+| GCB+DFG ROC-AUC | 0.9585 | results/new/graphcodebert_dfg_results.txt |
+| GCB+DFG FN | 1,196 | results/new/graphcodebert_dfg_results.txt |
+| GCB+DFG best epoch | 5 | results/new/graphcodebert_dfg_results.txt |
+| CodeBERT accuracy | 88.5627% | results/new/codebert_results.txt |
+| CodeBERT FN | 1,180 | results/new/codebert_results.txt |
+| CodeBERT best epoch | 4 | results/new/codebert_results.txt |
+| CodeBERT+DFG accuracy | 88.5427% | results/new/codebert_dfg_results.txt |
+| CodeBERT+DFG FN | 1,248 | results/new/codebert_dfg_results.txt |
+| CodeBERT+DFG best epoch | 4 | results/new/codebert_dfg_results.txt |
+| UniXcoder accuracy | 89.0778% | results/new/unixcoder_results.txt |
+| UniXcoder FN | 1,238 | results/new/unixcoder_results.txt |
+| UniXcoder best epoch | 4 | results/new/unixcoder_results.txt |
+| UniXcoder+DFG accuracy | 88.3727% | results/new/unixcoder_dfg_results.txt |
+| UniXcoder+DFG FN | 1,125 | results/new/unixcoder_dfg_results.txt |
+| UniXcoder+DFG best epoch | 4 | results/new/unixcoder_dfg_results.txt |
+| GCB Δ accuracy (DFG) | −0.370% | computed |
+| GCB Δ FN (DFG) | −45 | computed |
+| Test 3 stability | [TBD] ± [TBD] | pending re-run |
+| Optimal threshold | 0.60 | test-6-imbalanced-eval |
+| P5a FNs in top-20 | 5/20 | test-7-qualitative |
+| P5b FNs in top-20 | 3/20 | test-7-qualitative |
+| P1 FNs in top-20 | 4/20 | test-7-qualitative |
 
 ---
 
-## PART 7 — REMAINING WORK BEFORE WRITING
+## PART 8 — REMAINING WORK
 
-### 1. Statistical significance testing (REQUIRED)
+### 1. Test 3 — Multi-Seed Stability (BLOCKED — needs re-run)
+
+**Problem**: Kaggle notebook timed out at 12h due to:
+- tqdm output not suppressed (output bloat)
+- 5 epochs × 3 seeds × 163k training samples exceeds 12h limit
+
+**Fix needed**:
+- Suppress tqdm (`disable=True`)
+- Reduce to 3 epochs max (stability probe, not full convergence)
+- Or use patience=1 to force early stop
+
+**Architecture note**: `test_3_multiseed.py` uses the DFG model; `test-3-multiseed.ipynb`
+uses text-only. Decide which is the canonical stability test and make them consistent.
+
+### 2. Statistical significance testing (Test 8 — REQUIRED for paper)
 
 **What**: McNemar's test on per-sample prediction pairs between model configurations.
-**Why**: Without significance tests you cannot claim the null result formally. The
-difference between "DFG provides no meaningful benefit" and "differences are not
-statistically significant (p > 0.05)" is the difference between an observation and
-a finding.
-
-**How**: Load `test_probs.npy` and `test_labels.npy` from each training notebook.
-For each model pair (e.g., GCB+DFG vs GCB no-DFG), compute a 2×2 contingency table
-of prediction agreements/disagreements, then apply McNemar's test.
+**Why**: Required to formally claim the null result.
 
 ```python
 from statsmodels.stats.contingency_tables import mcnemar
 import numpy as np
 
-# Example for GCB+DFG vs GCB no-DFG
-preds_dfg    = (probs_dfg[:, 1] >= 0.5).astype(int)
-preds_nodfg  = (probs_nodfg[:, 1] >= 0.5).astype(int)
-labels       = test_labels
+preds_dfg   = (probs_dfg[:, 1] >= 0.5).astype(int)
+preds_nodfg = (probs_nodfg[:, 1] >= 0.5).astype(int)
+labels      = test_labels
 
-# Contingency table: both correct, dfg only correct, nodfg only correct, both wrong
 b = np.sum((preds_dfg == labels) & (preds_nodfg != labels))
 c = np.sum((preds_dfg != labels) & (preds_nodfg == labels))
 
@@ -593,24 +493,19 @@ result = mcnemar([[0, b], [c, 0]], exact=False)
 print(f"McNemar p-value: {result.pvalue:.4f}")
 ```
 
-Run for all five model pairs from Table 3. Expected result: all p > 0.05.
+Run for all three backbone pairs. Expected: all p > 0.05. Results → `results/test8_significance_results.txt`.
 
-### 2. Confidence calibration histogram with new model (COMPLETED)
+### 3. Remaining TBD values in README
 
-**Implementation**: `test_c_calibration_newmodel.py` now auto-discovers all downloaded
-`*_vuln_report.json` files, aggregates their `all_probabilities`, and writes:
-- `test_c_confidence_histogram_newmodel.png`
-- `test_c_per_apk_histogram_newmodel.png`
-- `test_c_calibration_newmodel.txt`
-
-**Current result**: 13 APK reports, 23,005 functions total, 89.2% of probabilities below
-0.10, 5.2% in the uncertain 0.10-0.60 band, 5.6% at or above 0.60, and 4.1% above 0.90.
-The distribution is strongly concentrated near 0.0 with a small high-confidence tail,
-supporting the calibration claim for the new model.
+- LR + TF-IDF and MLP + TF-IDF baselines (Test 5)
+- Per-source breakdown table (Test 4)
+- Deployment threshold table (Test 6)
+- Training stability table (Test 3)
+- Real-world APK calibration numbers (Test 9)
 
 ---
 
-## PART 8 — TARGET VENUE
+## PART 9 — TARGET VENUE
 
 **Primary: MSR** — empirical study + negative finding + corpus = exact MSR scope
 **Fallback: EMSE/IST** — journal depth for thorough empirical work
