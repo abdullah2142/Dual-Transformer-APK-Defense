@@ -1,0 +1,8 @@
+=== Test 3: Multi-Seed Robustness (1 seeds) ===
+Accuracy  : 88.89% ± 0.00%
+ROC-AUC   : 0.9609 ± 0.0000
+PR-AUC    : 0.9625 ± 0.0000
+F1 (macro): 0.8889 ± 0.0000
+
+Per-seed details:
+Seed  123: Acc=88.8928% ROC=0.9609 PR=0.9625

@@ -1,0 +1,58 @@
+Test 6: MLP / TF-IDF Baseline Results
+============================================================
+
+LR + TF-IDF
+  Accuracy : 84.4519%
+  ROC-AUC  : 0.9271
+  PR-AUC   : 0.9270
+  F1       : 0.8432
+  FN       : 1,685
+
+MLP + TF-IDF
+  Accuracy : 85.4821%
+  ROC-AUC  : 0.9385
+  PR-AUC   : 0.9408
+  F1       : 0.8559
+  FN       : 1,425
+
+GraphCodeBERT (DFG)
+  Accuracy : 0.0000%
+  ROC-AUC  : 0.0000
+  PR-AUC   : 0.0000
+  F1       : 0.0000
+  FN       : -
+
+GraphCodeBERT (Text)
+  Accuracy : 0.0000%
+  ROC-AUC  : 0.0000
+  PR-AUC   : 0.0000
+  F1       : 0.0000
+  FN       : -
+
+CodeBERT (DFG)
+  Accuracy : 0.0000%
+  ROC-AUC  : 0.0000
+  PR-AUC   : 0.0000
+  F1       : 0.0000
+  FN       : -
+
+CodeBERT (Text)
+  Accuracy : 0.0000%
+  ROC-AUC  : 0.0000
+  PR-AUC   : 0.0000
+  F1       : 0.0000
+  FN       : -
+
+UniXcoder (DFG)
+  Accuracy : 0.0000%
+  ROC-AUC  : 0.0000
+  PR-AUC   : 0.0000
+  F1       : 0.0000
+  FN       : -
+
+UniXcoder (Text)
+  Accuracy : 0.0000%
+  ROC-AUC  : 0.0000
+  PR-AUC   : 0.0000
+  F1       : 0.0000
+  FN       : -
