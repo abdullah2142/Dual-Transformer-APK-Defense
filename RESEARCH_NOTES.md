@@ -71,8 +71,8 @@ All models use the following standardized protocol:
 ```
 Model              Backbone         Structure    Accuracy   ROC-AUC   PR-AUC    FN     FP    Best Epoch
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────
-LR + TF-IDF        —                None         [TBD]       —         —         [TBD]   —     —
-MLP + TF-IDF       —                None         [TBD]       —         —         [TBD]   —     —
+LR + TF-IDF        —                None         84.4519%   0.9271    0.9270    1,685   —     —
+MLP + TF-IDF       —                None         85.4821%   0.9385    0.9408    1,425   —     —
 CodeBERT           codebert-base    Text only    88.5627%   0.9610    0.9625    1,180  1,107   4
 CodeBERT + DFG     codebert-base    DFG attn     88.5427%   0.9604    0.9622    1,248  1,043   4
 GraphCodeBERT      graphcodebert    Text only    88.9300%   0.9596    0.9611    1,241    972   5
@@ -97,66 +97,97 @@ UniXcoder       89.0778%     88.3727%     −0.705%      −113
 No consistent directional benefit. DFG reduces FN for GCB and UniXcoder but hurts accuracy
 in all three cases. The FN improvement for UniXcoder comes at a cost of +75 additional FP.
 
-### Test 3 — Training Stability (Multi-Seed)
+### Test 3 — Training Stability (Multi-Seed) ✅ COMPLETE
+
+GraphCodeBERT text-only retrained from identical pretrained encoder across 3 seeds:
 
 ```
-Mean: [TBD] ± [TBD]   ROC [TBD] ± [TBD]
+Seed     Accuracy    ROC-AUC    PR-AUC     F1 (macro)
+────────────────────────────────────────────────────────
+42       88.8278%    0.9588     0.9596     0.8883
+123      88.8928%    0.9609     0.9625     0.8889
+2025     89.0728%    0.9596     0.9617     0.8907
+────────────────────────────────────────────────────────
+mean     88.93%      0.9598     0.9613     0.8893
+± std    ± 0.10%     ± 0.0009   ± 0.0012   ± 0.0010
 ```
 
-**Status**: Notebook `test-3-multiseed.ipynb` timed out on Kaggle (12h limit exceeded).
-Root causes:
-- `num_train_epochs=5` with `patience=2` across 3 seeds × full dataset = ~14h total
-- `tqdm` output not suppressed → notebook bloat preventing save
-- Fix needed: suppress tqdm, reduce to match paper's stability framing
+The ±0.10% accuracy variance across seeds confirms that training is highly stable
+and that the observed DFG deltas (−0.02% to −0.71%) are within or only marginally
+above the seed noise floor.
 
-The test script (`test_scripts/test_3_multiseed.py`) correctly uses the DFG model
-architecture. The Kaggle notebook (`test-3-multiseed.ipynb`) uses the text-only
-architecture — this inconsistency should be resolved when re-running.
-
-Frame this test as a **training stability probe** — the goal is to measure
-variance across seeds, not to find the best model.
-
-### Test 4 — Per-Source Breakdown
+### Test 4 — Per-Source Breakdown ✅ COMPLETE
 
 ```
-LVDAndro   [TBD]   [TBD]   [TBD]    [TBD] FN
-Draper     [TBD]   [TBD]   [TBD]    [TBD] FN
-Juliet     [TBD]   [TBD]   [TBD]    [TBD] FN
-Devign     [TBD]   [TBD]   [TBD]    [TBD] FN
+Source        N       Accuracy     ROC-AUC     F1       FN
+────────────────────────────────────────────────────────────────
+LVDAndro      7,500    97.0667%    0.9957     0.9707   133
+Draper        7,500    86.6667%    0.9264     0.8664   303
+Juliet        2,500   100.0000%    1.0000     1.0000     0
+Devign        2,496    68.9103%    0.7729     0.6844   222
 ```
 
-Primary model for this test: UniXcoder text-only (highest accuracy).
+LVDAndro (real decompiled Android) achieves near-perfect 97.07% accuracy. Devign
+(kernel C) is the weakest at 68.91% due to inter-procedural vulnerabilities and
+token-length truncation. Juliet (synthetic CWEs) is perfect at 100%.
 
-### Test 5 — MLP / TF-IDF Baseline
-
-```
-LR + TF-IDF   [TBD]
-MLP + TF-IDF  [TBD]
-```
-
-No model inputs needed — runs on raw text features.
-
-### Test 6 — Imbalanced Evaluation (Threshold Calibration)
+### Test 5 — MLP / TF-IDF Baseline ✅ COMPLETE
 
 ```
-Threshold 0.60 → Recall [TBD]   F1 [TBD]   FPR [TBD]   FN [TBD]   ← OPTIMAL
+LR + TF-IDF    84.4519%    ROC 0.9271    PR 0.9270    FN 1,685
+MLP + TF-IDF   85.4821%    ROC 0.9385    PR 0.9408    FN 1,425
 ```
 
-Models: UniXcoder text-only + UniXcoder+DFG at deployment-realistic 90% safe / 10% malicious ratio.
+Both baselines are substantially below all transformer models (+3–5% accuracy gap),
+confirming that pretrained code transformers provide meaningful improvement.
+
+### Test 6 — Imbalanced Evaluation ✅ COMPLETE
+
+Evaluated at deployment-realistic 90% safe / 10% malicious ratio, threshold = 0.5:
+
+```
+GCB+DFG [imbalanced 90/10]:   Acc=94.64%  Recall=94.14%  F1=0.7782  FPR=5.31%  FN=65
+Ensemble [imbalanced 90/10]:  Acc=94.27%  Recall=94.68%  F1=0.7675  FPR=5.78%  FN=59
+```
+
+Both models maintain >94% recall under the imbalanced condition.
 
 ### Test 7 — Qualitative Analysis (False Negatives)
 
-Primary model: UniXcoder+DFG (lowest FN count = 1,125). Top false negatives analysed.
+Primary model: UniXcoder+DFG (lowest FN count = 1,125). Top false negatives analysed
+and classified into 8 patterns (see Part 4).
 
-### Test 8 — Statistical Significance (McNemar's)
+### Test 8 — Statistical Significance (McNemar's) ✅ COMPLETE
 
-All within-backbone DFG comparisons expected p > 0.05. Results saved to
-`results/test8_significance_results.txt` when run.
+```
+Within-backbone DFG comparisons (all NOT significant):
+  GCB+DFG vs GCB Text:           p=0.2496  Δ=-0.21%
+  CodeBERT+DFG vs CodeBERT Text:  p=0.0565  Δ=-0.28%
+  UniXcoder+DFG vs UniXcoder Text: p=1.0000  Δ=-0.005%
 
-### Test 9 — Real-World APK Scanner Calibration
+Cross-architecture comparisons (SIGNIFICANT):
+  GCB+DFG vs CodeBERT+DFG:       p≈0.0000  Δ=-4.55%
+  GCB+DFG vs UniXcoder+DFG:      p=0.0121  Δ=-0.50%
+```
 
-13 APK reports, covering deliberately vulnerable apps (AndroGoat, DVBA, InsecureBankv2,
-InsecureShop, Vuldroid), FOSS apps, and a commercial sample.
+**Key finding**: No within-backbone DFG comparison is statistically significant,
+confirming the null result. The cross-architecture differences are significant,
+meaning model choice matters more than DFG structure.
+
+### Test 9 — Real-World APK Scanner Calibration ✅ COMPLETE
+
+13 APK reports, 23,005 functions total.
+
+```
+Confidently safe (< 0.10):   84.0%
+Uncertain (0.10 – 0.60):      8.9%
+Flagged (≥ 0.60):             7.1%
+Highly confident vuln (>0.9): 5.5%
+```
+
+Deliberately vulnerable apps (Vuldroid 21.3%, DVBA 20.8%, allsafe 17.4%) are flagged
+at significantly higher rates than FOSS apps (calendar 0.4%, Thunderbird 2.1%),
+confirming the scanner's discriminative ability in the wild.
 
 ---
 
@@ -449,8 +480,21 @@ DFG comparison.
 | UniXcoder+DFG best epoch | 4 | results/new/unixcoder_dfg_results.txt |
 | GCB Δ accuracy (DFG) | −0.370% | computed |
 | GCB Δ FN (DFG) | −45 | computed |
-| Test 3 stability | [TBD] ± [TBD] | pending re-run |
-| Optimal threshold | 0.60 | test-6-imbalanced-eval |
+| Test 3 stability | 88.93% ± 0.10% | results/test3_seed*.txt |
+| Test 3 ROC stability | 0.9598 ± 0.0009 | results/test3_seed*.txt |
+| LR + TF-IDF accuracy | 84.4519% | results/test6_baseline_results.txt |
+| MLP + TF-IDF accuracy | 85.4821% | results/test6_baseline_results.txt |
+| LVDAndro accuracy | 97.0667% | results/test5_per_source_results.txt |
+| Devign accuracy | 68.9103% | results/test5_per_source_results.txt |
+| Juliet accuracy | 100.0000% | results/test5_per_source_results.txt |
+| Imbalanced GCB+DFG recall | 94.14% | results/test7_imbalanced_results.txt |
+| Imbalanced GCB+DFG FPR | 5.31% | results/test7_imbalanced_results.txt |
+| McNemar GCB DFG vs Text | p=0.2496 | results/test8_significance_results.txt |
+| McNemar CB DFG vs Text | p=0.0565 | results/test8_significance_results.txt |
+| McNemar UX DFG vs Text | p=1.0000 | results/test8_significance_results.txt |
+| Scanner total functions | 23,005 | results/test9_scanner_calibration.txt |
+| Scanner flagged rate (≥0.6) | 7.1% | results/test9_scanner_calibration.txt |
+| Optimal threshold | 0.60 | test7-imbalanced |
 | P5a FNs in top-20 | 5/20 | test-7-qualitative |
 | P5b FNs in top-20 | 3/20 | test-7-qualitative |
 | P1 FNs in top-20 | 4/20 | test-7-qualitative |

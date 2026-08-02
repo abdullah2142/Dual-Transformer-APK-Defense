@@ -1,5 +1,5 @@
 # 🛡️ Paper Defense & Methodology Justification
-## Updated for Final Results (2026-03-22)
+## Updated for Final Results (2026-08-02)
 
 All defenses reflect the final honest results — the null DFG finding, new numbers,
 and reframed contributions. Use these paragraphs directly in the paper.
@@ -89,8 +89,8 @@ and reframed contributions. Use these paragraphs directly in the paper.
 *Anticipated attack*: "Devign 67.58% shows your model doesn't generalise."
 
 **Paragraph for Section 6 / Limitations**:
-> "The performance gap between LVDAndro ([TBD]) and Devign ([TBD]) reflects a documented
-> scope boundary. The model is designed as an Android vulnerability scanner, and its [TBD]
+> "The performance gap between LVDAndro (97.07%) and Devign (68.91%) reflects a documented
+> scope boundary. The model is designed as an Android vulnerability scanner, and its 97.07%
 > accuracy on decompiled Android Java confirms fitness for that purpose. Devign's Linux
 > kernel C presents three compounding challenges: (1) kernel idioms are underrepresented
 > in training; (2) kernel functions routinely exceed the 384-token context window — we
@@ -139,7 +139,7 @@ and reframed contributions. Use these paragraphs directly in the paper.
 > training on both Java (LVDAndro) and C/C++ (Draper, Devign, Juliet) vulnerability
 > patterns, the model acquires cross-language knowledge reflecting the hybrid reality of
 > production APKs. Per-source evaluation confirms this does not harm Java performance:
-> LVDAndro accuracy is 98.34%."
+> LVDAndro accuracy is 97.07%."
 
 ---
 

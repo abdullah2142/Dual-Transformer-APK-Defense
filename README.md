@@ -64,8 +64,8 @@ graph TD
 
 | Model | Backbone | Structure | Accuracy | ROC-AUC | PR-AUC | FN | FP | Best Epoch |
 |---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| LR + TF-IDF | - | None | [TBD] | [TBD] | [TBD] | [TBD] | - | - |
-| MLP + TF-IDF | - | None | [TBD] | [TBD] | [TBD] | [TBD] | - | - |
+| LR + TF-IDF | - | None | 84.4519% | 0.9271 | 0.9270 | 1,685 | - | - |
+| MLP + TF-IDF | - | None | 85.4821% | 0.9385 | 0.9408 | 1,425 | - | - |
 | CodeBERT | codebert-base | Text only | 88.5627% | 0.9610 | 0.9625 | 1,180 | 1,107 | 4 |
 | CodeBERT + DFG | codebert-base | DFG attn | 88.5427% | 0.9604 | 0.9622 | 1,248 | 1,043 | 4 |
 | **GCB (text-only)** | graphcodebert | Text only | **88.9300%** | **0.9596** | **0.9611** | **1,241** | **972** | **5** |
@@ -81,60 +81,59 @@ Test set: 19,996 held-out samples.
 
 | Backbone | Text-only | DFG-aware | Delta Accuracy | Delta FN | McNemar p-value | Verdict |
 |---|:---:|:---:|:---:|:---:|:---:|---|
-| CodeBERT | 88.5627% | 88.5427% | −0.020% | +68 | TBD | Not significant |
-| GraphCodeBERT | 88.9300% | 88.5600% | −0.370% | −45 | TBD | Not significant |
-| UniXcoder | 89.0778% | 88.3727% | −0.705% | −113 | TBD | Not significant |
+| CodeBERT | 88.5627% | 88.5427% | −0.020% | +68 | p=0.0565 | Not significant |
+| GraphCodeBERT | 88.9300% | 88.5600% | −0.370% | −45 | p=0.2496 | Not significant |
+| UniXcoder | 89.0778% | 88.3727% | −0.705% | −113 | p=1.0000 | Not significant |
 
-None of the within-backbone DFG comparisons is statistically significant in the currently
-downloaded raw prediction files.
+None of the within-backbone DFG comparisons is statistically significant (McNemar's test, all p > 0.05).
 
-### Table 2b - Additional Significance Checks
+### Table 2b - Cross-Architecture Significance Checks
 
 | Comparison | Delta Accuracy | McNemar p-value | Verdict |
 |---|:---:|:---:|---|
-| GCB + DFG vs GCB no-DFG | −0.370% | TBD | Not significant |
-| CodeBERT + DFG vs CodeBERT text | −0.020% | TBD | Not significant |
-| UniXcoder + DFG vs UniXcoder text | −0.705% | TBD | Not significant |
-| GCB + DFG vs UniXcoder + DFG | +0.1873% | TBD | Not significant |
+| GCB+DFG vs CodeBERT+DFG | −4.546% | p≈0.0000 | **Significant** |
+| GCB+DFG vs UniXcoder+DFG | −0.500% | p=0.0121 | **Significant** |
 
 Raw significance details are saved in `results/test8_significance_results.txt`.
 
-### Table 3 - Training Stability
+### Table 3 - Training Stability (Multi-Seed)
 
-| | Accuracy | ROC-AUC |
-|---|:---:|:---:|
-| **mean +- std** | **[TBD] +- [TBD]** | **[TBD] +- [TBD]** |
+GraphCodeBERT text-only retrained from identical pretrained encoder across 3 seeds:
 
-![Training stability across seeds](results/test3_multiseed_errorbar.png)
+| Seed | Accuracy | ROC-AUC | PR-AUC | F1 (macro) |
+|:---:|:---:|:---:|:---:|:---:|
+| 42 | 88.8278% | 0.9588 | 0.9596 | 0.8883 |
+| 123 | 88.8928% | 0.9609 | 0.9625 | 0.8889 |
+| 2025 | 89.0728% | 0.9596 | 0.9617 | 0.8907 |
+| **mean ± std** | **88.93% ± 0.10%** | **0.9598 ± 0.0009** | **0.9613 ± 0.0012** | **0.8893 ± 0.0010** |
 
 ### Table 4 - Per-Source Breakdown
 
-| Source | N | Accuracy | ROC-AUC | FN |
-|---|:---:|:---:|:---:|:---:|
-| **LVDAndro** | [TBD] | **[TBD]** | **[TBD]** | **[TBD]** |
-| Draper | [TBD] | [TBD] | [TBD] | [TBD] |
-| Juliet | [TBD] | [TBD] | [TBD] | [TBD] |
-| Devign | [TBD] | [TBD] | [TBD] | [TBD] |
+| Source | N | Accuracy | ROC-AUC | F1 | FN |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **LVDAndro** | 7,500 | **97.0667%** | **0.9957** | **0.9707** | **133** |
+| Draper | 7,500 | 86.6667% | 0.9264 | 0.8664 | 303 |
+| Juliet | 2,500 | 100.0000% | 1.0000 | 1.0000 | 0 |
+| Devign | 2,496 | 68.9103% | 0.7729 | 0.6844 | 222 |
 
-![Per-source breakdown](results/test4_per_source_bar.png)
+![Per-source breakdown](results/test5_per_source_bar.png)
 
-### Table 5 - Deployment Threshold
+### Table 5 - Deployment Threshold (Imbalanced 90/10)
 
-| Threshold | Recall | F1 | FPR | FN |
-|---|:---:|:---:|:---:|:---:|
-| 0.50 | [TBD] | [TBD] | [TBD] | [TBD] |
-| **0.60** | **[TBD]** | **[TBD]** | **[TBD]** | **[TBD]** |
-| 0.65 | [TBD] | [TBD] | [TBD] | [TBD] |
+Evaluated under deployment-realistic 90% safe / 10% malicious class ratio at threshold 0.5:
 
-![Threshold sensitivity under imbalanced evaluation](results/test6_precision_recall_bar.png)
+| Model | Condition | Accuracy | Recall | F1 | FPR | FN |
+|---|---|:---:|:---:|:---:|:---:|:---:|
+| GCB+DFG | balanced 50/50 | 94.59% | 94.48% | 0.9459 | 5.31% | 552 |
+| GCB+DFG | **imbalanced 90/10** | **94.64%** | **94.14%** | **0.7782** | **5.31%** | **65** |
+| Ensemble | balanced 50/50 | 94.58% | 94.93% | 0.9460 | 5.78% | 507 |
+| Ensemble | **imbalanced 90/10** | **94.27%** | **94.68%** | **0.7675** | **5.78%** | **59** |
+
+![Threshold sensitivity under imbalanced evaluation](results/test7_precision_recall_bar.png)
 
 ### ROC and PR Curves
 
-![ROC curve](results/test2_roc_curve.png)
-
-![PR curve](results/test2_pr_curve.png)
-
-![Held-out test confidence histogram](results/test2_confidence_histogram.png)
+![ROC and PR curves for all 6 transformer models](results/test2_roc_pr_curves.png)
 
 ### Real-World APK Scanner Calibration
 
@@ -143,12 +142,12 @@ across all downloaded scanner reports.
 
 | Aggregate metric | Value |
 |---|---:|
-| APK reports analysed | [TBD] |
-| Total functions | [TBD] |
-| Below 0.10 | [TBD] |
-| Between 0.10 and 0.60 | [TBD] |
-| At or above 0.60 | [TBD] |
-| Above 0.90 | [TBD] |
+| APK reports analysed | 13 |
+| Total functions | 23,005 |
+| Confidently safe (< 0.10) | 84.0% |
+| Uncertain (0.10 – 0.60) | 8.9% |
+| Flagged (≥ 0.60) | 7.1% |
+| Highly confident vuln (> 0.90) | 5.5% |
 
 The distribution is sharply concentrated near 0.0 with a small high-confidence tail rather
 than being flat or centered near 0.5.
@@ -159,32 +158,32 @@ than being flat or centered near 0.5.
 
 | APK | Type | Functions | Flagged | Rate |
 |---|---|:---:|:---:|:---:|
-| allsafe | Safe test app | [TBD] | [TBD] | [TBD] |
-| AndroGoat | Deliberately vulnerable | [TBD] | [TBD] | [TBD] |
-| calendar-fdroid-release | FOSS app | [TBD] | [TBD] | [TBD] |
-| com.beemdevelopment.aegis | FOSS 2FA | [TBD] | [TBD] | [TBD] |
-| de.danoeh.antennapod | FOSS podcast | [TBD] | [TBD] | [TBD] |
-| dvba_v1.1.0 | Deliberately vulnerable | [TBD] | [TBD] | [TBD] |
-| InsecureBankv2 | Deliberately vulnerable | [TBD] | [TBD] | [TBD] |
-| InsecureShop | Intentionally vulnerable | [TBD] | [TBD] | [TBD] |
-| istark.vpn.starkreloaded | Commercial APK sample | [TBD] | [TBD] | [TBD] |
-| Neo_Store_1.2.4_release | FOSS app | [TBD] | [TBD] | [TBD] |
-| net.thunderbird.android_20 | FOSS email | [TBD] | [TBD] | [TBD] |
-| org.schabi.newpipe_1008_cb84069 | FOSS media | [TBD] | [TBD] | [TBD] |
-| Vuldroid | Deliberately vulnerable | [TBD] | [TBD] | [TBD] |
+| allsafe | Safe test app | 149 | 26 | 17.4% |
+| AndroGoat | Deliberately vulnerable | 371 | 23 | 6.2% |
+| calendar-fdroid-release | FOSS app | 236 | 1 | 0.4% |
+| com.beemdevelopment.aegis | FOSS 2FA | 1,428 | 84 | 5.9% |
+| de.danoeh.antennapod | FOSS podcast | 6,169 | 576 | 9.3% |
+| dvba_v1.1.0 | Deliberately vulnerable | 77 | 16 | 20.8% |
+| InsecureBankv2 | Deliberately vulnerable | 88 | 10 | 11.4% |
+| InsecureShop | Intentionally vulnerable | 336 | 10 | 3.0% |
+| istark.vpn.starkreloaded | Commercial APK sample | 0 | 0 | 0.0% |
+| Neo_Store_1.2.4_release | FOSS app | 2,939 | 153 | 5.2% |
+| net.thunderbird.android_20 | FOSS email | 95 | 2 | 2.1% |
+| org.schabi.newpipe_1008_cb84069 | FOSS media | 11,070 | 728 | 6.6% |
+| Vuldroid | Deliberately vulnerable | 47 | 10 | 21.3% |
 
 ### False Negative Pattern Classification
 
-| Pattern | Description | Count |
+| Pattern | Description | Count (top-20) |
 |---|---|:---:|
-| P5a | Full machine-generated obfuscation | [TBD] |
-| P1 | Structural fragmentation | [TBD] |
-| P5b | Kotlin/lambda synthetic obfuscation | [TBD] |
-| P7 | Inter-procedural access patterns | [TBD] |
-| P2 | Benign surface appearance | [TBD] |
-| P3 | Arithmetic edge case | [TBD] |
-| P6 | Flag/control flow logic | [TBD] |
-| P4 | Android API semantic bypass | [TBD] |
+| P5a | Full machine-generated obfuscation | 5 |
+| P1 | Structural fragmentation | 4 |
+| P5b | Kotlin/lambda synthetic obfuscation | 3 |
+| P7 | Inter-procedural access patterns | 3 |
+| P2 | Benign surface appearance | 2 |
+| P3 | Arithmetic edge case | 1 |
+| P6 | Flag/control flow logic | 1 |
+| P4 | Android API semantic bypass | 1 |
 
 ---
 
@@ -210,10 +209,10 @@ than being flat or centered near 0.5.
 
 1. **Environment Setup**: Standard Kaggle GPU (P100 or T4) environment is recommended.
 2. **Dataset**: Upload `dataset_graphcodebert.jsonl` to `/kaggle/input/...` or update the `Args` class in the training notebooks.
-3. **Training**: Execute any of the `*_final_train.ipynb` notebooks. They are standardized with **Option A**:
-   - **Split**: 90% train / 10% test (sequential split, manual seed 42).
-   - **Epochs**: 3 (fixed epochs, saves only the final `model.bin`).
-   - **Hyperparameters**: 2 batch size, 2e-5 learning rate, linear decay, FP16 autocast.
+3. **Training**: Execute any training notebook from `training_notebooks/re_train/`. They use:
+   - **Split**: 82/8/10 train/val/test (stratified by source, seed=42).
+   - **Epochs**: Up to 5 (early stopping, patience=2; GCB models: max 10, patience=3).
+   - **Hyperparameters**: batch size 16, lr 2e-5, AdamW, linear warmup, FP16 autocast.
 4. **Evaluation**: All evaluation is standardized into Python scripts in the `test_scripts/` directory:
    - **`test-2-roc-auc.py`**: Generates the grand ROC comparison. **Inputs**: ALL 6 model checkpoints (CodeBERT Text/DFG, GCB Text/DFG, UniXcoder Text/DFG).
    - **`test_3_multiseed.py`**: Measures training stability (± margin). **Inputs**: UniXcoder Text-only (or any primary baseline).

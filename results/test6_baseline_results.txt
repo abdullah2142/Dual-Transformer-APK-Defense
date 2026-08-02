@@ -15,44 +15,44 @@ MLP + TF-IDF
   F1       : 0.8559
   FN       : 1,425
 
-GraphCodeBERT (DFG)
-  Accuracy : 0.0000%
-  ROC-AUC  : 0.0000
-  PR-AUC   : 0.0000
-  F1       : 0.0000
-  FN       : -
-
-GraphCodeBERT (Text)
-  Accuracy : 0.0000%
-  ROC-AUC  : 0.0000
-  PR-AUC   : 0.0000
-  F1       : 0.0000
-  FN       : -
+CodeBERT (Text)
+  Accuracy : 88.5627%
+  ROC-AUC  : 0.9610
+  PR-AUC   : 0.9625
+  F1       : -
+  FN       : 1,180
 
 CodeBERT (DFG)
-  Accuracy : 0.0000%
-  ROC-AUC  : 0.0000
-  PR-AUC   : 0.0000
-  F1       : 0.0000
-  FN       : -
+  Accuracy : 88.5427%
+  ROC-AUC  : 0.9604
+  PR-AUC   : 0.9622
+  F1       : -
+  FN       : 1,248
 
-CodeBERT (Text)
-  Accuracy : 0.0000%
-  ROC-AUC  : 0.0000
-  PR-AUC   : 0.0000
-  F1       : 0.0000
-  FN       : -
+GraphCodeBERT (Text)
+  Accuracy : 88.9300%
+  ROC-AUC  : 0.9596
+  PR-AUC   : 0.9611
+  F1       : -
+  FN       : 1,241
 
-UniXcoder (DFG)
-  Accuracy : 0.0000%
-  ROC-AUC  : 0.0000
-  PR-AUC   : 0.0000
-  F1       : 0.0000
-  FN       : -
+GraphCodeBERT (DFG)
+  Accuracy : 88.5600%
+  ROC-AUC  : 0.9585
+  PR-AUC   : 0.9597
+  F1       : -
+  FN       : 1,196
 
 UniXcoder (Text)
-  Accuracy : 0.0000%
-  ROC-AUC  : 0.0000
-  PR-AUC   : 0.0000
-  F1       : 0.0000
-  FN       : -
+  Accuracy : 89.0778%
+  ROC-AUC  : 0.9622
+  PR-AUC   : 0.9636
+  F1       : -
+  FN       : 1,238
+
+UniXcoder (DFG)
+  Accuracy : 88.3727%
+  ROC-AUC  : 0.9602
+  PR-AUC   : 0.9612
+  F1       : -
+  FN       : 1,125
