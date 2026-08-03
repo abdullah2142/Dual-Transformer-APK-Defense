@@ -99,7 +99,7 @@ Nothing in the repo's history produces 93% honestly (the old-methodology CodeBER
 | Transformers beat TF-IDF | test-5 | N | **safe** |
 | Cross-architecture gap (Table 2b) | test-8 | N vs B | **broken** — CodeBERT artifact |
 | Per-source generalisation (Table 4) | test-4 | S | **broken** |
-| Deployment behaviour (Table 5) | test-6 | S | **broken** |
+| Deployment behaviour (Table 5) | test-6 | S | **broken** + model changed (§5.2) |
 | **Why DFG fails** (Section 8) | test-7 | S | **broken** |
 | Real APK calibration (Test 9) | APK reports | none | **safe** |
 
@@ -110,15 +110,20 @@ Nothing in the repo's history produces 93% honestly (the old-methodology CodeBER
 | # | Step | Depends on | Cost |
 |---|---|---|---|
 | 1 | ~~Edit tests 4, 6, 7 — delete the filename fallback; add the duplicate filter to tests 2, 4, 5, 6, 7~~ **DONE 2026-08-03** | — | text edit |
-| 2 | Re-run test-4, test-7 | GraphCodeBERT (already trained) | GPU inference |
+| 2 | Re-run test-4, test-7, **test-6** | already-trained checkpoints | GPU inference |
 | 3 | Retrain CodeBERT text + CodeBERT+DFG | — | **2 GPU training runs** |
 | 4 | Re-run test-2 | step 3 checkpoints | GPU inference |
 | 5 | Re-run test-8 | test-2's `.npy` | CPU, seconds |
 | 6 | Re-run test-5 | test-2's `.txt` | CPU |
-| 7 | Re-run test-6 | step 3 + step 1 | GPU inference |
 
-Step 2 blocks on nothing — tests 4 and 7 use only GraphCodeBERT, so **Table 4 and Section 8
-can be fixed before any GPU training starts.**
+Step 2 blocks on nothing — tests 4 and 7 use GraphCodeBERT+DFG and test-6 now uses UniXcoder
+text-only, all already trained. So **Table 4, Table 5 and Section 8 can all be fixed before
+any GPU training starts.** Only test-2 (and its two downstream CPU steps) waits on the
+CodeBERT retrain.
+
+Steps 5 and 6 can be appended as cells in the same Kaggle notebook as step 4, avoiding two
+dataset uploads: test-5 reads `/kaggle/working/test2_auc_results.txt` and test-8 searches
+`/kaggle/working` for the `.npy` files.
 
 ### Why each
 
@@ -127,8 +132,8 @@ can be fixed before any GPU training starts.**
 - **test-7** → Section 8. The top-20 false negatives may be training samples, so the
   P5a/P5b/P1 mechanism rests on the wrong examples. **Highest priority** — it is what turns
   the negative result into a contribution.
-- **test-6** → Table 5. Split mismatch, *and* its "Ensemble" row combines GCB+DFG with
-  CodeBERT.
+- **test-6** → Table 5. Split mismatch, *and* the model changed to UniXcoder text-only with
+  the ensemble removed (§5.2). No longer depends on CodeBERT.
 - **CodeBERT ×2** → Table 2b. The "−4.55%, p≈1e-114" row is entirely artifact; the real gap
   is 0.02%.
 - **test-2** → regenerates the `.npy` files everything downstream reads, plus the ROC/PR figure.
@@ -170,6 +175,43 @@ Filter: dropped 1,455 (7.28%)  ->  18,541 clean test entries
 > with the *training* set only. The filter also removes overlap with *validation*, which is
 > correct — validation drove checkpoint selection, so those samples are not clean either.
 > Use **1,455 / 7.28% / 18,541** in the paper.
+
+### 5.2 test-6 model change — OPEN DECISION on the scanner
+
+`test-6` now evaluates **UniXcoder text-only** (89.0778%, best in Table 1) and the **ensemble
+has been removed** (commit `0596f64`). Rationale: GCB+DFG is the weaker variant of the middle
+backbone, so using it for the deployment table contradicts the paper's own null-DFG finding;
+`PAPER_TODO.md:86` already carried this as an open item, and `README.md:221` already described
+test-6's inputs as UniXcoder while Table 5 reported GCB+DFG. The ensemble was a plain 50/50
+probability average of GCB+DFG and CodeBERT text, never defined in any document despite being
+reported in three of them.
+
+**Consequence — test-6 moves from Wave 2 to Wave 1.** It no longer needs CodeBERT, so it can
+run alongside tests 4 and 7 before any retraining.
+
+**Consequence — Table 5 changes shape**: four rows (GCB+DFG ×2, Ensemble ×2) become two rows
+(UniXcoder ×2). The current 94.64% / 94.14% / 5.31% figures are superseded twice over — the
+model changed *and* the test set is now duplicate-filtered.
+
+> #### ⚠ OPEN: the scanner still deploys GraphCodeBERT+DFG
+>
+> `README.md:29` routes the pipeline through `GraphCodeBERT + DFG` at threshold 0.60, and
+> `test_scripts/scanner-pipeline.ipynb` loads that checkpoint. With test-6 now measuring
+> UniXcoder text-only, **Table 5 characterises a configuration the system does not ship** —
+> the deployment table and the deployed system disagree.
+>
+> Three options:
+>
+> | Option | Work | Consequence |
+> |---|---|---|
+> | Switch the scanner to UniXcoder text-only | re-run scanner over 13 APKs, then re-run Test 9 | consistent throughout; Test 9's calibration numbers (84.0% / 8.9% / 7.1%) and all per-APK flag rates change |
+> | Keep the scanner on GCB+DFG, revert test-6 | none | back to contradicting the null-DFG finding |
+> | Keep both, state the split explicitly | doc edit only | Table 5 = "best model under deployment-realistic imbalance"; Section 7 = "deployed configuration". Defensible but needs saying plainly, and invites "why not deploy the best model?" |
+>
+> Decide before writing Section 7. The first option is the only one where the paper's
+> deployment story is internally consistent, but it is the only one that costs GPU time.
+> Also note `PAPER_DEFENSE.md` §7's threshold-0.60 defence was derived on GCB+DFG; if the
+> scanner changes, the threshold sweep must be re-derived on UniXcoder.
 
 ### Not touched
 - **test-3** (3 seed notebooks) — same split logic as training; split seed pinned at 42 while
