@@ -1,0 +1,22 @@
+Step 0.1 - Deduplicated Corpus
+================================================================
+input  : dataset/dataset_graphcodebert.jsonl
+output : dataset/dataset_graphcodebert_dedup.jsonl
+rule   : byte-identical code (md5); conflicting-label groups dropped;
+         first occurrence kept; no rebalancing
+
+source          before     after   removed     safe     vuln
+----------------------------------------------------------------
+LVDAndro        75,000    74,994         6   37,500   37,494
+Draper          75,000    70,740     4,260   37,500   33,240
+Juliet          25,000    19,346     5,654    7,748   11,598
+Devign          24,960    24,858       102   12,449   12,409
+----------------------------------------------------------------
+TOTAL          199,960   189,938    10,022   95,197   94,741
+
+class ratio before : 50.0% safe / 50.0% vuln
+class ratio after  : 50.1% safe / 49.9% vuln
+
+Report these figures in the paper's dataset section verbatim.
+Note: Juliet's internal balance shifts (its safe class was the most
+heavily duplicated); report Juliet separately from headline metrics.

@@ -9,10 +9,12 @@ venv/
 # Datasets (Large Files)
 *.csv
 *.json
+*.jsonl
 *.h5
 *.hdf5
+dataset/
 # Keep any small config json if needed, but exclude the big datasets
-!draper_config.json 
+!draper_config.json
 
 # Processed Data & Caches
 cached_dataset.pt

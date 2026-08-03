@@ -1,0 +1,9 @@
+Test 0 - Dataset Leakage Audit
+============================================================
+entries                          : 199,960
+keys present of infer_source set : []
+distinct code bodies             : 189,989
+entries in duplicate groups      : 15,411 (7.71%)
+test entries duped into train    : 1,375 (6.88%)
+contradictory-label dup groups   : 51
+test entries sharing a filename  : 0 (0.00%)
