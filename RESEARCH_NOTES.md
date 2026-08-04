@@ -41,8 +41,8 @@ All models use the following standardized protocol:
 |---|---|
 | Split | 82% train / 8% val / 10% test — stratified by source, fixed seed=42 |
 | Checkpoint selection | Best validation accuracy (validation-based early stopping) |
-| Patience | 2 (except GCB models: patience=3) |
-| Max epochs | 5 (except GCB models: max 10) |
+| Patience | 2 (except GCB **+DFG**: patience=3) |
+| Max epochs | 5 (except GCB **+DFG**: max 10) — being raised, see below |
 | Batch size | 16 train / 32 eval |
 | Learning rate | 2e-5 |
 | Optimizer | AdamW, eps=1e-8 |
@@ -51,11 +51,43 @@ All models use the following standardized protocol:
 | Code length | 384 tokens |
 | Decision threshold | 0.60 |
 
-> **Note on GCB epoch ceiling**: Both GraphCodeBERT models (Text-only and DFG) were given a higher ceiling
-> (max 10 epochs, patience=3) because early runs showed them converging later than the other
-> models. This was a compute-side adjustment only — early stopping still governs which
-> checkpoint is saved, and the final results (best epoch = 5 for both) are directly comparable.
-> All other models use max 5 epochs / patience=2.
+> **Note on the GCB epoch ceiling** (corrected 2026-08-04): only `graphcodebert-train-dfg.ipynb`
+> was given the higher ceiling (max 10 epochs, patience=3). `graphcodebert-train-text-only.ipynb`
+> runs at max 5 / patience=2 like the other four. Earlier revisions of this section and of
+> `README.md` claimed both GCB models had the higher ceiling; that was wrong — Decision 3 in
+> Part 5 had it right. Verified against the `Args` block of all six notebooks.
+
+> ⚠️ **Planned change — raising the epoch ceiling (decided 2026-08-04).**
+>
+> Across the five runs capped at 5 epochs, **early stopping never actually fired**: every one
+> terminated by hitting `num_train_epochs`, not by exhausting patience. The protocol described
+> above as "validation-based early stopping" therefore operated in practice as a fixed 5-epoch
+> budget with best-checkpoint selection. Two of those runs selected their best checkpoint on the
+> *final* epoch with validation still rising:
+>
+> | Run | Ceiling | Best epoch | Validation trajectory | Fired? |
+> |---|:---:|:---:|---|:---:|
+> | `codebert-train-text` | 5 | **5** | 86.64 → 87.84 → 88.09 → 88.26 → **88.31** | no — cap |
+> | `codebert-final-dfg` | 5 | 4 | 86.63 → 87.74 → 87.89 → **88.32** → 88.15 | no — cap (1/2) |
+> | `graphcodebert-train-text-only` | 5 | **5** | 86.45 → 87.90 → 88.71 → 88.86 → **89.04** | no — cap |
+> | `graphcodebert-train-dfg` | 10 | 5 | (outputs cleared) | had room |
+> | `unixcoder-text-only` | 5 | 4 | 87.22 → 88.55 → 88.94 → **88.99** → — | no — cap (1/2) |
+> | `unixcoder-dfg-final` | 5 | 4 | 86.77 → 87.96 → 88.44 → **88.71** → 88.29 | no — cap (1/2) |
+>
+> The two bolded runs are retrained with a higher ceiling so early stopping governs the stop.
+> Both are text-only arms, which cuts differently per backbone:
+>
+> - **GraphCodeBERT** — the protocol already favoured the DFG arm (10 epochs / patience 3 vs
+>   5 / 2) and DFG still lost by 0.37pp. Giving text its fair ceiling can only widen that gap,
+>   so the null-DFG conclusion is safe here and likely strengthened.
+> - **CodeBERT** — both arms shared the 5/2 cap, but only text was still climbing at it, and
+>   text is the arm that lost after the Partition-N retrain (88.2476% vs 88.5527%). This is the
+>   one place in the study where the epoch cap could be manufacturing the result.
+>
+> **Known objection to state in the paper**: raising the ceiling only for runs that hit it is
+> data-dependent stopping. The alternative — putting all six on a common 10 / 3 budget — costs
+> four more GPU runs. Whichever is chosen, Part 3's numbers and Part 7's quick reference are
+> provisional until the retrains land. See [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md) §5.3.
 
 > **Historical note**: An earlier version of this paper used a fixed 3-epoch schedule with
 > no validation set and no checkpoint selection (Decision 3 in old notes). This was

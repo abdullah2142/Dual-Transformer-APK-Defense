@@ -1,7 +1,18 @@
 # 📝 Paper To-Do (2026-08-02)
 
-**Status**: All experiments complete. All pre-writing tasks complete. Ready to write.
+**Status**: ~~All experiments complete. Ready to write.~~ **Not ready — see
+[REMEDIATION_PLAN.md](REMEDIATION_PLAN.md).** Every number below predates the split fix, the
+duplicate filter and the CodeBERT retrain, and is superseded.
 **Target**: MSR (primary) | EMSE/IST (fallback) | ASE tool track (also viable)
+
+> **Outstanding training runs (2026-08-04)**
+> - [x] Retrain CodeBERT text + CodeBERT+DFG on Partition N → `new_tests_ran/`
+> - [ ] Retrain `codebert-train-text` at a raised epoch ceiling (hit the 5-epoch cap still improving)
+> - [ ] Retrain `graphcodebert-train-text-only` at a raised epoch ceiling (same)
+> - [ ] Decide: raise the ceiling only for those two, or move all six to a common 10 / 3 budget
+> - [ ] Decide: re-run test-3 ×3 seeds at the new ceiling, or label Table 3 as the 5-epoch config
+>
+> Rationale and trajectories: [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md) §5.3.
 
 ---
 

@@ -4,21 +4,25 @@
 > [SPLIT_MISMATCH.md](SPLIT_MISMATCH.md), which were written before the second and third
 > issues were found and whose "do not re-run" list is wrong for tests 4, 6 and 7.
 >
-> **Status**: paused, nothing executed yet. Last verified 2026-08-03.
-> **Cost to complete**: 2 GPU training runs + 6 evaluation re-runs.
+> **Status**: step 1 done (2026-08-03), step 3 done (2026-08-04, → `new_tests_ran/`).
+> A fourth problem — the epoch ceiling — was found on 2026-08-04; see §5.3.
+> Last verified 2026-08-04.
+> **Cost to complete**: 2 GPU training runs + 6 evaluation re-runs, plus up to 3 more
+> GPU runs if Table 3 is re-measured at the new ceiling.
 
 ---
 
 ## 1. TL;DR
 
-Three separate problems were found. Two are serious and must be fixed; the third is a
+Four separate problems were found. Three are serious and must be fixed; the third is a
 disclosure, not a defect.
 
 | # | Problem | Effect | Fix |
 |---|---|---|---|
-| 1 | CodeBERT trained on a different split than every grader rebuilds | reads 93.4% vs its honest 88.56% | retrain CodeBERT ×2 |
+| 1 | CodeBERT trained on a different split than every grader rebuilds | reads 93.4% vs its honest 88.56% | ~~retrain CodeBERT ×2~~ **done 2026-08-04** |
 | 2 | Tests 4, 6, 7 build a different split than training used | **89.9% of their test set is data the model trained on** | delete ~8 lines from each; re-run |
 | 3 | 6.88% of the test set is byte-identical to a training sample | ~0.7pp inflation, applies to all models equally | disclose in Limitations |
+| 4 | Two text-only runs hit the 5-epoch cap with validation still rising; early stopping never fired in any 5-epoch run | their accuracies are floors, and the CodeBERT DFG delta reverses sign | raise the ceiling; retrain 2 (§5.3) |
 
 **The paper's core finding is unaffected.** "DFG does not help on decompiled code" rests on
 within-backbone comparisons — same backbone, same partition, both sides trained and graded
@@ -94,8 +98,8 @@ Nothing in the repo's history produces 93% honestly (the old-methodology CodeBER
 
 | Paper claim | Source | Partition | Status |
 |---|---|---|---|
-| **DFG doesn't help** (Tables 1, 2) | `models/*.txt` + test-8 | N | **safe** (except CodeBERT row) |
-| Training stability ±0.10% (Table 3) | test-3 | N | **safe** |
+| **DFG doesn't help** (Tables 1, 2) | `models/*.txt` + test-8 | N | **safe**, but the CodeBERT and GCB **text-only** rows are floors until §5.3's retrain; the CodeBERT DFG delta currently reverses sign |
+| Training stability ±0.10% (Table 3) | test-3 | N | **safe**, but measured on the 5-epoch config — see §5.3 |
 | Transformers beat TF-IDF | test-5 | N | **safe** |
 | Cross-architecture gap (Table 2b) | test-8 | N vs B | **broken** — CodeBERT artifact |
 | Per-source generalisation (Table 4) | test-4 | S | **broken** |
@@ -111,10 +115,12 @@ Nothing in the repo's history produces 93% honestly (the old-methodology CodeBER
 |---|---|---|---|
 | 1 | ~~Edit tests 4, 6, 7 — delete the filename fallback; add the duplicate filter to tests 2, 4, 5, 6, 7~~ **DONE 2026-08-03** | — | text edit |
 | 2 | Re-run test-4, test-7, **test-6** | already-trained checkpoints | GPU inference |
-| 3 | Retrain CodeBERT text + CodeBERT+DFG | — | **2 GPU training runs** |
-| 4 | Re-run test-2 | step 3 checkpoints | GPU inference |
+| 3 | ~~Retrain CodeBERT text + CodeBERT+DFG~~ **DONE 2026-08-04** → `new_tests_ran/` | — | 2 GPU training runs |
+| 3b | **Raise the epoch ceiling and retrain `codebert-train-text` + `graphcodebert-train-text-only`** (§5.3) | — | **2 GPU training runs** |
+| 4 | Re-run test-2 | step 3b checkpoints | GPU inference |
 | 5 | Re-run test-8 | test-2's `.npy` | CPU, seconds |
 | 6 | Re-run test-5 | test-2's `.txt` | CPU |
+| 7 | Re-run test-3 ×3 seeds, **or** relabel Table 3 as measuring the 5-epoch config (§5.3) | step 3b | 3 GPU runs, or a doc edit |
 
 Step 2 blocks on nothing — tests 4 and 7 use GraphCodeBERT+DFG and test-6 now uses UniXcoder
 text-only, all already trained. So **Table 4, Table 5 and Section 8 can all be fixed before
@@ -212,6 +218,80 @@ model changed *and* the test set is now duplicate-filtered.
 > deployment story is internally consistent, but it is the only one that costs GPU time.
 > Also note `PAPER_DEFENSE.md` §7's threshold-0.60 defence was derived on GCB+DFG; if the
 > scanner changes, the threshold sweep must be re-derived on UniXcoder.
+
+### 5.3 Epoch ceiling — decided 2026-08-04
+
+**Decision: raise the epoch ceiling for the runs that hit it with validation still improving,
+and retrain them.**
+
+#### What was actually configured
+
+Verified against the `Args` block of all six training notebooks, not the docs:
+
+| Run | Max epochs | Patience | Best epoch | How it ended |
+|---|:---:|:---:|:---:|---|
+| `codebert-train-text` (retrain) | 5 | 2 | **5** | hit cap, still improving |
+| `codebert-final-dfg` (retrain) | 5 | 2 | 4 | hit cap at patience 1/2 |
+| `graphcodebert-train-text-only` | 5 | 2 | **5** | hit cap, still improving |
+| `graphcodebert-train-dfg` | **10** | **3** | 5 | had genuine room |
+| `unixcoder-text-only` | 5 | 2 | 4 | hit cap at patience 1/2 |
+| `unixcoder-dfg-final` | 5 | 2 | 4 | hit cap at patience 1/2 |
+
+Two findings from this:
+
+1. **The docs were wrong.** `README.md` and `RESEARCH_NOTES.md` Part 2 both claimed *both*
+   GraphCodeBERT models had the 10 / 3 ceiling. Only the DFG one does.
+   `RESEARCH_NOTES.md` Decision 3 (Part 5) had it right, so Part 2 and Part 5 contradicted
+   each other. Both are now corrected.
+2. **Early stopping never fired in any of the five 5-epoch runs.** Every one terminated on
+   `num_train_epochs`. What the paper describes as validation-based early stopping operated in
+   practice as a fixed 5-epoch budget with best-checkpoint selection. `PAPER_DEFENSE.md` §4
+   defends the protocol on the grounds that it lets each model "train until it reaches its true
+   capability upper bound" — that defence does not survive as written.
+
+#### Which runs are affected
+
+Validation trajectories (accuracy %, per epoch):
+
+```
+codebert-train-text            86.64  87.84  88.09  88.26  88.31   <- new best on the LAST epoch
+graphcodebert-train-text-only  86.45  87.90  88.71  88.86  89.04   <- new best on the LAST epoch
+codebert-final-dfg             86.63  87.74  87.89  88.32  88.15       peaked at 4
+unixcoder-dfg-final            86.77  87.96  88.44  88.71  88.29       peaked at 4
+unixcoder-text-only            87.22  88.55  88.94  88.99    —         peaked at 4
+```
+
+Both truncated runs are **text-only arms**, which cuts differently per backbone:
+
+- **GraphCodeBERT** — the protocol already favoured the DFG arm (10 / 3 against 5 / 2) and DFG
+  still lost by 0.37pp. Giving text its fair ceiling can only widen that gap. The null-DFG
+  conclusion is safe here and probably strengthened.
+- **CodeBERT** — both arms shared the 5 / 2 cap, but only text was still climbing at it, and
+  after the Partition-N retrain text is the arm that *lost* (88.2476% against 88.5527%, a
+  +0.31pp win for DFG that reverses the sign of the old −0.02pp). This is the one place in the
+  study where the epoch cap could be manufacturing the result, and it is the row a reviewer
+  will go after.
+
+#### Cost and consequences
+
+- **2 GPU training runs** (`codebert-train-text`, `graphcodebert-train-text-only`).
+- **Step 4 (test-2) now waits on step 3b**, not step 3 — the CodeBERT text checkpoint from
+  `new_tests_ran/` will be superseded. Steps 5 and 6 follow test-2 as before.
+- **Table 3 (multi-seed) is implicated.** `test-3-seed{42,123,2025}` train GCB text-only at
+  5 / 2 — the same truncated configuration. If GCB text-only moves to a higher ceiling, the
+  ±0.10% stability figure no longer measures the configuration in Table 1. Either re-run the
+  three seed notebooks at the new ceiling (3 more GPU runs) or state plainly that Table 3
+  characterises the 5-epoch configuration. This matters because ±0.10% is the yardstick
+  `PAPER_DEFENSE.md` §2 uses to judge whether the DFG deltas are noise.
+- `PAPER_DEFENSE.md` §4 needs rewriting either way (see finding 2 above).
+
+#### Open: what ceiling, and for whom
+
+Raising the ceiling *only* for the runs that hit it is **data-dependent stopping** — extra
+budget goes exactly to the models that would benefit from it. It is defensible if stated
+plainly, but the cleaner protocol is to put all six on a common 10 / 3 budget and let early
+stopping actually decide. That costs 4 more GPU runs (6 total rather than 2). Decide before
+writing Section 3; the paper has to describe one protocol, uniformly applied.
 
 ### Not touched
 - **test-3** (3 seed notebooks) — same split logic as training; split seed pinned at 42 while

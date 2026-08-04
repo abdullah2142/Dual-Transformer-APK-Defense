@@ -62,6 +62,15 @@ and reframed contributions. Use these paragraphs directly in the paper.
 
 ## 4. Defending the Training Protocol (Early Stopping)
 
+> ⚠️ **This paragraph does not survive as written (2026-08-04).** Early stopping never fired in
+> any of the five runs capped at 5 epochs — every one terminated on `num_train_epochs`, so the
+> protocol operated as a fixed 5-epoch budget with best-checkpoint selection. Two runs
+> (`codebert-train-text`, `graphcodebert-train-text-only`) selected their best checkpoint on the
+> final epoch with validation still rising, so the claim below that each model trains "until it
+> reaches its true capability upper bound" is not supported. Those two are being retrained at a
+> higher ceiling; rewrite this section once they land. See
+> [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md) §5.3.
+
 *Anticipated attack*: "Why did some models train for 4 epochs and others for 5? This is an unfair comparison."
 
 **Paragraph for Methodology**:

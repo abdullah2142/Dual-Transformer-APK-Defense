@@ -51,10 +51,22 @@ graph TD
 | Decision threshold | 0.60 |
 
 > **Note**: Models were retrained with an 8% stratified validation split and
-> validation-based early stopping (patience = 2, max 5 epochs). Both GraphCodeBERT models 
-> (Text-only and DFG) were given a higher ceiling (max 10 epochs, patience = 3) as they 
-> converge later, but both still converged at epoch 5. The original methodology used a
-> fixed 3-epoch schedule with no checkpoint selection.
+> validation-based early stopping (patience = 2, max 5 epochs). Only `graphcodebert-train-dfg`
+> was given a higher ceiling (max 10 epochs, patience = 3); the other five runs use 5 / 2.
+> The original methodology used a fixed 3-epoch schedule with no checkpoint selection.
+
+> ⚠️ **Planned change — raising the epoch ceiling (decided 2026-08-04).** Two runs selected
+> their best checkpoint on the *final* epoch with validation accuracy still rising, so their
+> reported numbers are floors rather than converged values:
+>
+> | Run | Ceiling | Best epoch | Validation trajectory |
+> |---|:---:|:---:|---|
+> | `codebert-train-text` | 5 | **5** | 86.64 → 87.84 → 88.09 → 88.26 → **88.31** |
+> | `graphcodebert-train-text-only` | 5 | **5** | 86.45 → 87.90 → 88.71 → 88.86 → **89.04** |
+>
+> Both will be retrained with a higher ceiling so early stopping, rather than the epoch cap,
+> decides when training ends. Table 1, Table 2 and Table 3 are provisional until then. See
+> [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md) §5.3.
 
 ---
 
@@ -211,7 +223,9 @@ than being flat or centered near 0.5.
 2. **Dataset**: Upload `dataset_graphcodebert.jsonl` to `/kaggle/input/...` or update the `Args` class in the training notebooks.
 3. **Training**: Execute any training notebook from `training_notebooks/re_train/`. They use:
    - **Split**: 82/8/10 train/val/test (stratified by source, seed=42).
-   - **Epochs**: Up to 5 (early stopping, patience=2; GCB models: max 10, patience=3).
+   - **Epochs**: Up to 5 (early stopping, patience=2; `graphcodebert-train-dfg` only: max 10,
+     patience=3). Being raised for the two runs that hit the ceiling still improving — see the
+     Training Configuration note above.
    - **Hyperparameters**: batch size 16, lr 2e-5, AdamW, linear warmup, FP16 autocast.
 4. **Evaluation**: All evaluation is standardized into Python scripts in the `test_scripts/` directory:
    - **`test-2-roc-auc.py`**: Generates the grand ROC comparison. **Inputs**: ALL 6 model checkpoints (CodeBERT Text/DFG, GCB Text/DFG, UniXcoder Text/DFG).
