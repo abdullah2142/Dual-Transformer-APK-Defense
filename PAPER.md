@@ -311,7 +311,7 @@ This partition is called **N** in Part 5. It is the target end state for everyth
 | Code length | 384 tokens |
 | DFG node budget | 128 |
 | Decision threshold | 0.60 |
-| Max epochs / patience | **10 / 3** for the two runs being retrained and for `graphcodebert-train-dfg`; **5 / 2** for the other three |
+| Max epochs / patience | **10 / 2** for the two runs being retrained; 10 / 3 for `graphcodebert-train-dfg`; 5 / 2 for the other three |
 | Evaluation precision | FP16 (`autocast`) — **see finding 3 below; this was not uniform** |
 
 > **Correction (2026-08-04).** The pre-consolidation notes said *both* GraphCodeBERT models were
@@ -364,16 +364,22 @@ reason those numbers are not clean — secondary, since Table 2b is already brok
 
 | Notebook | Before | After |
 |---|---|---|
-| `codebert-train-text.ipynb` | 5 / 2, FP32 eval | **10 / 3, FP16 eval**, wall-clock guard |
-| `graphcodebert-train-text-only.ipynb` | 5 / 2, FP16 eval | **10 / 3**, wall-clock guard |
+| `codebert-train-text.ipynb` | 5 / 2, FP32 eval | **10 / 2, FP16 eval**, wall-clock guard |
+| `graphcodebert-train-text-only.ipynb` | 5 / 2, FP16 eval | **10 / 2**, wall-clock guard |
 
-- **Ceiling 10 / patience 3** matches `graphcodebert-train-dfg`, the only run that ever had room
-  to converge. For GraphCodeBERT this makes the backbone's two arms *exactly* matched.
+- **Ceiling 5 → 10, patience left at 2.** The ceiling is what was broken; patience was not.
+  Holding patience fixed keeps the retrain a single-variable change, so any movement in these
+  two numbers is attributable to the ceiling alone. It also keeps them consistent with
+  `codebert-final-dfg` and both UniXcoder runs, which are all at patience 2 —
+  `graphcodebert-train-dfg` at patience 3 stays the lone exception.
+- **Patience 3 would not have changed `graphcodebert-train-dfg` anyway**: it peaked at epoch 5,
+  so it stopped at 8 rather than the 7 patience 2 would have given. Same selected checkpoint.
 - **CodeBERT text-only moves to FP16 evaluation** to match `codebert-final-dfg` (finding 3).
   Changing the DFG arm to FP32 instead would have cost a third GPU run.
 - **Wall-clock guard** (`time_budget_hours = 11.0`): measured cost is ~62 min/epoch training plus
-  ~2 min validation once FP16 eval lands, so 10 epochs ≈ 10.7 h against Kaggle's 12 h session
-  limit. The guard stops after the last epoch that fits and proceeds to the test evaluation,
+  ~2 min validation once FP16 eval lands, so a full 10 epochs ≈ 10.7 h against Kaggle's 12 h
+  session limit. Patience 2 makes an early stop more likely, so the full 10 is the worst case
+  rather than the expected one. The guard stops after the last epoch that fits and proceeds to the test evaluation,
   which otherwise would be lost to a session kill. The LR schedule now stretches over 10 epochs
   rather than 5, so these are genuinely new runs, not continuations.
 - **Stored outputs cleared** on both, since the source no longer matches them. The superseded
