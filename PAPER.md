@@ -27,7 +27,7 @@ having numbers in two places is what let six documents drift apart.
 | 1 | Fix eval scripts: strip filename fallback, add duplicate filter | ✅ done 2026-08-03 |
 | 2 | Re-run test-4, test-6, test-7 | ⬜ blocked on checkpoint paths (§7.1) |
 | 3 | Retrain CodeBERT text + CodeBERT+DFG on Partition N | ✅ done 2026-08-04 → `training_notebooks/re_train/` |
-| 3b | Raise epoch ceiling, retrain `codebert-train-text` + `graphcodebert-train-text-only` | ⬜ 2 GPU runs (§4.3) |
+| 3b | Raise epoch ceiling, retrain `codebert-train-text` + `graphcodebert-train-text-only` | 🟡 notebooks updated 2026-08-04, **ready to run** — 2 GPU runs (§4.3) |
 | 4 | Re-run test-2 (ROC/PR, regenerates the `.npy` everything downstream reads) | ⬜ waits on 3b |
 | 5 | Re-run test-8 (McNemar) | ⬜ CPU, seconds, waits on 4 |
 | 6 | Re-run test-5 (TF-IDF baselines) | ⬜ CPU, waits on 4 |
@@ -310,7 +310,8 @@ This partition is called **N** in Part 5. It is the target end state for everyth
 | Code length | 384 tokens |
 | DFG node budget | 128 |
 | Decision threshold | 0.60 |
-| Max epochs / patience | **5 / 2 — except `graphcodebert-train-dfg`, which is 10 / 3** |
+| Max epochs / patience | **10 / 3** for the two runs being retrained and for `graphcodebert-train-dfg`; **5 / 2** for the other three |
+| Evaluation precision | FP16 (`autocast`) — **see finding 3 below; this was not uniform** |
 
 > **Correction (2026-08-04).** The pre-consolidation notes said *both* GraphCodeBERT models were
 > given the 10 / 3 ceiling. **Only the DFG one was.**
@@ -332,6 +333,50 @@ This partition is called **N** in Part 5. It is the target end state for everyth
 `num_train_epochs`, not on exhausted patience. What the paper describes as validation-based
 early stopping operated in practice as a **fixed 5-epoch budget with best-checkpoint
 selection** — a materially different protocol, and one that §6.4's defence does not cover.
+
+### Finding 3 — the two CodeBERT arms were scored at different precision
+
+Found 2026-08-04 while sizing the retrain. Every model trains under FP16 autocast, but
+*evaluation* precision was never made uniform:
+
+| Run | Eval precision | Matches its pair? |
+|---|:---:|:---:|
+| `codebert-train-text` | **FP32** | ❌ |
+| `codebert-final-dfg` | FP16 | ❌ |
+| `graphcodebert-train-text-only` | FP16 | ✅ |
+| `graphcodebert-train-dfg` | FP16 | ✅ |
+| `unixcoder-text-only` | FP32 | ✅ |
+| `unixcoder-dfg-final` | FP32 | ✅ |
+
+**CodeBERT is the only backbone whose two arms were evaluated at different precision** — and it
+is the same backbone whose DFG delta reversed sign. So that 0.31pp carried *two* independent
+confounds, not one: a truncated text arm and a precision mismatch against its own comparator.
+GraphCodeBERT and UniXcoder are each internally consistent, so their deltas are unaffected.
+
+It also explains a timing oddity: CodeBERT text-only validation took 7:03 per epoch against the
+DFG variant's 2:09, despite the DFG dataset doing strictly more work per sample.
+
+Cross-backbone comparisons (Table 2b) mix FP16- and FP32-scored models, which is a further
+reason those numbers are not clean — secondary, since Table 2b is already broken for leakage.
+
+### Changes applied to the notebooks (2026-08-04) — ready to run
+
+| Notebook | Before | After |
+|---|---|---|
+| `codebert-train-text.ipynb` | 5 / 2, FP32 eval | **10 / 3, FP16 eval**, wall-clock guard |
+| `graphcodebert-train-text-only.ipynb` | 5 / 2, FP16 eval | **10 / 3**, wall-clock guard |
+
+- **Ceiling 10 / patience 3** matches `graphcodebert-train-dfg`, the only run that ever had room
+  to converge. For GraphCodeBERT this makes the backbone's two arms *exactly* matched.
+- **CodeBERT text-only moves to FP16 evaluation** to match `codebert-final-dfg` (finding 3).
+  Changing the DFG arm to FP32 instead would have cost a third GPU run.
+- **Wall-clock guard** (`time_budget_hours = 11.0`): measured cost is ~62 min/epoch training plus
+  ~2 min validation once FP16 eval lands, so 10 epochs ≈ 10.7 h against Kaggle's 12 h session
+  limit. The guard stops after the last epoch that fits and proceeds to the test evaluation,
+  which otherwise would be lost to a session kill. The LR schedule now stretches over 10 epochs
+  rather than 5, so these are genuinely new runs, not continuations.
+- **Stored outputs cleared** on both, since the source no longer matches them. The superseded
+  runs' figures are preserved in `results/models/*.txt` and in the trajectory table above.
 
 ### Decision (2026-08-04): raise the ceiling and retrain
 
@@ -1020,8 +1065,9 @@ Incidental fixes made along the way:
 6. **test-4 and test-7 run on GraphCodeBERT+DFG**, not UniXcoder as the pre-consolidation docs
    claimed. Validity is unaffected — both are on Partition N once fixed — but describe them
    correctly in Section 4.
-7. **AMP**: `codebert-train-text.ipynb` still imports the deprecated `torch.cuda.amp`;
-   `codebert-final-dfg.ipynb` is already on `torch.amp`. Fix during the step-3b retrain.
+7. **AMP**: `unixcoder-dfg-final.ipynb` is the only notebook still importing the deprecated
+   `torch.cuda.amp`; the other five are on `torch.amp`. (An earlier note named
+   `codebert-train-text.ipynb` here — that was wrong, it was already on `torch.amp`.)
 
 ## 10.5 Corpus-description fixes for the released artifact (post-submission)
 
