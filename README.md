@@ -61,10 +61,9 @@ graph TD
 | **[PAPER.md](PAPER.md)** | **single source of truth** — results, methodology, decisions, limitations |
 | `dataset/` | the 199,960-entry corpus and its deduplicated release version |
 | `dataset_creation_scripts/` | raw APK → JSONL pipeline |
-| `training_notebooks/re_train/` | the six training notebooks |
-| `new_tests/` | corrected evaluation scripts |
-| `new_tests_ran/` | executed training notebooks, with outputs |
-| `test_scripts/` | superseded evaluation scripts, plus the APK scanner pipeline |
+| `training_notebooks/re_train/` | the six training notebooks, each carrying its run's outputs |
+| `training_notebooks/old_train/` | pre-remediation notebooks — historical, do not run |
+| `test_scripts/` | evaluation scripts and the APK scanner pipeline |
 | `results/` | result files and figures |
 | `APKs/` | the APKs used for real-world calibration |
 
@@ -77,9 +76,10 @@ graph TD
    `Args.train_file` field in each notebook at your own copy.
 3. **Training** — run any notebook in `training_notebooks/re_train/`. Hyperparameters and the
    split are documented in [PAPER.md](PAPER.md) Part 4.
-4. **Evaluation** — the scripts in `new_tests/` cover ROC/PR curves, per-source breakdown,
+4. **Evaluation** — the scripts in `test_scripts/` cover ROC/PR curves, per-source breakdown,
    TF-IDF baselines, imbalanced deployment simulation, qualitative false-negative extraction,
-   and McNemar significance testing.
+   and McNemar significance testing. They share the canonical split and duplicate-filter block
+   in `test_scripts/split_and_filter.py`.
 
 > ⚠️ **The evaluation scripts do not run as-is.** Every checkpoint path is a blank `# TODO`
 > placeholder — see [PAPER.md](PAPER.md) §10.4. Fill them in before running anything.

@@ -1,6 +1,6 @@
 !pip install torch transformers tree_sitter==0.21.3 scikit-learn matplotlib -q
 
-import os, json, random, math
+import os, json, random, math, hashlib
 import numpy as np
 import torch
 import torch.nn as nn
@@ -27,14 +27,14 @@ class Args:
     train_file = "/kaggle/input/datasets/hasanmahmudabdullah/dfgdataset2/dataset_graphcodebert.jsonl"
     
     # Models with DFG
-    gcb_dfg_weights       = "" # TODO: /kaggle/input/.../model.bin
-    codebert_dfg_weights  = "" # TODO: /kaggle/input/.../model.bin
-    unixcoder_dfg_weights = "" # TODO: /kaggle/input/.../model.bin
+    gcb_dfg_weights       = "" # TODO: /kaggle/input/<your-dataset>/saved_models/best_model.bin
+    codebert_dfg_weights  = "" # TODO: /kaggle/input/<your-dataset>/saved_models_codebert_dfg/best_model.bin   (NEW - from retrain)
+    unixcoder_dfg_weights = "" # TODO: /kaggle/input/<your-dataset>/saved_models_unixcoder_dfg/model_unixcoder_dfg_best.bin
     
     # Text-only Models
-    gcb_text_weights       = "" # TODO: /kaggle/input/.../model.bin
-    codebert_text_weights  = "" # TODO: /kaggle/input/.../model.bin
-    unixcoder_text_weights = "" # TODO: /kaggle/input/.../model.bin
+    gcb_text_weights       = "" # TODO: /kaggle/input/<your-dataset>/saved_models/best_model_text_only.bin
+    codebert_text_weights  = "" # TODO: /kaggle/input/<your-dataset>/saved_models_codebert_text/best_model.bin  (NEW - from retrain)
+    unixcoder_text_weights = "" # TODO: /kaggle/input/<your-dataset>/saved_models_unixcoder/best_model_text_only.bin
 
     code_length       = 384
     data_flow_length  = 128
@@ -232,32 +232,103 @@ def allocate_counts(total_needed, groups, fraction):
         base[g] += 1
     return base
 
-def get_test_indices(filepath, test_ratio=0.10, val_ratio=0.08, seed=42):
+def get_split_indices(filepath, test_ratio=0.10, val_ratio=0.08, seed=42):
+    """Returns (train, val, test, code_hashes). Reproduces the training
+    partition exactly (163,967/15,997/19,996). The duplicate filter is applied
+    separately, AFTER the split guard — see below."""
+    srcs, hashes = [], []
     with open(filepath, 'r', encoding='utf-8') as f:
-        entries = [json.loads(line) for line in f]
-    
+        for line in f:
+            e = json.loads(line)
+            srcs.append(infer_source(e))
+            hashes.append(hashlib.md5(str(e.get('code', '')).encode('utf-8', 'ignore')).hexdigest())
+            del e
+    total = len(srcs)
+
     rng = random.Random(seed)
     source_to_indices = defaultdict(list)
-    for idx, entry in enumerate(entries):
-        source_to_indices[infer_source(entry)].append(idx)
-
+    for idx, s in enumerate(srcs):
+        source_to_indices[s].append(idx)
     for indices in source_to_indices.values():
         rng.shuffle(indices)
 
-    total = len(entries)
     target_test = int(round(total * test_ratio))
+    target_val = int(round(total * val_ratio))
 
     test_alloc = allocate_counts(target_test, source_to_indices, test_ratio)
-    test_indices = []
+    trainval_groups, test_indices = {}, []
     for source, indices in source_to_indices.items():
         take = min(test_alloc[source], len(indices))
         test_indices.extend(indices[:take])
+        trainval_groups[source] = indices[take:]
 
-    return sorted(test_indices)
+    val_alloc = allocate_counts(target_val, trainval_groups, val_ratio / (1.0 - test_ratio))
+    val_indices, train_indices = [], []
+    for source, indices in trainval_groups.items():
+        take = min(val_alloc[source], len(indices))
+        val_indices.extend(indices[:take])
+        train_indices.extend(indices[take:])
 
-print("Calculating stratified split (82/8/10)...")
-test_indices = get_test_indices(args.train_file)
-print(f"Test set size: {len(test_indices)}")
+    return sorted(train_indices), sorted(val_indices), sorted(test_indices), hashes
+
+print("Building split (matches training partition)...")
+train_indices, val_indices, test_indices, code_hashes = get_split_indices(args.train_file)
+print(f"Split: train={len(train_indices):,} val={len(val_indices):,} "
+      f"test={len(test_indices):,}")
+
+# ─── SPLIT GUARD ──────────────────────────────────────────────────────────────
+# Asserts that the partition rebuilt here is byte-for-byte the one the training
+# notebooks used. This is the check that would have caught the original CodeBERT
+# bug (see SPLIT_MISMATCH.md), so it is fail-closed: a missing file is an error,
+# not a silent skip.
+#
+# The training notebooks write test_indices.npy into their own output dirs
+# ('saved_models_codebert_text/', 'saved_models_codebert_dfg/'), which you then
+# upload as a Kaggle dataset. Rather than hardcode one upload path, search for
+# the file so it is found wherever it was attached.
+import glob as _glob
+
+_guard_candidates = sorted(set(
+    _glob.glob('/kaggle/input/**/test_indices.npy', recursive=True) +
+    _glob.glob('/kaggle/working/**/test_indices.npy', recursive=True) +
+    _glob.glob('/kaggle/input/**/split_indices.json', recursive=True)
+))
+
+assert _guard_candidates, (
+    "Split guard file missing. Upload the training run's output (which contains "
+    "test_indices.npy, e.g. saved_models_codebert_text/test_indices.npy) as a "
+    "Kaggle dataset and attach it to this notebook. Searched /kaggle/input and "
+    "/kaggle/working recursively."
+)
+
+for _gp in _guard_candidates:
+    if _gp.endswith('.npy'):
+        _saved = np.load(_gp)
+    else:
+        with open(_gp, 'r') as _f:
+            _saved = np.array(json.load(_f).get('test_indices', []))
+    assert np.array_equal(test_indices, _saved), (
+        f"Split mismatch against {_gp}: the evaluation partition differs from "
+        f"the training partition. Do NOT proceed - this is the exact bug the "
+        f"guard exists to catch."
+    )
+    print(f"Split guard passed: {_gp} ({len(_saved):,} indices)")
+
+# ─── DUPLICATE FILTER ─────────────────────────────────────────────────────────
+# Applied AFTER the split guard on purpose: the guard compares against the
+# indices the training notebooks saved, which are the full unfiltered 19,996.
+# Filtering first would make the guard fail spuriously.
+#
+# Drops test entries whose `code` is byte-identical to a train/val entry, so the
+# models are measured only on code they never saw. Training data is unchanged.
+# See REMEDIATION_PLAN.md 5.1.
+_seen = {code_hashes[i] for i in train_indices}
+_seen.update(code_hashes[i] for i in val_indices)
+_before = len(test_indices)
+test_indices = [i for i in test_indices if code_hashes[i] not in _seen]
+_dropped = _before - len(test_indices)
+print(f"Duplicate filter: dropped {_dropped:,} ({_dropped/_before:.2%}) test entries "
+      f"byte-identical to a train/val sample -> {len(test_indices):,} clean")
 
 # ─── EVALUATION FUNCTION ──────────────────────────────────────────────────────
 def evaluate(model, dataset, args, is_dfg=True):
@@ -408,8 +479,37 @@ else:
     plt.savefig('/kaggle/working/test2_roc_pr_curves.png', dpi=300)
     print("Saved plots to /kaggle/working/test2_roc_pr_curves.png")
 
+    # ─── RESULTS FILE ─────────────────────────────────────────────────────────
+    # This file is the ONLY consistent source for Table 1: every model here is
+    # scored on the same duplicate-filtered test set. Do NOT mix these figures
+    # with the per-model numbers each training notebook prints - those are on the
+    # unfiltered 19,996 and the arithmetic (acc = 1 - (FN+FP)/N) will not
+    # reconcile. FN/FP are emitted here for exactly that reason.
     with open('/kaggle/working/test2_auc_results.txt', 'w') as f:
         f.write("=== Test 2: ROC-AUC and PR-AUC Results ===\n")
+        f.write(f"Test set: {len(test_indices):,} samples "
+                f"(duplicate-filtered; see REMEDIATION_PLAN.md 5.1)\n")
+        f.write("Threshold: argmax (0.5)\n\n")
+
+        # Machine-readable line kept first for downstream parsers (test-5 reads
+        # 'Acc=' / 'ROC-AUC=' / 'PR-AUC=' from these lines).
         for name, metrics in results.items():
-            f.write(f"{name}: Acc={metrics[6]:.4f}, ROC-AUC={metrics[2]:.4f}, PR-AUC={metrics[5]:.4f}\n")
+            f.write(f"{name}: Acc={metrics[6]:.4f}, ROC-AUC={metrics[2]:.4f}, "
+                    f"PR-AUC={metrics[5]:.4f}\n")
+
+        f.write("\n\n=== Table 1 (paper-ready) ===\n")
+        f.write(f'{"Model":<24}{"Accuracy":>11}{"ROC-AUC":>10}{"PR-AUC":>9}'
+                f'{"FN":>8}{"FP":>8}{"N":>9}\n')
+        f.write('-' * 79 + '\n')
+        for name, metrics in results.items():
+            probs, labels_arr = metrics[7], metrics[8]
+            preds = np.argmax(probs, axis=1)
+            fn = int(np.sum((labels_arr == 1) & (preds == 0)))
+            fp = int(np.sum((labels_arr == 0) & (preds == 1)))
+            n  = int(len(labels_arr))
+            f.write(f'{name:<24}{metrics[6]*100:>10.4f}%{metrics[2]:>10.4f}'
+                    f'{metrics[5]:>9.4f}{fn:>8,}{fp:>8,}{n:>9,}\n')
+            # cross-check: accuracy must equal 1 - (FN+FP)/N
+            assert abs((1.0 - (fn + fp) / n) - metrics[6]) < 1e-9, \
+                f"{name}: FN/FP do not reconcile with accuracy"
     print("Saved metrics to /kaggle/working/test2_auc_results.txt")

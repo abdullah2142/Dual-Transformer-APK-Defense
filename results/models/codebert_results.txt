@@ -1,7 +1,31 @@
-Split        : 82/8/10 train/val/test (validation-based early stopping)
-Epochs       : 4 (best checkpoint at epoch 4)
-Accuracy     : 88.5627%
-ROC-AUC      : 0.9610
-PR-AUC       : 0.9625
-FN           : 1180
-FP           : 1107
+Split        : 82/8/10 train/val/test (random shuffle, seed 42)
+               NOTE: not source-stratified - the corpus has no source
+               key, so infer_source() returns 'unknown' for every entry.
+Test set     : unfiltered (19,996). Table 1 must be taken from test-2,
+               which scores all six models on the duplicate-filtered set.
+Seed         : 42
+Max Epochs   : 5
+Patience     : 2
+Best Epoch   : 5
+Best Val Acc : 88.3103%
+Accuracy     : 88.2476%
+ROC-AUC      : 0.9584
+PR-AUC       : 0.9597
+FN           : 1217
+FP           : 1133
+
+--- provenance -------------------------------------------------------
+Run          : 2026-08-04 Kaggle, Partition-N retrain
+Notebook     : training_notebooks/re_train/codebert-train-text.ipynb
+               (outputs stored in the notebook)
+Supersedes   : the Partition-B run reading 88.5627% / 0.9610 / FN 1180,
+               which trained on a different split than every grader
+               rebuilt. See PAPER.md 5.1.
+WARNING      : best checkpoint landed on the FINAL epoch with validation
+               still rising (86.64 -> 87.84 -> 88.09 -> 88.26 -> 88.31).
+               Early stopping never fired. This accuracy is a floor and
+               this model is queued for retraining at a raised ceiling.
+               See PAPER.md 4.3.
+Note         : the notebook writes this file as codebert_text_results.txt;
+               it is stored here as codebert_results.txt to match the
+               <backbone>_results.txt naming used by the other five.

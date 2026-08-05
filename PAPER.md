@@ -26,7 +26,7 @@ having numbers in two places is what let six documents drift apart.
 |---|---|---|
 | 1 | Fix eval scripts: strip filename fallback, add duplicate filter | ✅ done 2026-08-03 |
 | 2 | Re-run test-4, test-6, test-7 | ⬜ blocked on checkpoint paths (§7.1) |
-| 3 | Retrain CodeBERT text + CodeBERT+DFG on Partition N | ✅ done 2026-08-04 → `new_tests_ran/` |
+| 3 | Retrain CodeBERT text + CodeBERT+DFG on Partition N | ✅ done 2026-08-04 → `training_notebooks/re_train/` |
 | 3b | Raise epoch ceiling, retrain `codebert-train-text` + `graphcodebert-train-text-only` | ⬜ 2 GPU runs (§4.3) |
 | 4 | Re-run test-2 (ROC/PR, regenerates the `.npy` everything downstream reads) | ⬜ waits on 3b |
 | 5 | Re-run test-8 (McNemar) | ⬜ CPU, seconds, waits on 4 |
@@ -132,11 +132,11 @@ for the duplicate-filtered 18,541 alternative and decision D4.
 | UniXcoder | unixcoder-base | text | **89.0778%** | **0.9622** | **0.9636** | 1,238 | 946 | 4 | ✅ |
 | UniXcoder + DFG | unixcoder-base | DFG attn | 88.3727% | 0.9602 | 0.9612 | 1,125 | 1,200 | 4 | ✅ |
 
-**Provenance**: each transformer row comes from that model's own training notebook, graded on
-its own partition. The two CodeBERT rows are from the 2026-08-04 Partition-N retrain
-(`new_tests_ran/`); the other four are `results/models/*.txt`. All four notebook-derived rows
-were confirmed to match `results/models/*.txt` exactly, and Partition N reproduces
-`163,967 / 15,997 / 19,996` byte-for-byte as printed in every notebook.
+**Provenance**: every transformer row comes from that model's own training notebook, graded on
+its own partition, and is mirrored in `results/models/*.txt`. The two CodeBERT rows are from the
+2026-08-04 Partition-N retrain; the other four were each confirmed to match their notebook's
+stored output exactly. Partition N reproduces `163,967 / 15,997 / 19,996` byte-for-byte as
+printed in every notebook.
 
 **All eight models sit in an 84.45–89.08% band; the six transformers in a 0.83pp band
 (88.25–89.08%).** That convergence — not any individual number — is the paper's substantive
@@ -397,7 +397,8 @@ A fixed checkpoint does not gain five points between two gradings. Nothing in th
 produces 93% honestly (old-methodology CodeBERT was 88.4777%), so leakage is the only
 explanation.
 
-**Fixed** by retraining both CodeBERT variants on Partition N (2026-08-04, `new_tests_ran/`).
+**Fixed** by retraining both CodeBERT variants on Partition N (2026-08-04); the executed
+notebooks with their outputs are `training_notebooks/re_train/codebert-{train-text,final-dfg}.ipynb`.
 Re-grading the old checkpoints was not an option — they were trained on B, which overlaps N's
 test set, so no honest test partition remained for them.
 
@@ -452,7 +453,7 @@ that pipeline.** Draft disclosure paragraph:
   instead of 2, and it cancels out of a within-backbone difference anyway.
 - **Test set: deduplicated at evaluation time.** Costs nothing, removes the memorisation
   component from every metric, and yields Juliet's real accuracy on 1,815 unseen samples rather
-  than 100% on a memorised 2,489. Implemented in `new_tests/split_and_filter.py`.
+  than 100% on a memorised 2,489. Implemented in `test_scripts/split_and_filter.py`.
 - **Released artifact: ship the deduplicated corpus.** Contribution 2 *is* the corpus, so
   releasing it with a known duplication bug undercuts it.
   `dataset/dataset_graphcodebert_dedup.jsonl` (189,938 entries) is generated and verified.
@@ -929,21 +930,21 @@ general C/C++ vulnerability detector.
 |---|---|
 | `dataset/dataset_graphcodebert.jsonl` | training corpus, 199,960 entries — **untouched** |
 | `dataset/dataset_graphcodebert_dedup.jsonl` | released corpus, 189,938 entries |
-| `training_notebooks/re_train/` | the six training notebooks |
-| `new_tests/` | corrected evaluation scripts + the fixed CodeBERT notebooks |
-| `new_tests_ran/` | **executed** CodeBERT retrains, with outputs (2026-08-04) |
-| `test_scripts/` | superseded evaluation scripts + `scanner-pipeline.ipynb` |
-| `dataset_creation_scripts/` | raw APK → JSONL pipeline |
+| `training_notebooks/re_train/` | the six training notebooks, each carrying its own run's outputs |
+| `training_notebooks/old_train/` | the pre-remediation notebooks — historical, do not run |
+| `test_scripts/` | all evaluation scripts, plus `split_and_filter.py` and `scanner-pipeline.ipynb` |
+| `test_scripts/test_3_multiseed_broken_down/` | the three multi-seed notebooks |
+| `dataset_creation_scripts/` | raw APK → JSONL pipeline, plus `make_dedup_dataset.py` |
 | `results/models/*.txt` | per-model training results |
 | `results/` | evaluation outputs and figures |
 | `APKs/` | the 13 APKs used for Test 9 |
 
-`new_tests_ran/` source is **byte-identical** to `new_tests/codebert-train-text.ipynb` and
-`codebert-final-dfg.ipynb`; only the outputs differ.
-
-> ⚠️ `new_tests/codebert-*.ipynb` still carry **stale Partition-B outputs** — they print
-> `saved_models_codebert/` and 88.5627%, which no longer match the corrected source above them.
-> Read `new_tests_ran/` for real outputs.
+**Everything is in one place as of 2026-08-04.** The `new_tests/` and `new_tests_ran/` staging
+directories were folded into the canonical tree: the corrected evaluation scripts replaced their
+predecessors in `test_scripts/`, and the executed CodeBERT retrains replaced the old Partition-B
+notebooks in `training_notebooks/re_train/`. Two files were deleted rather than moved —
+`test_scripts/test_3_multiseed.py`, which trained GraphCodeBERT+DFG while Table 3 reports
+text-only, and the three duplicate `test-3-seed*.ipynb` copies that sat in the repository root.
 
 ## 10.2 Output-filename offset (documented, not fixed)
 
@@ -1019,8 +1020,8 @@ Incidental fixes made along the way:
 6. **test-4 and test-7 run on GraphCodeBERT+DFG**, not UniXcoder as the pre-consolidation docs
    claimed. Validity is unaffected — both are on Partition N once fixed — but describe them
    correctly in Section 4.
-7. **AMP**: `new_tests/codebert-train-text.ipynb` still imports the deprecated `torch.cuda.amp`;
-   `codebert-final-dfg.ipynb` is already on `torch.amp`.
+7. **AMP**: `codebert-train-text.ipynb` still imports the deprecated `torch.cuda.amp`;
+   `codebert-final-dfg.ipynb` is already on `torch.amp`. Fix during the step-3b retrain.
 
 ## 10.5 Corpus-description fixes for the released artifact (post-submission)
 

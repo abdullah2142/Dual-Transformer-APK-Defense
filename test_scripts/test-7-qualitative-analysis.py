@@ -3,6 +3,7 @@
 import torch
 import json
 import math
+import hashlib
 import random
 import numpy as np
 from transformers import AutoTokenizer, RobertaConfig, RobertaModel
@@ -17,14 +18,15 @@ print("Imports complete.")
 
 class Args:
     train_file = '/kaggle/input/datasets/hasanmahmudabdullah/dfgdataset2/dataset_graphcodebert.jsonl'
-    gcb_dfg_weights = '' # TODO: /kaggle/input/.../model.bin
+    gcb_dfg_weights = '' # TODO: /kaggle/input/<your-dataset>/saved_models/best_model.bin
     code_length = 384
     data_flow_length = 128
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     eval_batch_size = 32
     seed = 42
     test_ratio = 0.10
-    
+    val_ratio = 0.08   # needed so the duplicate filter can exclude val samples too
+
 args = Args()
 
 def set_seed(s):
@@ -32,15 +34,25 @@ def set_seed(s):
     if torch.cuda.device_count() > 0: torch.cuda.manual_seed_all(s)
 set_seed(args.seed)
 
-# ─── STRATIFIED SPLIT ─────────────────────────────────────────────────────────
+# ─── SPLIT (matches training) + DUPLICATE FILTER ──────────────────────────────
+# See REMEDIATION_PLAN.md §5.1.
+#
+# CRITICAL: this file previously recovered the source from the filename prefix
+# and grouped by it before splitting. The training notebooks did NOT (their
+# infer_source finds no source key in this corpus, so every entry resolved to
+# "unknown" and the split became a single random shuffle). That mismatch put
+# 89.9% of this script's "test" set inside the training data — which means the
+# top-20 false negatives behind Section 8's P5a/P5b/P1 patterns were drawn
+# largely from samples the model had trained on.
+#
+# Source is still reported per false negative, via the `filename` field below.
+
 def infer_source(entry):
+    """Verbatim from the training notebooks. Do NOT add a filename fallback."""
     for key in ("source", "dataset", "origin", "project"):
         val = entry.get(key)
         if val is not None and str(val).strip() != "":
             return str(val).strip()
-    fn = entry.get('filename', '')
-    if fn:
-        return fn.split('_')[0]
     return "unknown"
 
 def allocate_counts(total_needed, groups, fraction):
@@ -52,32 +64,69 @@ def allocate_counts(total_needed, groups, fraction):
         base[g] += 1
     return base
 
-def get_test_indices(filepath, test_ratio=0.10, seed=42):
+def get_split_indices(filepath, test_ratio=0.10, val_ratio=0.08, seed=42,
+                      drop_duplicate_test=True):
+    """Returns (train, val, test, report_sources). Reproduces the training
+    partition exactly (163,967/15,997/19,996), then drops test entries that are
+    byte-identical to a train/val entry."""
+    srcs, hashes, report_sources = [], [], []
     with open(filepath, 'r', encoding='utf-8') as f:
-        entries = [json.loads(line) for line in f]
-    
+        for line in f:
+            e = json.loads(line)
+            srcs.append(infer_source(e))
+            hashes.append(hashlib.md5(str(e.get('code', '')).encode('utf-8', 'ignore')).hexdigest())
+            report_sources.append(str(e.get('filename', '')).split('_')[0] or 'unknown')
+            del e
+    total = len(srcs)
+
     rng = random.Random(seed)
     source_to_indices = defaultdict(list)
-    for idx, entry in enumerate(entries):
-        source_to_indices[infer_source(entry)].append(idx)
-
+    for idx, s in enumerate(srcs):
+        source_to_indices[s].append(idx)
     for indices in source_to_indices.values():
         rng.shuffle(indices)
 
-    total = len(entries)
     target_test = int(round(total * test_ratio))
+    target_val = int(round(total * val_ratio))
 
     test_alloc = allocate_counts(target_test, source_to_indices, test_ratio)
-    test_indices = []
+    trainval_groups, test_indices = {}, []
     for source, indices in source_to_indices.items():
         take = min(test_alloc[source], len(indices))
         test_indices.extend(indices[:take])
+        trainval_groups[source] = indices[take:]
 
-    return sorted(test_indices)
+    val_alloc = allocate_counts(target_val, trainval_groups, val_ratio / (1.0 - test_ratio))
+    val_indices, train_indices = [], []
+    for source, indices in trainval_groups.items():
+        take = min(val_alloc[source], len(indices))
+        val_indices.extend(indices[:take])
+        train_indices.extend(indices[take:])
 
-print("Calculating stratified split (seed=42)...")
-test_indices = get_test_indices(args.train_file, test_ratio=args.test_ratio, seed=args.seed)
-print(f"Test samples: {len(test_indices):,}")
+    train_indices, val_indices = sorted(train_indices), sorted(val_indices)
+    test_indices = sorted(test_indices)
+    assert len(test_indices) == target_test
+    assert set(train_indices).isdisjoint(test_indices)
+    assert set(val_indices).isdisjoint(test_indices)
+    print(f"Split: train={len(train_indices):,} val={len(val_indices):,} "
+          f"test={len(test_indices):,}")
+
+    if drop_duplicate_test:
+        seen = {hashes[i] for i in train_indices}
+        seen.update(hashes[i] for i in val_indices)
+        before = len(test_indices)
+        test_indices = [i for i in test_indices if hashes[i] not in seen]
+        dropped = before - len(test_indices)
+        print(f"Duplicate filter: dropped {dropped:,} ({dropped/before:.2%}) test "
+              f"entries byte-identical to a train/val sample -> "
+              f"{len(test_indices):,} clean")
+
+    return train_indices, val_indices, test_indices, report_sources
+
+print("Building split (matches training partition) ...")
+_train_idx, _val_idx, test_indices, report_sources = get_split_indices(
+    args.train_file, test_ratio=args.test_ratio, val_ratio=args.val_ratio, seed=args.seed)
+print(f"Clean test samples: {len(test_indices):,}")
 
 # ─── MODEL DEFINITIONS ───────────────────────
 class DFGModel(nn.Module):
@@ -249,11 +298,20 @@ if model:
             raw_line = test_ds.lines[raw_idx]
             raw_data = json.loads(raw_line)
             
+            # raw_idx is the position WITHIN the test subset. Record the index
+            # into the original JSONL as well, so each false negative can be
+            # traced back to the corpus and compared across models/runs — the
+            # hand-classification in Section 8 depends on stable identifiers.
+            # Cast out of numpy scalars: `prob` is float32 and `raw_idx` is
+            # int64, neither of which json.dump can serialise.
+            corpus_idx = int(test_ds.original_indices[int(raw_idx)])
             false_negatives.append({
-                'index': raw_idx,
-                'confidence_safe': 1.0 - prob,
+                'index': corpus_idx,
+                'subset_index': int(raw_idx),
+                'confidence_safe': float(1.0 - prob),
                 'code': raw_data.get('code', 'N/A'),
-                'project': raw_data.get('filename', 'Unknown')
+                'project': raw_data.get('filename', 'Unknown'),
+                'source': str(raw_data.get('filename', '')).split('_')[0] or 'unknown'
             })
 
     print(f"\nTotal False Negatives Found in Test Set: {len(false_negatives)}")
@@ -265,7 +323,8 @@ if model:
     print("======================================================\n")
 
     for i, fn in enumerate(false_negatives[:20]):
-        print(f"[False Negative #{i+1}] - Originally from '{fn['project']}'")
+        print(f"[False Negative #{i+1}] - corpus_idx={fn['index']} "
+              f"source={fn['source']} - Originally from '{fn['project']}'")
         print(f"Model Confidence it was SAFE: {fn['confidence_safe'] * 100:.2f}%")
         print("-" * 40)
         lines = fn['code'].split('\n')
@@ -275,3 +334,58 @@ if model:
         if len(lines) > max_lines:
             print(f"... [Truncated {len(lines) - max_lines} more lines]")
         print("=" * 60 + "\n")
+
+    # ─── PERSIST RESULTS ──────────────────────────────────────────────────────
+    # Section 8's pattern classification (P5a/P5b/P1/...) is done by hand from
+    # these samples, so they must outlive the Kaggle console log. Full code is
+    # written for the top 20 (what gets classified); the JSON carries every FN
+    # with its corpus index so FN sets can be compared across models and runs.
+    from collections import Counter as _Counter
+    src_counts = _Counter(fn['source'] for fn in false_negatives)
+
+    out_txt = '/kaggle/working/test7_qualitative_results.txt'
+    with open(out_txt, 'w', encoding='utf-8') as fh:
+        fh.write('Test 7: Qualitative Analysis - Top False Negatives\n')
+        fh.write('=' * 60 + '\n')
+        fh.write('Model      : GraphCodeBERT + DFG\n')
+        fh.write(f'Test set   : {len(test_indices):,} samples '
+                 f'(duplicate-filtered; see REMEDIATION_PLAN.md 5.1)\n')
+        fh.write(f'Threshold  : argmax (0.5)\n')
+        fh.write(f'Total FNs  : {len(false_negatives):,}\n\n')
+        fh.write('False negatives by source:\n')
+        for s, c in src_counts.most_common():
+            fh.write(f'  {s:<12} {c:>6,}\n')
+
+        fh.write('\n\nTop 20 most confident false negatives\n')
+        fh.write('=' * 60 + '\n')
+        fh.write(f'{"#":>3} {"corpus_idx":>11} {"source":<10} {"conf_safe":>10}  filename\n')
+        fh.write('-' * 60 + '\n')
+        for i, fn in enumerate(false_negatives[:20]):
+            fh.write(f'{i+1:>3} {fn["index"]:>11} {fn["source"]:<10} '
+                     f'{fn["confidence_safe"]*100:>9.2f}%  {fn["project"]}\n')
+
+        fh.write('\n\nFull code of the top 20 (for pattern classification)\n')
+        for i, fn in enumerate(false_negatives[:20]):
+            fh.write('\n' + '=' * 60 + '\n')
+            fh.write(f'[FN #{i+1}] corpus_idx={fn["index"]} source={fn["source"]} '
+                     f'confidence_safe={fn["confidence_safe"]*100:.2f}%\n')
+            fh.write(f'filename: {fn["project"]}\n')
+            fh.write('-' * 60 + '\n')
+            fh.write(fn['code'] + '\n')
+    print(f'Saved -> {out_txt}')
+
+    # Machine-readable: every FN, code omitted to keep the file small.
+    out_json = '/kaggle/working/test7_false_negatives.json'
+    with open(out_json, 'w', encoding='utf-8') as fh:
+        json.dump({
+            'model': 'graphcodebert_dfg',
+            'test_set_size': len(test_indices),
+            'duplicate_filtered': True,
+            'total_false_negatives': len(false_negatives),
+            'by_source': dict(src_counts),
+            'false_negatives': [
+                {k: v for k, v in fn.items() if k != 'code'}
+                for fn in false_negatives
+            ],
+        }, fh, indent=2)
+    print(f'Saved -> {out_json}')

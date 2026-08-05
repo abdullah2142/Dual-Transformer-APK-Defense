@@ -1,7 +1,28 @@
-Split        : 82/8/10 train/val/test (validation-based early stopping)
-Epochs       : 4 (best checkpoint at epoch 4)
-Accuracy     : 88.5427%
-ROC-AUC      : 0.9604
-PR-AUC       : 0.9622
-FN           : 1248
-FP           : 1043
+Split        : 82/8/10 train/val/test (random shuffle, seed 42)
+               NOTE: not source-stratified - the corpus has no source
+               key, so infer_source() returns 'unknown' for every entry.
+Test set     : unfiltered (19,996). Table 1 must be taken from test-2,
+               which scores all six models on the duplicate-filtered set.
+Seed         : 42
+Max Epochs   : 5
+Patience     : 2
+Best Epoch   : 4
+Best Val Acc : 88.3228%
+Accuracy     : 88.5527%
+ROC-AUC      : 0.9601
+PR-AUC       : 0.9617
+FN           : 1222
+FP           : 1067
+
+--- provenance -------------------------------------------------------
+Run          : 2026-08-04 Kaggle, Partition-N retrain
+Notebook     : training_notebooks/re_train/codebert-final-dfg.ipynb
+               (outputs stored in the notebook)
+Supersedes   : the Partition-B run reading 88.5427% / 0.9604 / FN 1248,
+               which trained on a different split than every grader
+               rebuilt. See PAPER.md 5.1.
+Note         : converged - peaked at epoch 4, declined at 5. Not affected
+               by the epoch-ceiling issue in PAPER.md 4.3. Its text-only
+               counterpart is, which is why the DFG delta for this
+               backbone currently reads +0.31pp in DFG's favour and is
+               not yet trustworthy.

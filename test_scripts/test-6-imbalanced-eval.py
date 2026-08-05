@@ -1,6 +1,6 @@
 !pip install torch transformers tree_sitter==0.21.3 scikit-learn matplotlib -q
 
-import os, json, random, math
+import os, json, random, math, hashlib
 import numpy as np
 import torch
 import torch.nn as nn
@@ -25,8 +25,10 @@ print(f'CUDA: {torch.cuda.is_available()}')
 # ─── CONFIGURATION ────────────────────────────────────────────
 class Args:
     train_file       = '/kaggle/input/datasets/hasanmahmudabdullah/dfgdataset2/dataset_graphcodebert.jsonl'
-    gcb_dfg_weights  = '' # TODO: /kaggle/input/.../model.bin
-    codebert_weights = '' # TODO: /kaggle/input/.../model.bin
+    # Best configuration in Table 1 (89.0778%). See LOAD MODEL below for why
+    # this replaced GraphCodeBERT+DFG and the CodeBERT ensemble.
+    unixcoder_text_weights = '' # TODO: /kaggle/input/<your-dataset>/saved_models_unixcoder/best_model_text_only.bin
+    model_name_or_path     = 'microsoft/unixcoder-base'
     
     code_length      = 384
     data_flow_length = 128
@@ -42,7 +44,7 @@ class Args:
 
 args = Args()
 
-OPT_THRESHOLD = 0.5
+OPT_THRESHOLD = 0.60
 
 def set_seed(s):
     random.seed(s); np.random.seed(s); torch.manual_seed(s)
@@ -214,15 +216,21 @@ class SimpleCodeDataset(Dataset):
             'label': torch.tensor(label, dtype=torch.long)
         }
 
-# ─── STRATIFIED SPLIT ─────────────────────────────────────────────────────────
+# ─── SPLIT (matches training) + DUPLICATE FILTER ──────────────────────────────
+# See REMEDIATION_PLAN.md §5.1.
+#
+# CRITICAL: this file previously recovered the source from the filename prefix
+# and grouped by it before splitting. The training notebooks did NOT (their
+# infer_source finds no source key in this corpus, so every entry resolved to
+# "unknown" and the split became a single random shuffle). That mismatch put
+# 89.9% of this script's "test" set inside the training data.
+
 def infer_source(entry):
+    """Verbatim from the training notebooks. Do NOT add a filename fallback."""
     for key in ("source", "dataset", "origin", "project"):
         val = entry.get(key)
         if val is not None and str(val).strip() != "":
             return str(val).strip()
-    fn = entry.get('filename', '')
-    if fn:
-        return fn.split('_')[0]
     return "unknown"
 
 def allocate_counts(total_needed, groups, fraction):
@@ -234,88 +242,105 @@ def allocate_counts(total_needed, groups, fraction):
         base[g] += 1
     return base
 
-def get_test_indices(filepath, test_ratio=0.10, seed=42):
+def get_split_indices(filepath, test_ratio=0.10, val_ratio=0.08, seed=42,
+                      drop_duplicate_test=True):
+    """Returns (train, val, test, report_sources). Reproduces the training
+    partition exactly (163,967/15,997/19,996), then drops test entries that are
+    byte-identical to a train/val entry."""
+    srcs, hashes, report_sources = [], [], []
     with open(filepath, 'r', encoding='utf-8') as f:
-        entries = [json.loads(line) for line in f]
-    
+        for line in f:
+            e = json.loads(line)
+            srcs.append(infer_source(e))
+            hashes.append(hashlib.md5(str(e.get('code', '')).encode('utf-8', 'ignore')).hexdigest())
+            report_sources.append(str(e.get('filename', '')).split('_')[0] or 'unknown')
+            del e
+    total = len(srcs)
+
     rng = random.Random(seed)
     source_to_indices = defaultdict(list)
-    for idx, entry in enumerate(entries):
-        source_to_indices[infer_source(entry)].append(idx)
-
+    for idx, s in enumerate(srcs):
+        source_to_indices[s].append(idx)
     for indices in source_to_indices.values():
         rng.shuffle(indices)
 
-    total = len(entries)
     target_test = int(round(total * test_ratio))
+    target_val = int(round(total * val_ratio))
 
     test_alloc = allocate_counts(target_test, source_to_indices, test_ratio)
-    test_indices = []
+    trainval_groups, test_indices = {}, []
     for source, indices in source_to_indices.items():
         take = min(test_alloc[source], len(indices))
         test_indices.extend(indices[:take])
+        trainval_groups[source] = indices[take:]
 
-    return sorted(test_indices)
+    val_alloc = allocate_counts(target_val, trainval_groups, val_ratio / (1.0 - test_ratio))
+    val_indices, train_indices = [], []
+    for source, indices in trainval_groups.items():
+        take = min(val_alloc[source], len(indices))
+        val_indices.extend(indices[:take])
+        train_indices.extend(indices[take:])
 
-print("Calculating stratified split (seed=42)...")
-test_indices = get_test_indices(args.train_file, test_ratio=args.test_ratio, seed=args.seed)
-print(f"Test samples: {len(test_indices):,}")
+    train_indices, val_indices = sorted(train_indices), sorted(val_indices)
+    test_indices = sorted(test_indices)
+    assert len(test_indices) == target_test
+    assert set(train_indices).isdisjoint(test_indices)
+    assert set(val_indices).isdisjoint(test_indices)
+    print(f"Split: train={len(train_indices):,} val={len(val_indices):,} "
+          f"test={len(test_indices):,}")
 
-# ─── LOAD MODELS ──────────────────────────────────────────────
-if not args.gcb_dfg_weights or not os.path.exists(args.gcb_dfg_weights):
-    print("Please set args.gcb_dfg_weights")
+    if drop_duplicate_test:
+        seen = {hashes[i] for i in train_indices}
+        seen.update(hashes[i] for i in val_indices)
+        before = len(test_indices)
+        test_indices = [i for i in test_indices if hashes[i] not in seen]
+        dropped = before - len(test_indices)
+        print(f"Duplicate filter: dropped {dropped:,} ({dropped/before:.2%}) test "
+              f"entries byte-identical to a train/val sample -> "
+              f"{len(test_indices):,} clean")
+
+    return train_indices, val_indices, test_indices, report_sources
+
+print("Building split (matches training partition) ...")
+_train_idx, _val_idx, test_indices, report_sources = get_split_indices(
+    args.train_file, test_ratio=args.test_ratio, val_ratio=args.val_ratio, seed=args.seed)
+print(f"Clean test samples: {len(test_indices):,}")
+
+# ─── LOAD MODEL ───────────────────────────────────────────────
+# Single model: UniXcoder text-only, the best configuration in Table 1
+# (89.0778%). Previously this evaluated GraphCodeBERT+DFG plus a 50/50
+# probability-average "ensemble" with CodeBERT. Both were dropped:
+#   * GCB+DFG (88.5600%) is the weaker variant of the middle backbone, so
+#     characterising deployment with it contradicts the paper's own finding
+#     that DFG does not help. PAPER_TODO.md:86 already flagged this.
+#   * The ensemble was never defined in any document, and after the CodeBERT
+#     retrain its partner scores 88.5427% - statistically indistinguishable
+#     from GCB+DFG, so it averaged two equivalent non-best models.
+if not args.unixcoder_text_weights or not os.path.exists(args.unixcoder_text_weights):
+    print("Please set args.unixcoder_text_weights")
     model_a = None
 else:
-    print('Loading Model A (GraphCodeBERT)...')
-    cfg_a = RobertaConfig.from_pretrained('microsoft/graphcodebert-base')
+    print('Loading UniXcoder (text-only)...')
+    cfg_a = RobertaConfig.from_pretrained(args.model_name_or_path)
     cfg_a.num_labels = 2
-    tok_a = AutoTokenizer.from_pretrained('microsoft/graphcodebert-base', use_fast=True)
-    enc_a = RobertaModel.from_pretrained('microsoft/graphcodebert-base', config=cfg_a)
-    model_a = DFGModel(enc_a, cfg_a).to(args.device)
-    model_a.load_state_dict(torch.load(args.gcb_dfg_weights, map_location=args.device))
+    tok_a = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=True)
+    enc_a = RobertaModel.from_pretrained(args.model_name_or_path, config=cfg_a)
+    model_a = TextModel(enc_a, cfg_a).to(args.device)
+    model_a.load_state_dict(torch.load(args.unixcoder_text_weights, map_location=args.device))
     model_a.eval()
-    print('  ✓ Model A loaded')
-
-has_b = bool(args.codebert_weights and os.path.exists(args.codebert_weights))
-if has_b:
-    print('Loading Model B (CodeBERT)...')
-    cfg_b = RobertaConfig.from_pretrained('microsoft/codebert-base')
-    cfg_b.num_labels = 2
-    tok_b = AutoTokenizer.from_pretrained('microsoft/codebert-base', use_fast=True)
-    enc_b = RobertaModel.from_pretrained('microsoft/codebert-base', config=cfg_b)
-    model_b = TextModel(enc_b, cfg_b).to(args.device)
-    model_b.load_state_dict(torch.load(args.codebert_weights, map_location=args.device))
-    model_b.eval()
-    print('  ✓ Model B loaded')
-else:
-    print(f'  ⚠ CodeBERT not found — ensemble will be skipped')
-    model_b = None
+    print('  ✓ Model loaded')
 
 # ─── BUILD TEST SET ───────────────────────────────────────────
 if model_a:
-    print('Building test dataset A...')
-    test_ds_a = TextDataset(tok_a, args, args.train_file, indices=test_indices)
-
-if model_b:
-    print('Building test dataset B...')
-    test_ds_b = SimpleCodeDataset(tok_b, args, args.train_file, indices=test_indices)
+    print('Building test dataset...')
+    test_ds_a = SimpleCodeDataset(tok_a, args, args.train_file, indices=test_indices)
 
 # ─── RUN INFERENCE ON BALANCED SET ────────────────────────────
 @torch.no_grad()
 def get_probs_a(model, dataset):
     loader = DataLoader(dataset, batch_size=args.eval_batch_size, shuffle=False, num_workers=2)
     all_p, all_l = [], []
-    for batch in tqdm(loader, desc='Inference A'):
-        inp = {k: batch[k].to(args.device) for k in ('input_ids','p_ids','attn_mask')}
-        pr  = model(**inp)[:, 1].cpu().numpy()
-        all_p.extend(pr); all_l.extend(batch['label'].numpy())
-    return np.array(all_p), np.array(all_l)
-
-@torch.no_grad()
-def get_probs_b(model, dataset):
-    loader = DataLoader(dataset, batch_size=args.eval_batch_size, shuffle=False, num_workers=2)
-    all_p, all_l = [], []
-    for batch in tqdm(loader, desc='Inference B'):
+    for batch in tqdm(loader, desc='Inference'):
         inp = {k: batch[k].to(args.device) for k in ('input_ids','attention_mask')}
         pr  = model(**inp)[:, 1].cpu().numpy()
         all_p.extend(pr); all_l.extend(batch['label'].numpy())
@@ -323,9 +348,6 @@ def get_probs_b(model, dataset):
 
 if model_a:
     probs_a, labels_bal = get_probs_a(model_a, test_ds_a)
-    if model_b:
-        probs_b, _ = get_probs_b(model_b, test_ds_b)
-        probs_ens  = (probs_a + probs_b) / 2.0
     print('Inference complete')
     print(f'Test set  -> {len(labels_bal):,} samples, {labels_bal.mean():.4f} malicious ratio')
 else:
@@ -351,8 +373,6 @@ if model_a:
 
     probs_a_imb  = probs_a[imb_idx]
     labels_imb   = labels_bal[imb_idx]
-    if model_b is not None:
-        probs_ens_imb = probs_ens[imb_idx]
 
     print(f'\nImbalanced set -> {len(labels_imb):,} samples')
     print(f'  Malicious: {labels_imb.sum():,}  ({labels_imb.mean()*100:.1f}%)')
@@ -387,22 +407,19 @@ def evaluate(probs, labels, name, threshold=OPT_THRESHOLD):
 # ─── EVALUATE: BALANCED (original 50/50) ──────────────────────
 if model_a:
     print('\n--- BALANCED (50/50) EVALUATION ---')
-    res_bal_a = evaluate(probs_a, labels_bal, 'GraphCodeBERT+DFG [balanced 50/50]')
-    if model_b:
-        res_bal_ens = evaluate(probs_ens, labels_bal, 'Ensemble [balanced 50/50]')
+    res_bal_a = evaluate(probs_a, labels_bal, 'UniXcoder text-only [balanced 50/50]')
 
 # ─── EVALUATE: IMBALANCED (90/10) ─────────────────────────────
 if model_a:
     print('\n--- IMBALANCED (90% safe / 10% malicious) EVALUATION ---')
-    res_imb_a = evaluate(probs_a_imb, labels_imb, 'GraphCodeBERT+DFG [imbalanced 90/10]')
-    if model_b:
-        res_imb_ens = evaluate(probs_ens_imb, labels_imb, 'Ensemble [imbalanced 90/10]')
+    res_imb_a = evaluate(probs_a_imb, labels_imb, 'UniXcoder text-only [imbalanced 90/10]')
 
 # ─── THRESHOLD SENSITIVITY ON IMBALANCED SET ──────────────────
 if model_a:
-    print('\nThreshold sensitivity (GraphCodeBERT+DFG, imbalanced 90/10 set):')
+    print('\nThreshold sensitivity (UniXcoder text-only, imbalanced 90/10 set):')
     print(f'{"Threshold":>10} {"Precision":>10} {"Recall":>8} {"F1":>8} {"FPR":>8} {"FN":>6}')
     print('-'*55)
+    sweep_results = []
     for th in [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65]:
         p = (probs_a_imb >= th).astype(int)
         prec = precision_score(labels_imb, p, zero_division=0)
@@ -412,23 +429,17 @@ if model_a:
         fn   = cm[1,0] if cm.shape==(2,2) else 0
         fp   = cm[0,1] if cm.shape==(2,2) else 0
         fpr  = fp / max(cm[0,0]+cm[0,1], 1)
-        print(f'{th:>10.2f} {prec:>10.4f} {rec:>8.4f} {f1:>8.4f} {fpr:>8.4f} {fn:>6,}')
+        line = f'{th:>10.2f} {prec:>10.4f} {rec:>8.4f} {f1:>8.4f} {fpr:>8.4f} {fn:>6,}'
+        print(line)
+        sweep_results.append(line)
 
 # ─── COMPARISON BAR CHART ─────────────────────────────────────
 if model_a:
     conditions = ['Balanced\n(50/50)', 'Imbalanced\n(90/10 real-world)']
-    has_ens = model_b is not None
-
-    if has_ens:
-        prec_vals = [res_bal_a['prec'],  res_imb_a['prec'],  res_bal_ens['prec'],  res_imb_ens['prec']]
-        rec_vals  = [res_bal_a['rec'],   res_imb_a['rec'],   res_bal_ens['rec'],   res_imb_ens['rec']]
-        f1_vals   = [res_bal_a['f1'],    res_imb_a['f1'],    res_bal_ens['f1'],    res_imb_ens['f1']]
-        xlabels   = ['GCB+DFG\nBalanced','GCB+DFG\nImbalanced','Ensemble\nBalanced','Ensemble\nImbalanced']
-    else:
-        prec_vals = [res_bal_a['prec'],  res_imb_a['prec']]
-        rec_vals  = [res_bal_a['rec'],   res_imb_a['rec']]
-        f1_vals   = [res_bal_a['f1'],    res_imb_a['f1']]
-        xlabels   = ['GCB+DFG\nBalanced','GCB+DFG\nImbalanced']
+    prec_vals = [res_bal_a['prec'], res_imb_a['prec']]
+    rec_vals  = [res_bal_a['rec'],  res_imb_a['rec']]
+    f1_vals   = [res_bal_a['f1'],   res_imb_a['f1']]
+    xlabels   = ['UniXcoder\nBalanced', 'UniXcoder\nImbalanced']
 
     x = np.arange(len(xlabels))
     w = 0.26
@@ -466,12 +477,17 @@ if model_a:
         fh.write('='*60 + '\n')
         fh.write(f'Threshold used: {OPT_THRESHOLD}\n')
         fh.write(f'Imbalanced ratio: 90% safe / 10% malicious\n\n')
-        for res in ([res_bal_a, res_imb_a] +
-                    ([res_bal_ens, res_imb_ens] if has_ens else [])):
+        for res in [res_bal_a, res_imb_a]:
             fh.write(f"\n{res['name']}\n")
             for k in ['acc','prec','rec','f1','auc','pr_auc','fn','fp','fpr']:
                 if isinstance(res[k], float):
                     fh.write(f'  {k:<8}: {res[k]:.4f}\n')
                 else:
                     fh.write(f'  {k:<8}: {res[k]:,}\n')
+        
+        fh.write('\n\nThreshold Sensitivity Sweep (UniXcoder text-only, imbalanced 90/10):\n')
+        fh.write(f'{"Threshold":>10} {"Precision":>10} {"Recall":>8} {"F1":>8} {"FPR":>8} {"FN":>6}\n')
+        fh.write('-'*55 + '\n')
+        for line in sweep_results:
+            fh.write(line + '\n')
     print(f'Saved -> {out_txt}')

@@ -1,6 +1,6 @@
 !pip install torch transformers tree_sitter==0.21.3 scikit-learn matplotlib -q
 
-import os, json, random, math
+import os, json, random, math, hashlib
 import numpy as np
 import torch
 import torch.nn as nn
@@ -22,7 +22,7 @@ print(f"CUDA: {torch.cuda.is_available()}")
 # ─── CONFIGURATION ────────────────────────────────────────────────────────────
 class Args:
     train_file = "/kaggle/input/datasets/hasanmahmudabdullah/dfgdataset2/dataset_graphcodebert.jsonl"
-    gcb_dfg_weights = "" # TODO: /kaggle/input/.../model.bin
+    gcb_dfg_weights = "" # TODO: /kaggle/input/<your-dataset>/saved_models/best_model.bin
 
     model_name_or_path = "microsoft/graphcodebert-base"
     tokenizer_name     = "microsoft/graphcodebert-base"
@@ -172,23 +172,33 @@ class TextDataset(Dataset):
             'label': torch.tensor(label, dtype=torch.long)
         }
 
-# ─── STRATIFIED SPLIT ─────────────────────────────────────────────────────────
+# ─── SPLIT (matches training) + DUPLICATE FILTER ──────────────────────────────
+# See REMEDIATION_PLAN.md §5.1.
+#
+# CRITICAL: the split must NOT be grouped by source. The training notebooks'
+# infer_source finds no source key in this corpus (keys are only code/dfg/
+# label/filename), so every entry resolved to "unknown" and the split became a
+# single random shuffle. The previous version of this file recovered the source
+# from the filename prefix and grouped by it, producing a DIFFERENT partition in
+# which 89.9% of the "test" set was training data.
+#
+# Source is recovered AFTER the split, for table rows only.
+
 def infer_source(entry):
-    # Try multiple fields first
+    """Verbatim from the training notebooks. Do NOT add a filename fallback."""
     for key in ("source", "dataset", "origin", "project"):
         val = entry.get(key)
         if val is not None and str(val).strip() != "":
             return str(val).strip()
-    
-    # Fallback to filename prefix matching
-    fn = entry.get('filename', '')
-    if fn:
-        prefix = fn.split('_')[0]
-        for known in SOURCES.keys():
-            if known.lower() in prefix.lower():
-                return known
-        return prefix
     return "unknown"
+
+def source_for_reporting(filename):
+    """Recovers the true source from the filename prefix. REPORTING ONLY."""
+    prefix = str(filename).split('_')[0]
+    for known in SOURCES.keys():
+        if known.lower() in prefix.lower():
+            return known
+    return prefix or "unknown"
 
 def allocate_counts(total_needed, groups, fraction):
     raw = {g: len(v) * fraction for g, v in groups.items()}
@@ -199,44 +209,78 @@ def allocate_counts(total_needed, groups, fraction):
         base[g] += 1
     return base
 
-def get_test_indices_by_source(filepath, test_ratio=0.10, seed=42):
+def get_split_indices(filepath, test_ratio=0.10, val_ratio=0.08, seed=42,
+                      drop_duplicate_test=True):
+    """Returns (train, val, test, report_sources). Reproduces the training
+    partition exactly (163,967/15,997/19,996), then drops test entries that are
+    byte-identical to a train/val entry."""
+    srcs, hashes, report_sources = [], [], []
     with open(filepath, 'r', encoding='utf-8') as f:
-        entries = [json.loads(line) for line in f]
-    
+        for line in f:
+            e = json.loads(line)
+            srcs.append(infer_source(e))
+            hashes.append(hashlib.md5(str(e.get('code', '')).encode('utf-8', 'ignore')).hexdigest())
+            report_sources.append(source_for_reporting(e.get('filename', '')))
+            del e
+    total = len(srcs)
+
     rng = random.Random(seed)
     source_to_indices = defaultdict(list)
-    for idx, entry in enumerate(entries):
-        src = infer_source(entry)
-        # Normalize source names if they slightly mismatch
-        norm_src = src
-        for known in SOURCES.keys():
-            if known.lower() in src.lower():
-                norm_src = known
-                break
-        source_to_indices[norm_src].append(idx)
-
+    for idx, s in enumerate(srcs):
+        source_to_indices[s].append(idx)
     for indices in source_to_indices.values():
         rng.shuffle(indices)
 
-    total = len(entries)
     target_test = int(round(total * test_ratio))
+    target_val = int(round(total * val_ratio))
 
     test_alloc = allocate_counts(target_test, source_to_indices, test_ratio)
-    test_indices_by_source = defaultdict(list)
+    trainval_groups, test_indices = {}, []
     for source, indices in source_to_indices.items():
         take = min(test_alloc[source], len(indices))
-        test_indices_by_source[source].extend(indices[:take])
+        test_indices.extend(indices[:take])
+        trainval_groups[source] = indices[take:]
 
-    return test_indices_by_source
+    val_alloc = allocate_counts(target_val, trainval_groups, val_ratio / (1.0 - test_ratio))
+    val_indices, train_indices = [], []
+    for source, indices in trainval_groups.items():
+        take = min(val_alloc[source], len(indices))
+        val_indices.extend(indices[:take])
+        train_indices.extend(indices[take:])
 
-print("Calculating stratified split (82/8/10)...")
-test_indices_by_source = get_test_indices_by_source(args.train_file)
+    train_indices, val_indices = sorted(train_indices), sorted(val_indices)
+    test_indices = sorted(test_indices)
+    assert len(test_indices) == target_test
+    assert set(train_indices).isdisjoint(test_indices)
+    assert set(val_indices).isdisjoint(test_indices)
+    print(f"Split: train={len(train_indices):,} val={len(val_indices):,} "
+          f"test={len(test_indices):,}")
+
+    if drop_duplicate_test:
+        seen = {hashes[i] for i in train_indices}
+        seen.update(hashes[i] for i in val_indices)
+        before = len(test_indices)
+        test_indices = [i for i in test_indices if hashes[i] not in seen]
+        dropped = before - len(test_indices)
+        print(f"Duplicate filter: dropped {dropped:,} ({dropped/before:.2%}) test "
+              f"entries byte-identical to a train/val sample -> "
+              f"{len(test_indices):,} clean")
+
+    return train_indices, val_indices, test_indices, report_sources
+
+print("Building split (matches training partition) ...")
+_train_idx, _val_idx, test_indices, report_sources = get_split_indices(args.train_file)
+
+# Group the CLEAN test indices by source, for the per-source table only.
+test_indices_by_source = defaultdict(list)
+for i in test_indices:
+    test_indices_by_source[report_sources[i]].append(i)
+
 total_test = sum(len(idxs) for idxs in test_indices_by_source.values())
-print(f"Total Test set size: {total_test}")
-print("Test-set sample counts per source:")
-for src, idxs in test_indices_by_source.items():
-    if src in SOURCES:
-        print(f"  {src:12s}: {len(idxs):,}")
+print(f"Total clean test set size: {total_test:,}")
+print("Test-set sample counts per source (after duplicate filter):")
+for src in SOURCES:
+    print(f"  {src:12s}: {len(test_indices_by_source.get(src, [])):,}")
 
 # ─── EVALUATION FUNCTION ──────────────────────────────────────────────────────
 @torch.no_grad()

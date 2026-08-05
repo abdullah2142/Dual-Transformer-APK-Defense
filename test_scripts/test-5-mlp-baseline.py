@@ -1,6 +1,6 @@
 !pip install scikit-learn matplotlib -q
 
-import os, json, random, math
+import os, json, random, math, hashlib
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -51,18 +51,31 @@ def allocate_counts(total_needed, groups, fraction):
     return base
 
 def get_stratified_indices(filepath, test_ratio=0.10, val_ratio=0.08, seed=42):
+    """Returns (train, val, test, code_hashes).
+
+    Streams the file rather than materialising all 199,960 entries: each record
+    carries a large `dfg` array that is irrelevant here, and holding them all is
+    a needless multi-GB spike on top of the TF-IDF matrices built later. The
+    code hashes are collected in the same pass for the duplicate filter below.
+    """
+    srcs, hashes = [], []
     with open(filepath, 'r', encoding='utf-8') as f:
-        entries = [json.loads(line) for line in f]
-    
+        for line in f:
+            entry = json.loads(line)
+            srcs.append(infer_source(entry))
+            hashes.append(hashlib.md5(
+                str(entry.get('code', '')).encode('utf-8', 'ignore')).hexdigest())
+            del entry
+
     rng = random.Random(seed)
     source_to_indices = defaultdict(list)
-    for idx, entry in enumerate(entries):
-        source_to_indices[infer_source(entry)].append(idx)
+    for idx, s in enumerate(srcs):
+        source_to_indices[s].append(idx)
 
     for indices in source_to_indices.values():
         rng.shuffle(indices)
 
-    total = len(entries)
+    total = len(srcs)
     target_test = int(round(total * test_ratio))
     target_val = int(round(total * val_ratio))
     target_train = total - target_test - target_val
@@ -84,11 +97,12 @@ def get_stratified_indices(filepath, test_ratio=0.10, val_ratio=0.08, seed=42):
         val_indices.extend(indices[:take])
         train_indices.extend(indices[take:])
 
-    return sorted(train_indices), sorted(val_indices), sorted(test_indices)
+    return sorted(train_indices), sorted(val_indices), sorted(test_indices), hashes
 
-print("Calculating stratified split (82/8/10) with fixed seed=42...")
-train_indices, val_indices, test_indices = get_stratified_indices(DATA_FILE, TEST_RATIO, VAL_RATIO, SEED)
-print(f"Train: {len(train_indices)}, Val: {len(val_indices)}, Test: {len(test_indices)}")
+print("Building split (matches training partition) with fixed seed=42...")
+train_indices, val_indices, test_indices, code_hashes = get_stratified_indices(
+    DATA_FILE, TEST_RATIO, VAL_RATIO, SEED)
+print(f"Train: {len(train_indices):,}, Val: {len(val_indices):,}, Test: {len(test_indices):,}")
 
 # ─── LOAD DATASET ─────────────────────────────────────────────────────────────
 print('Loading dataset...')
@@ -112,6 +126,19 @@ labels = np.array(labels, dtype=int)
 
 # Combine train and val for TF-IDF training (so we evaluate only on the 10% test)
 train_val_idx = train_indices + val_indices
+
+# ─── DUPLICATE FILTER ─────────────────────────────────────────────────────────
+# Drops test entries whose code is byte-identical to a train/val entry. Without
+# this the TF-IDF baselines are credited for samples they were fitted on, which
+# would flatter them relative to the transformers. Hashes come from the split
+# pass above, so there is no extra read. See REMEDIATION_PLAN.md 5.1.
+_seen = {code_hashes[i] for i in train_val_idx}
+_before = len(test_indices)
+test_indices = [i for i in test_indices if code_hashes[i] not in _seen]
+_dropped = _before - len(test_indices)
+print(f'Duplicate filter: dropped {_dropped:,} ({_dropped/_before:.2%}) test entries '
+      f'byte-identical to a train/val sample -> {len(test_indices):,} clean')
+
 X_train, y_train = texts[train_val_idx], labels[train_val_idx]
 X_test,  y_test  = texts[test_indices],  labels[test_indices]
 
