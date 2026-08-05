@@ -61,6 +61,7 @@ everything in Part 5.
 | D2 | Table 3: re-run at the new ceiling, or label it as the 5-epoch config | Table 3 | §4.3 |
 | D3 | Scanner ships GCB+DFG but test-6 now measures UniXcoder text-only | Section 7 | §5.5 |
 | D4 | Whether Table 1 is the unfiltered 19,996 or the duplicate-filtered 18,541 | Tables 1–5 | §5.4 |
+| D5 | Sequence lengths differ between the arms of two backbones — disclose, or retrain to match | Tables 1–2, Section 4 | §4.3 |
 
 ---
 
@@ -377,6 +378,39 @@ reason those numbers are not clean — secondary, since Table 2b is already brok
   rather than 5, so these are genuinely new runs, not continuations.
 - **Stored outputs cleared** on both, since the source no longer matches them. The superseded
   runs' figures are preserved in `results/models/*.txt` and in the trajectory table above.
+
+### ⚠️ Finding 4 — sequence lengths are not uniform either (2026-08-04, UNRESOLVED)
+
+Read from the `Args` block of all six notebooks:
+
+| Backbone | text `code_length` | DFG `code_length` (+ dfg) | DFG total | Code context matched? | Total matched? | Winner |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| CodeBERT | 384 | 384 (+128) | 512 | ✅ **yes** | ❌ | **DFG** +0.31 |
+| GraphCodeBERT | **512** | 384 (+128) | 512 | ❌ text sees +128 | ✅ yes | text +0.37 |
+| UniXcoder | 384 | **256** (+64) | 320 | ❌ text sees +128 | ❌ text sees +64 | text +0.71 |
+
+`unixcoder-dfg-final` additionally uses **train_batch_size 8** where every other run uses 16.
+
+**The one backbone that matches code context between its arms is the only one where DFG does not
+lose.** In the other two the text arm was given 128 more tokens of code than its DFG counterpart,
+so "no DFG" is confounded with "more code". This does not overturn *"no consistent benefit"* —
+that claim survives — but it changes what the comparison measures:
+
+- **CodeBERT** asks *"does adding DFG help, holding code context fixed?"*
+- **GraphCodeBERT** asks *"are 128 positions better spent on DFG nodes or on more code?"* —
+  a legitimate question, but a different one, and the honest answer from its row is *more code*.
+- **UniXcoder** cleanly asks neither: its DFG arm has less code, a smaller total budget, *and*
+  half the batch size, so its 0.71pp is the **least** trustworthy of the three, not the most.
+
+**Not fixed, deliberately.** The step-3b retrain changes the epoch ceiling; changing sequence
+length in the same run would confound the very comparison it exists to clean up. Options, once
+3b lands:
+
+| Option | Cost | Effect |
+|---|---|---|
+| Disclose in Limitations, keep the runs | none | honest; reframes GCB/UniXcoder rows as a budget-allocation question |
+| Set GCB text-only to 384 and retrain | 1 run | CodeBERT and GCB share one convention; also re-opens D2, since Table 3's seeds ran at 512 |
+| Make all three uniform | several runs | requires retraining DFG arms too |
 
 ### Decision (2026-08-04): raise the ceiling and retrain
 
