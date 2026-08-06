@@ -27,13 +27,13 @@ having numbers in two places is what let six documents drift apart.
 | 1 | Fix eval scripts: strip filename fallback, add duplicate filter | ✅ done 2026-08-03 |
 | 2 | Re-run test-4, test-6, test-7 | ⬜ blocked on checkpoint paths (§7.1) |
 | 3 | Retrain CodeBERT text + CodeBERT+DFG on Partition N | ✅ done 2026-08-04 → `training_notebooks/re_train/` |
-| 3b | Raise epoch ceiling, retrain `codebert-train-text` + `graphcodebert-train-text-only` | 🟡 notebooks updated 2026-08-04, **ready to run** — 2 GPU runs (§4.3) |
+| 3b | Raise epoch ceiling, retrain `codebert-train-text`, `graphcodebert-train-text-only` **and `codebert-final-dfg`** | 🟡 all three updated 2026-08-04, **ready to run** — 3 GPU runs (§4.3) |
 | 4 | Re-run test-2 (ROC/PR, regenerates the `.npy` everything downstream reads) | ⬜ waits on 3b |
 | 5 | Re-run test-8 (McNemar) | ⬜ CPU, seconds, waits on 4 |
 | 6 | Re-run test-5 (TF-IDF baselines) | ⬜ CPU, waits on 4 |
 | 7 | Re-run test-3 ×3 seeds, **or** relabel Table 3 as the 5-epoch config | ⬜ decision (§4.3) |
 
-**Cost to finish**: 2 GPU training runs + 6 evaluation re-runs, plus 3 more GPU runs if Table 3
+**Cost to finish**: 3 GPU training runs + 6 evaluation re-runs, plus 3 more GPU runs if Table 3
 is re-measured.
 
 ## 1.2 What the paper can and cannot claim today
@@ -366,6 +366,19 @@ reason those numbers are not clean — secondary, since Table 2b is already brok
 |---|---|---|
 | `codebert-train-text.ipynb` | 5 / 2, FP32 eval | **10 / 2, FP16 eval**, wall-clock guard |
 | `graphcodebert-train-text-only.ipynb` | 5 / 2, FP16 eval | **10 / 2**, wall-clock guard |
+| `codebert-final-dfg.ipynb` | 5 / 2 | **10 / 2**, wall-clock guard |
+
+- **`codebert-final-dfg` is retrained even though it converged**, because the scheduler is
+  `num_training_steps = len(train_dataloader) × num_train_epochs`: raising the text arm's ceiling
+  also halved its LR decay rate. Left at 5, the two CodeBERT arms would have differed in epoch
+  budget *and* LR schedule shape — trading one confound for two, on the one backbone whose delta
+  is in question. It runs ~78 min/cycle against the text arm's ~64, so a full 10 epochs would be
+  ~13 h; with patience 2 and its epoch-4 peak it should halt near epoch 6 (~8 h), and the guard
+  covers the rest.
+- **GraphCodeBERT needs no such treatment.** `graphcodebert-train-dfg` was already at 10 epochs
+  with 10% warmup, so its LR schedule now matches its text partner exactly. Only patience differs
+  (3 vs 2), which governs when training halts, not the LR trajectory or the checkpoint-selection
+  rule. UniXcoder's pair is likewise internally consistent at 5 / 2.
 
 - **Ceiling 5 → 10, patience left at 2.** The ceiling is what was broken; patience was not.
   Holding patience fixed keeps the retrain a single-variable change, so any movement in these
