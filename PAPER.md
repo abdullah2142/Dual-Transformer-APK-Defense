@@ -60,11 +60,12 @@ everything in Part 5.
 |---|---|---|---|
 | ~~D1~~ | ~~Epoch ceiling~~ — **settled 2026-08-12**: all four CodeBERT/GCB runs on 10 / 2, early stopping fired in each. UniXcoder remains at 5 / 2, internally consistent | — | §4.3 |
 | D2 | Table 3: re-run at the new ceiling, or label it as the 5-epoch config | Table 3 | §4.3 |
-| D3 | Scanner ships GCB+DFG but test-6 now measures UniXcoder text-only | Section 7 | §5.5 |
+| ~~D3~~ | ~~Scanner ships GCB+DFG~~ — **retired 2026-08-12: the premise was false.** The scanner has always run GraphCodeBERT **text-only**, and contains no DFG code at all | — | §5.5 |
 | D4 | Whether Table 1 is the unfiltered 19,996 or the duplicate-filtered 18,541 | Tables 1–5 | §5.4 |
 | D5 | Sequence lengths differ between the arms of two backbones — disclose, or retrain to match | Tables 1–2, Section 4 | §4.3 |
-| **D6** | **GraphCodeBERT text-only is now the best model (89.23% > UniXcoder 89.08%). test-6 was switched to UniXcoder *because* it was best — revisit?** | Table 5, Section 7 | §3.1, §5.5 |
+| ~~D6~~ | ~~Best model changed~~ — **settled 2026-08-12**: GraphCodeBERT text-only is best *and* is what the scanner deploys. test-6 re-pointed to it; test-4 still needs a text-only path (§5.6) | — | §5.6 |
 | **D7** | **GCB+DFG trains at effective batch 32 vs its text arm's 16 — retrain to match, or disclose?** | Table 2 GCB row | §4.3 |
+| **D8** | **The scanner runs at threshold 0.45; every document, test-6 and test-9 use 0.60. Align which way?** | Section 5, Section 7, Table 5 | §5.6 |
 
 ---
 
@@ -275,7 +276,11 @@ Superseded twice over: contaminated partition, **and** the model changed (§5.5)
 | istark.vpn.starkreloaded | commercial sample | 0 | 0 | 0.0% |
 
 The distribution is sharply concentrated near 0.0 with a small high-confidence tail — not flat,
-not centred near 0.5. Three of the four deliberately-vulnerable apps are the three
+not centred near 0.5.
+
+> ⚠️ **These rates are computed at threshold 0.60, but the scanner ships at 0.45** (D8, §5.6), so
+> they understate what the deployed system actually flags. They also come from the pre-retrain
+> GraphCodeBERT text-only checkpoint. Three of the four deliberately-vulnerable apps are the three
 highest-flagged; **InsecureShop at 3.0% is the exception and is addressed in §6.10.**
 
 > **Do not use 89.2% / 5.2% / 5.6% / 4.1%.** Those figures circulated in the pre-consolidation
@@ -323,7 +328,7 @@ This partition is called **N** in Part 5. It is the target end state for everyth
 | Precision | FP16 (AMP) |
 | Code length | 384 tokens |
 | DFG node budget | 128 |
-| Decision threshold | 0.60 |
+| Decision threshold | **disputed — scanner 0.45, everything else 0.60 (D8, §5.6)** |
 | Max epochs / patience | **10 / 2** for the two runs being retrained; 10 / 3 for `graphcodebert-train-dfg`; 5 / 2 for the other three |
 | Evaluation precision | FP16 (`autocast`) — **see finding 3 below; this was not uniform** |
 
@@ -657,21 +662,76 @@ the deployment table contradicts the paper's own null-DFG finding. The ensemble 
 50/50 probability average of GCB+DFG and CodeBERT text — never defined in any document despite
 being reported in three of them, and built on the leaked CodeBERT besides.
 
-> ### ⚠️ D3 — the scanner still deploys GraphCodeBERT+DFG
+> ### ✅ D3 retired — the scanner was never on GraphCodeBERT+DFG
 >
-> `test_scripts/scanner-pipeline.ipynb` loads the GCB+DFG checkpoint at threshold 0.60. With
-> test-6 now measuring UniXcoder text-only, **Table 5 characterises a configuration the system
-> does not ship.**
+> **Verified 2026-08-12 by reading `test_scripts/scanner-pipeline.ipynb` directly:**
 >
-> | Option | Work | Consequence |
-> |---|---|---|
-> | Switch the scanner to UniXcoder text-only | re-run scanner over 13 APKs, then Test 9 | consistent throughout; Test 9's 84.0 / 8.9 / 7.1 and every per-APK rate change |
-> | Keep GCB+DFG, revert test-6 | none | back to contradicting the null-DFG finding |
-> | Keep both, state the split explicitly | doc edit | Table 5 = "best model under deployment-realistic imbalance"; Section 7 = "deployed configuration". Defensible, but invites *"why not deploy the best model?"* |
+> ```
+> MODEL_PATH = .../graphcodebert-train-text-only/saved_models/best_model_text_only.bin
+> THRESHOLD  = 0.45
+> ```
 >
-> Option 1 is the only internally consistent story and the only one costing GPU time. Note also
-> that §6.7's threshold-0.60 defence was derived on GCB+DFG; if the scanner changes, the sweep
-> must be re-derived on UniXcoder.
+> The notebook also contains **no DFG code whatsoever** — no `data_flow_length`, `attn_mask`,
+> `position_idx` or `p_ids` anywhere in it. The scanner is text-only architecturally, not merely
+> by checkpoint name.
+>
+> Every prior document — including earlier revisions of this one — claimed the scanner deployed
+> **GraphCodeBERT+DFG at threshold 0.60**. Both halves were wrong. The consequences are good ones:
+>
+> - **The deployment story was never inconsistent.** The scanner has always shipped a text-only
+>   model, so it never contradicted the null-DFG finding.
+> - **It already ships the best model.** The 2026-08-12 reruns put GraphCodeBERT text-only on top
+>   of Table 1 at 89.2300%, and that is exactly what the scanner loads.
+> - **No scanner re-run is needed for model choice** — only to pick up the *retrained* checkpoint.
+>
+> What it did surface is **D8**: the scanner's operating threshold is **0.45**, while test-6,
+> test-9 and §6.7's defence all use **0.60**.
+### 5.6 Which model each experiment uses (revised 2026-08-12)
+
+With GraphCodeBERT text-only now top of Table 1 *and* the model the scanner deploys, capability
+and deployment claims should all rest on it. The one deliberate exception is test-7.
+
+| Experiment | What it claims | Model it should use | Currently loads | Status |
+|---|---|---|---|---|
+| test-2 | six-model comparison | all six | all six | ✅ |
+| test-3 | training stability | GCB text-only | GCB text-only | ✅ model right, **protocol stale** (D2) |
+| test-4 | per-source capability | GCB text-only | **GCB+DFG** | ❌ needs a text-only path — see below |
+| test-6 | deployment threshold | GCB text-only | ~~UniXcoder text~~ → **GCB text-only** | ✅ re-pointed |
+| test-7 | *why DFG fails* | **GCB+DFG** | GCB+DFG | ✅ correct by design |
+| test-9 + scanner | deployed system | GCB text-only | GCB text-only | ✅ needs the retrained checkpoint |
+
+**test-7 stays on DFG deliberately.** Its job is to explain why DFG fails, so it must analyse a
+DFG model's false negatives — the text-only model's mistakes would evidence nothing about DFG.
+GCB+DFG at 88.6600% is the strongest DFG variant, so it is already the right pick.
+
+**test-4 is not a one-line re-point.** Verified 2026-08-12: it defines only a `DFGModel`, and its
+(misleadingly named) `TextDataset` builds `attn_mask` / `p_ids` tensors. Switching it to text-only
+requires adding a text-only model and dataset — the `TextModel` + `SimpleCodeDataset` pair in
+test-6 is proven code to mirror — **and moving `code_length` from 384 to 512**, because
+GraphCodeBERT text-only was trained at 512. Until that is done, Table 4 either stays on GCB+DFG
+or waits.
+
+> **Sequence-length trap.** GraphCodeBERT text-only trains at `code_length = 512`; every other
+> text-only run uses 384. Any script evaluating it **must** use 512 or it scores the model at a
+> length it never saw. This is the same asymmetry recorded as finding 4 / D5, now with an
+> operational consequence.
+
+### ⚠️ D8 — the deployed threshold is 0.45, not 0.60
+
+| Where | Threshold |
+|---|:---:|
+| `scanner-pipeline.ipynb` (**what actually ships**) | **0.45** |
+| `test-6-imbalanced-eval.py` (`OPT_THRESHOLD`) | 0.60 |
+| `test_9_scanner_calibration.py` | 0.60 |
+| §6.7's defence paragraph | 0.60 |
+
+Two consequences. **Every reported flag rate is computed at 0.60 while the deployed scanner
+alerts at 0.45**, so §3.7's per-APK rates understate what the shipped system actually surfaces.
+And §6.7 defends a number the system does not use.
+
+Align one way or the other before writing Sections 5 and 7. test-6 now writes a full threshold
+sweep, so whichever value is chosen can be justified from data — but it must be re-derived on
+GraphCodeBERT text-only, since the original 0.60 claim was attributed to GCB+DFG.
 
 ---
 
@@ -762,6 +822,9 @@ Use these paragraphs directly. Numbers inside them are current as of 2026-08-04 
 > drafts cite LVDAndro at 98.34% in a heading and 97.07% in the body — neither is usable.
 
 ## 6.7 Threshold 0.60
+
+> ⚠️ **The system ships 0.45, not 0.60** (D8, §5.6). This paragraph defends a value the scanner
+> does not use, with numbers that exist in no results file. Settle D8 before rewriting it.
 
 *Attack*: "Why 0.60 rather than the standard 0.50?"
 

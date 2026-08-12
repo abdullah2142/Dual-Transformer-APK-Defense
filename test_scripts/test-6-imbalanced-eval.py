@@ -25,12 +25,17 @@ print(f'CUDA: {torch.cuda.is_available()}')
 # ─── CONFIGURATION ────────────────────────────────────────────
 class Args:
     train_file       = '/kaggle/input/datasets/hasanmahmudabdullah/dfgdataset2/dataset_graphcodebert.jsonl'
-    # Best configuration in Table 1 (89.0778%). See LOAD MODEL below for why
-    # this replaced GraphCodeBERT+DFG and the CodeBERT ensemble.
-    unixcoder_text_weights = '' # TODO: /kaggle/input/<your-dataset>/saved_models_unixcoder/best_model_text_only.bin
-    model_name_or_path     = 'microsoft/unixcoder-base'
-    
-    code_length      = 384
+    # Best configuration in Table 1 (89.2300%, 2026-08-12 rerun) AND the model
+    # the scanner actually deploys. See LOAD MODEL below for why this replaced
+    # GraphCodeBERT+DFG and the CodeBERT ensemble; re-pointed from UniXcoder
+    # text-only (89.0778%) when the reruns put GCB text-only on top.
+    gcb_text_weights   = '' # TODO: /kaggle/input/<your-dataset>/saved_models/best_model_text_only.bin
+    model_name_or_path = 'microsoft/graphcodebert-base'
+
+    # 512, NOT 384: graphcodebert-train-text-only.ipynb trains at code_length
+    # 512 while every other text-only run uses 384. Evaluating at 384 would
+    # score the model at a length it never saw.
+    code_length      = 512
     data_flow_length = 128
     eval_batch_size  = 32
     seed             = 42
@@ -316,8 +321,8 @@ print(f"Clean test samples: {len(test_indices):,}")
 #   * The ensemble was never defined in any document, and after the CodeBERT
 #     retrain its partner scores 88.5427% - statistically indistinguishable
 #     from GCB+DFG, so it averaged two equivalent non-best models.
-if not args.unixcoder_text_weights or not os.path.exists(args.unixcoder_text_weights):
-    print("Please set args.unixcoder_text_weights")
+if not args.gcb_text_weights or not os.path.exists(args.gcb_text_weights):
+    print("Please set args.gcb_text_weights")
     model_a = None
 else:
     print('Loading UniXcoder (text-only)...')
@@ -326,7 +331,7 @@ else:
     tok_a = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=True)
     enc_a = RobertaModel.from_pretrained(args.model_name_or_path, config=cfg_a)
     model_a = TextModel(enc_a, cfg_a).to(args.device)
-    model_a.load_state_dict(torch.load(args.unixcoder_text_weights, map_location=args.device))
+    model_a.load_state_dict(torch.load(args.gcb_text_weights, map_location=args.device))
     model_a.eval()
     print('  ✓ Model loaded')
 
