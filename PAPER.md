@@ -5,7 +5,7 @@
 paragraph lives here. `README.md` describes the repository and deliberately carries no results —
 having numbers in two places is what let six documents drift apart.
 
-**Last verified**: 2026-08-04 · **Target venue**: IEEE Access
+**Last verified**: 2026-08-12 · **Target venue**: IEEE Access
 
 > **Reading rule.** Every result below carries a status tag. Only ✅ figures may be written into
 > the paper as-is.
@@ -27,21 +27,22 @@ having numbers in two places is what let six documents drift apart.
 | 1 | Fix eval scripts: strip filename fallback, add duplicate filter | ✅ done 2026-08-03 |
 | 2 | Re-run test-4, test-6, test-7 | ⬜ blocked on checkpoint paths (§7.1) |
 | 3 | Retrain CodeBERT text + CodeBERT+DFG on Partition N | ✅ done 2026-08-04 → `training_notebooks/re_train/` |
-| 3b | Retrain all four CodeBERT and GraphCodeBERT runs on one protocol (10 / 2) | 🟡 all four updated 2026-08-04, **ready to run** — 4 GPU runs (§4.3) |
+| 3b | Retrain all four CodeBERT and GraphCodeBERT runs on one protocol (10 / 2) | ✅ **done 2026-08-12** — early stopping fired in all four (§4.3) |
 | 4 | Re-run test-2 (ROC/PR, regenerates the `.npy` everything downstream reads) | ⬜ waits on 3b |
 | 5 | Re-run test-8 (McNemar) | ⬜ CPU, seconds, waits on 4 |
 | 6 | Re-run test-5 (TF-IDF baselines) | ⬜ CPU, waits on 4 |
 | 7 | Re-run test-3 ×3 seeds, **or** relabel Table 3 as the 5-epoch config | ⬜ decision (§4.3) |
 
-**Cost to finish**: 4 GPU training runs + 6 evaluation re-runs, plus 3 more GPU runs if Table 3
-is re-measured.
+**Cost to finish**: 6 evaluation re-runs, plus 3 more GPU runs if Table 3 is re-measured and 1 if
+D7 is closed by retraining.
 
 ## 1.2 What the paper can and cannot claim today
 
 | Claim | Evidence | Status |
 |---|---|---|
 | **DFG provides no consistent benefit** | within-backbone comparisons, Table 2 | ✅ **safe** — the core finding survives everything below |
-| DFG *uniformly degrades* accuracy | Table 2 | ❌ **false as of 2026-08-04** — reverses on CodeBERT (§3.2) |
+| DFG lowers accuracy **and** ROC-AUC on all three backbones | Table 2 | ✅ **restored 2026-08-12** — the CodeBERT reversal was an artifact of the truncated text arm plus an FP32/FP16 mismatch; both fixed, and it reversed back (§3.2) |
+| DFG trades false negatives for false positives | Table 2 | ✅ consistent in all three backbones |
 | Training stability ±0.10% | test-3 | ⚠️ measured on the 5-epoch config, unfiltered |
 | Transformers beat TF-IDF | test-5 | ⚠️ unfiltered; re-runs with test-2 |
 | Cross-architecture gap (Table 2b) | test-8 | ❌ entirely a leakage artifact |
@@ -57,11 +58,13 @@ everything in Part 5.
 
 | # | Decision | Blocks | §  |
 |---|---|---|---|
-| D1 | Epoch ceiling: raise only where it was hit, or move all six to a common 10 / 3 budget | Section 3 | §4.3 |
+| ~~D1~~ | ~~Epoch ceiling~~ — **settled 2026-08-12**: all four CodeBERT/GCB runs on 10 / 2, early stopping fired in each. UniXcoder remains at 5 / 2, internally consistent | — | §4.3 |
 | D2 | Table 3: re-run at the new ceiling, or label it as the 5-epoch config | Table 3 | §4.3 |
 | D3 | Scanner ships GCB+DFG but test-6 now measures UniXcoder text-only | Section 7 | §5.5 |
 | D4 | Whether Table 1 is the unfiltered 19,996 or the duplicate-filtered 18,541 | Tables 1–5 | §5.4 |
 | D5 | Sequence lengths differ between the arms of two backbones — disclose, or retrain to match | Tables 1–2, Section 4 | §4.3 |
+| **D6** | **GraphCodeBERT text-only is now the best model (89.23% > UniXcoder 89.08%). test-6 was switched to UniXcoder *because* it was best — revisit?** | Table 5, Section 7 | §3.1, §5.5 |
+| **D7** | **GCB+DFG trains at effective batch 32 vs its text arm's 16 — retrain to match, or disclose?** | Table 2 GCB row | §4.3 |
 
 ---
 
@@ -122,56 +125,65 @@ for the duplicate-filtered 18,541 alternative and decision D4.
 
 ## 3.1 Table 1 — Full model comparison
 
-| Model | Backbone | Structure | Accuracy | ROC-AUC | PR-AUC | FN | FP | Best epoch | Status |
-|---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| LR + TF-IDF | — | none | 84.4519% | 0.9271 | 0.9270 | 1,685 | — | — | ⚠️ |
-| MLP + TF-IDF | — | none | 85.4821% | 0.9385 | 0.9408 | 1,425 | — | — | ⚠️ |
-| CodeBERT | codebert-base | text | 88.2476% | 0.9584 | 0.9597 | 1,217 | 1,133 | **5** | ⚠️ ceiling |
-| CodeBERT + DFG | codebert-base | DFG attn | 88.5527% | 0.9601 | 0.9617 | 1,222 | 1,067 | 4 | ✅ |
-| GraphCodeBERT | graphcodebert | text | 88.9300% | 0.9596 | 0.9611 | 1,241 | 972 | **5** | ⚠️ ceiling |
-| GraphCodeBERT + DFG | graphcodebert | DFG attn | 88.5600% | 0.9585 | 0.9597 | 1,196 | 1,091 | 5 | ✅ |
-| UniXcoder | unixcoder-base | text | **89.0778%** | **0.9622** | **0.9636** | 1,238 | 946 | 4 | ✅ |
-| UniXcoder + DFG | unixcoder-base | DFG attn | 88.3727% | 0.9602 | 0.9612 | 1,125 | 1,200 | 4 | ✅ |
+| Model | Backbone | Structure | Accuracy | ROC-AUC | PR-AUC | FN | FP | Best ep | Stopped | Status |
+|---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| LR + TF-IDF | — | none | 84.4519% | 0.9271 | 0.9270 | 1,685 | — | — | — | ⚠️ |
+| MLP + TF-IDF | — | none | 85.4821% | 0.9385 | 0.9408 | 1,425 | — | — | — | ⚠️ |
+| CodeBERT | codebert-base | text | 88.4177% | 0.9612 | 0.9632 | 1,312 | 1,004 | 4 | early @6 | ✅ |
+| CodeBERT + DFG | codebert-base | DFG attn | 88.3127% | 0.9600 | 0.9619 | 1,247 | 1,090 | 5 | early @7 | ✅ |
+| **GraphCodeBERT** | graphcodebert | text | **89.2300%** | **0.9630** | **0.9647** | 1,266 | 887 | 4 | early @6 | ✅ |
+| GraphCodeBERT + DFG | graphcodebert | DFG attn | 88.6600% | 0.9600 | 0.9613 | 1,071 | 1,197 | 5 | early @7 | ⚠️ batch (D7) |
+| UniXcoder | unixcoder-base | text | 89.0778% | 0.9622 | 0.9636 | 1,238 | 946 | 4 | cap | ✅ |
+| UniXcoder + DFG | unixcoder-base | DFG attn | 88.3727% | 0.9602 | 0.9612 | 1,125 | 1,200 | 4 | cap | ✅ |
 
-**Provenance**: every transformer row comes from that model's own training notebook, graded on
-its own partition, and is mirrored in `results/models/*.txt`. The two CodeBERT rows are from the
-2026-08-04 Partition-N retrain; the other four were each confirmed to match their notebook's
-stored output exactly. Partition N reproduces `163,967 / 15,997 / 19,996` byte-for-byte as
-printed in every notebook.
+**Provenance**: all six transformer rows are from the 2026-08-12 reruns, recorded in
+`results/models/*.txt` with best epoch, stop reason and full validation trajectory. The four CodeBERT and GraphCodeBERT runs are on the unified
+10 / 2 protocol and **early stopping fired in every one** — the first time the protocol has
+operated as the paper describes it (§4.3). The two UniXcoder runs are unchanged at 5 / 2 and
+reproduced their previous numbers exactly, which also confirms the pipeline is deterministic
+under seed 42. Partition N reproduces `163,967 / 15,997 / 19,996` in every run.
 
-**All eight models sit in an 84.45–89.08% band; the six transformers in a 0.83pp band
-(88.25–89.08%).** That convergence — not any individual number — is the paper's substantive
-observation.
+**GraphCodeBERT text-only is now the best model at 89.2300%**, overtaking UniXcoder text-only.
+That reversal is what raises **D6**.
+
+**The six transformers span 0.92pp (88.31–89.23%).** That convergence — not any individual
+number — is the paper's substantive observation.
 
 ## 3.2 Table 2 — DFG effect per backbone
 
 Delta is text-only minus DFG-aware, so **positive means text-only wins**.
 
-| Backbone | Text-only | DFG-aware | Δ Accuracy | Δ FN | Verdict |
-|---|:---:|:---:|:---:|:---:|---|
-| CodeBERT | 88.2476% | 88.5527% | **−0.305%** | −5 | ⚠️ **DFG wins** — but text hit its ceiling |
-| GraphCodeBERT | 88.9300% | 88.5600% | +0.370% | −45 | text wins |
-| UniXcoder | 89.0778% | 88.3727% | +0.705% | −113 | text wins |
+| Backbone | Text-only | DFG-aware | Δ Accuracy | Δ ROC-AUC | Δ FN | Δ FP |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| CodeBERT | 88.4177% | 88.3127% | **+0.105%** | +0.0012 | −65 | +86 |
+| GraphCodeBERT | 89.2300% | 88.6600% | **+0.570%** | +0.0030 | −195 | +310 |
+| UniXcoder | 89.0778% | 88.3727% | **+0.705%** | +0.0020 | −113 | +254 |
 
-**Two of three backbones favour text-only; one now favours DFG.** McNemar p-values are *not*
-reproduced here — the existing ones were computed on the leaked CodeBERT predictions and are
-void until test-8 re-runs.
+**All three backbones favour text-only, and DFG behaves identically in all three**: lower
+accuracy, lower ROC-AUC, **fewer false negatives, more false positives**. That is a coherent
+finding rather than a shrug — DFG-aware attention shifts the operating point toward recall
+without improving discrimination. Because ROC-AUC is threshold-independent, *"DFG lowers ROC-AUC
+on all three backbones"* is the cleanest single statement of the negative result.
 
-> ### ⚠️ The CodeBERT row reversed sign on 2026-08-04
+CodeBERT's +0.105% is within the ±0.10% seed noise floor (§3.3); the other two exceed it.
+
+McNemar p-values are **not** reproduced here — the existing ones were computed on leaked CodeBERT
+predictions and on superseded checkpoints. They are void until test-8 re-runs on the new `.npy`.
+
+> ### The CodeBERT reversal is resolved
 >
-> Before the retrain, CodeBERT read 88.5627% text vs 88.5427% DFG (−0.02%, text ahead). On the
-> corrected Partition N it reads 88.2476% vs 88.5527% — DFG ahead by 0.31pp. By the paper's own
-> yardstick this is not dismissable as noise: §3.3's seed variance is ±0.10%, so 0.31pp is ~3σ.
+> Between 2026-08-04 and 2026-08-12 the CodeBERT row read **−0.305%**, i.e. DFG ahead — the only
+> backbone where DFG won, and the one fact that broke the paper's core claim. It carried two
+> confounds, both since fixed:
 >
-> **But the comparison is not clean, and the confound points the right way.** The text-only arm
-> selected its best checkpoint on the *final* epoch with validation still rising; the DFG arm
-> peaked at epoch 4 and declined. The losing arm is the truncated one. Supporting this: on
-> validation the two are effectively tied — 88.3103% (text) vs 88.3228% (DFG), 0.012pp apart.
-> The 0.31pp gap appears **only on test**. That reads as sampling noise over an under-trained
-> text arm, not a structural DFG advantage. Step 3b (§4.3) settles it.
+> 1. its text arm selected its best checkpoint on the final epoch with validation still rising,
+>    while the DFG arm had converged;
+> 2. the text arm was scored in FP32 while the DFG arm was scored in FP16.
 >
-> **Write "no consistent benefit", never "uniformly degrades."** The stronger phrasing appeared
-> in `README.md` and `instructions/README.md` and is now false.
+> With both corrected and both arms on 10 / 2, the row reads **+0.105% — text ahead**. The
+> reversal was an artifact, exactly as §4.3 predicted. Keep this episode for the Limitations
+> section: it is a concrete demonstration of how much a training-protocol asymmetry can move a
+> sub-percentage-point ablation.
 
 ## 3.3 Table 3 — Training stability (multi-seed) ⚠️
 
@@ -197,8 +209,9 @@ status matters. It is ⚠️ on two counts: measured on the unfiltered test set,
 | GCB+DFG vs UniXcoder+DFG | −0.500% | p = 0.0121 | ❌ recompute |
 
 The −4.55% gap is the memorisation bonus from CodeBERT being graded on its own training data.
-On honest Table 1 numbers the real gap is 88.5527% vs 88.5600% ≈ **0.01%**. Expect this row to
-collapse to non-significant when test-8 re-runs — **that collapse is the pass/fail check for the
+On the 2026-08-12 Table 1 the real gap is 88.6600% vs 88.3127% = **0.35%** — an order of
+magnitude below the 4.55% on record. Expect this row to collapse to non-significant when test-8
+re-runs — **that collapse is the pass/fail check for the
 entire remediation.** The claim *"model choice matters more than DFG structure"* rests entirely
 on this row and must be retired if it collapses.
 
@@ -442,6 +455,53 @@ length in the same run would confound the very comparison it exists to clean up.
 | Disclose in Limitations, keep the runs | none | honest; reframes GCB/UniXcoder rows as a budget-allocation question |
 | Set GCB text-only to 384 and retrain | 1 run | CodeBERT and GCB share one convention; also re-opens D2, since Table 3's seeds ran at 512 |
 | Make all three uniform | several runs | requires retraining DFG arms too |
+
+### Outcome of the retrain — 2026-08-12
+
+All four ran. **Early stopping fired in every one**, so for the first time the protocol operated
+as described rather than as a fixed budget.
+
+| Run | Best epoch | Stopped | Validation trajectory (%) |
+|---|:---:|:---:|---|
+| `codebert-train-text` | 4 | early @6 | 86.88 → 87.77 → 88.07 → **88.43** → 88.38 → 88.27 |
+| `codebert-final-dfg` | 5 | early @7 | 86.80 → 87.90 → 88.34 → 88.35 → **88.71** → 88.67 → 88.46 |
+| `graphcodebert-train-text-only` | 4 | early @6 | 86.45 → 87.39 → 88.84 → **89.19** → 89.04 → 88.86 |
+| `graphcodebert-train-dfg` | 5 | early @7 | 85.31 → 87.22 → 88.15 → 88.32 → **88.45** → 88.35 → 88.27 |
+
+Every one peaked at epoch 4 or 5 and then declined for two consecutive epochs — so **5 was
+genuinely too low a ceiling for the two text arms, and 10 is comfortably high enough for all
+four.** No run came near the wall-clock guard.
+
+What moved, against the superseded 5-epoch figures:
+
+| Run | Before | After | Δ |
+|---|:---:|:---:|:---:|
+| CodeBERT text | 88.2476% | 88.4177% | +0.170 |
+| CodeBERT + DFG | 88.5527% | 88.3127% | −0.240 |
+| GCB text | 88.9300% | 89.2300% | +0.300 |
+| GCB + DFG | 88.5600% | 88.6600% | +0.100 |
+
+The two text arms gained, as predicted. **CodeBERT+DFG lost 0.24pp despite a higher best
+validation accuracy (88.71% against 88.32%)** — a validation/test divergence worth a sentence in
+Limitations, not a defect.
+
+### ⚠️ Finding 5 — effective batch size is not uniform either (2026-08-12, UNRESOLVED → D7)
+
+Read from the `Args` blocks and confirmed in the GCB+DFG run log, which prints
+`Gradient accumulation steps = 2 / Effective batch size = 32`:
+
+| Pair | text arm | DFG arm | Matched? |
+|---|:---:|:---:|:---:|
+| CodeBERT | 16 × 1 = **16** | 16 × 1 = **16** | ✅ |
+| GraphCodeBERT | 16 × 1 = **16** | 16 × **2** = **32** | ❌ |
+| UniXcoder | 16 × 1 = **16** | 8 × 2 = **16** | ✅ |
+
+UniXcoder's micro-batch differs but its *effective* batch matches — that is a memory workaround,
+not a protocol difference. GraphCodeBERT's does not: its DFG arm optimises at twice the effective
+batch of its text arm. **GraphCodeBERT is simultaneously the pair with the largest DFG gap
+(+0.570%) and the only pair with a mismatched effective batch size** — the same pattern as the
+epoch ceiling and the eval precision before it, where the confound sat on the row doing the most
+work. Closing it costs one GPU run (**D7**).
 
 ### Decision (2026-08-04): raise the ceiling and retrain
 

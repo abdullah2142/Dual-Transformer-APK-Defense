@@ -1,7 +1,24 @@
-Split        : 82/8/10 train/val/test (validation-based early stopping)
-Epochs       : 4 (best checkpoint at epoch 4)
+Split        : 82/8/10 train/val/test (random shuffle, seed 42)
+               NOTE: not source-stratified - the corpus has no source
+               key, so infer_source() returns 'unknown' for every entry.
+Test set     : unfiltered (19,996). Table 1 must be taken from test-2,
+               which scores all six models on the duplicate-filtered set.
+Seed         : 42
+Max Epochs   : 5
+Patience     : 2
+Best Epoch   : 4
+Best Val Acc : 88.7104%
 Accuracy     : 88.3727%
 ROC-AUC      : 0.9602
 PR-AUC       : 0.9612
 FN           : 1125
 FP           : 1200
+
+--- provenance -------------------------------------------------------
+Model        : UniXcoder + DFG
+Run          : 2026-08-12 Kaggle, Partition N
+Notebook     : training_notebooks/re_train/unixcoder-dfg-final.ipynb
+Effective batch : 16     Eval precision : FP32
+Stop         : hit the 5-epoch cap at patience 1/2 - early stopping did NOT fire
+Val traj (%) : 86.7663  87.9602  88.4353  88.7104  88.2853
+Supersedes   : none - unchanged, reproduced exactly

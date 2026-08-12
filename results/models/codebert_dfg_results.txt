@@ -4,25 +4,21 @@ Split        : 82/8/10 train/val/test (random shuffle, seed 42)
 Test set     : unfiltered (19,996). Table 1 must be taken from test-2,
                which scores all six models on the duplicate-filtered set.
 Seed         : 42
-Max Epochs   : 5
+Max Epochs   : 10
 Patience     : 2
-Best Epoch   : 4
-Best Val Acc : 88.3228%
-Accuracy     : 88.5527%
-ROC-AUC      : 0.9601
-PR-AUC       : 0.9617
-FN           : 1222
-FP           : 1067
+Best Epoch   : 5
+Best Val Acc : 88.7104%
+Accuracy     : 88.3127%
+ROC-AUC      : 0.9600
+PR-AUC       : 0.9619
+FN           : 1247
+FP           : 1090
 
 --- provenance -------------------------------------------------------
-Run          : 2026-08-04 Kaggle, Partition-N retrain
+Model        : CodeBERT + DFG
+Run          : 2026-08-12 Kaggle, Partition N
 Notebook     : training_notebooks/re_train/codebert-final-dfg.ipynb
-               (outputs stored in the notebook)
-Supersedes   : the Partition-B run reading 88.5427% / 0.9604 / FN 1248,
-               which trained on a different split than every grader
-               rebuilt. See PAPER.md 5.1.
-Note         : converged - peaked at epoch 4, declined at 5. Not affected
-               by the epoch-ceiling issue in PAPER.md 4.3. Its text-only
-               counterpart is, which is why the DFG delta for this
-               backbone currently reads +0.31pp in DFG's favour and is
-               not yet trustworthy.
+Effective batch : 16     Eval precision : FP16
+Stop         : early stopping fired at epoch 7
+Val traj (%) : 86.8038  87.8977  88.3416  88.3478  88.7104  88.6666  88.4603
+Supersedes   : 88.5527% / 0.9601 / FN 1222 (5-epoch cap)

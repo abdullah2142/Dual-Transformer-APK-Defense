@@ -43,3 +43,6 @@ graph TD.md
 graph TD.pdf
 make_context.py
 Paper_Context.md
+# Kaggle run-log dumps (tqdm spam); trajectories are recorded in results/models/*.txt
+out/
+out.zip

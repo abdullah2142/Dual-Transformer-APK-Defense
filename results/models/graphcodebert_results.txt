@@ -1,7 +1,24 @@
-Split        : 82/8/10 train/val/test (validation-based early stopping)
-Epochs       : 5 (best checkpoint at epoch 5)
-Accuracy     : 88.9300%
-ROC-AUC      : 0.9596
-PR-AUC       : 0.9611
-FN           : 1241
-FP           : 972
+Split        : 82/8/10 train/val/test (random shuffle, seed 42)
+               NOTE: not source-stratified - the corpus has no source
+               key, so infer_source() returns 'unknown' for every entry.
+Test set     : unfiltered (19,996). Table 1 must be taken from test-2,
+               which scores all six models on the duplicate-filtered set.
+Seed         : 42
+Max Epochs   : 10
+Patience     : 2
+Best Epoch   : 4
+Best Val Acc : 89.19%
+Accuracy     : 89.2300%
+ROC-AUC      : 0.9630
+PR-AUC       : 0.9647
+FN           : 1266
+FP           : 887
+
+--- provenance -------------------------------------------------------
+Model        : GraphCodeBERT text-only
+Run          : 2026-08-12 Kaggle, Partition N
+Notebook     : training_notebooks/re_train/graphcodebert-train-text-only.ipynb
+Effective batch : 16     Eval precision : FP16
+Stop         : early stopping fired at epoch 6
+Val traj (%) : 86.45  87.39  88.84  89.19  89.04  88.86
+Supersedes   : 88.9300% / 0.9596 / FN 1241 (5-epoch cap, best landed on the final epoch)
