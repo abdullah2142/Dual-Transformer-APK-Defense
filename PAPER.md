@@ -1299,10 +1299,19 @@ Incidental fixes made along the way:
 
 ## 10.4 Blockers and loose ends
 
-1. **🔴 Checkpoint paths are blank.** Every `weights` field in the eval scripts is `"" # TODO`.
-   **Nothing in steps 2, 4, 5, 6 can run until these are filled.** This is precisely what let
-   the split mismatch hide for two months — fill them in and commit them so every number is
-   traceable to a checkpoint.
+1. ~~**Checkpoint paths are blank.**~~ **Resolved 2026-08-12.** tests 2, 4, 6 and 7 now
+   auto-resolve each checkpoint under `/kaggle/input` and **print the path they resolved**, so
+   model provenance lands in the run log automatically — the thing whose absence let the split
+   mismatch hide for two months. Canonical copy: `test_scripts/resolve_checkpoints.py`.
+   It matches on `<dir>/<file>` rather than filename alone, because three different checkpoints
+   are named `best_model.bin`; zero matches and two-or-more matches are both hard errors, so it
+   never guesses. Setting an Args field by hand still overrides the search. Tested against a
+   simulated Kaggle tree covering all six checkpoints, the `best_model.bin` collision, prefix
+   bleed between `saved_models/` and `saved_models_unixcoder/`, duplicate attachment, missing
+   files and truncated files.
+   Fixed while wiring it in: **`test-7-qualitative-analysis.py` never imported `os`** despite
+   already calling `os.path.exists` on its weights path — it would have raised `NameError` on
+   its first checkpoint check.
 2. **Split guard needs a manual copy.** Training notebooks write `test_indices.npy` into their
    own output dirs; test-2 searches the Kaggle input dir. Upload the training run's output as a
    dataset and attach it.

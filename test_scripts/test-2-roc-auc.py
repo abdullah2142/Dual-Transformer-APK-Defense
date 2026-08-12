@@ -46,6 +46,52 @@ class Args:
 
 args = Args()
 
+# ─── CHECKPOINT RESOLVER ──────────────────────────────────────────────────────
+# Canonical copy: test_scripts/resolve_checkpoints.py
+#
+# Finds each checkpoint under /kaggle/input and PRINTS the path it resolved, so
+# model provenance lands in the run log automatically. Every `weights` field
+# used to be a blank "# TODO", which is what let the CodeBERT split mismatch
+# hide for two months (PAPER.md 10.4).
+#
+# Matches on '<dir>/<file>', never filename alone: THREE checkpoints are called
+# best_model.bin (GCB+DFG, CodeBERT text, CodeBERT+DFG). Path components must
+# match exactly, so 'saved_models/x' does not match 'saved_models_unixcoder/x'.
+# Zero matches is an error; two or more is also an error -- it never guesses.
+# Setting the Args field by hand overrides the search.
+import glob as _g
+
+def resolve(label, suffix, override=None, roots=('/kaggle/input', '/kaggle/working')):
+    if override:
+        if not os.path.exists(override):
+            raise FileNotFoundError(f'{label}: path does not exist: {override}')
+        print(f'  {label:24s} -> {override}  (explicit)')
+        return override
+    hits = sorted({p for r in roots if os.path.isdir(r)
+                   for p in _g.glob(os.path.join(r, '**', suffix), recursive=True)})
+    if len(hits) > 1:
+        raise RuntimeError(f'{label}: {len(hits)} files match "{suffix}" -- refusing to guess.\n  '
+                           + '\n  '.join(hits) + '\nAttach one training run per model.')
+    if not hits:
+        raise FileNotFoundError(
+            f'{label}: nothing matching "{suffix}" under {list(roots)}. On Kaggle use '
+            f'"+ Add Input -> Notebooks" and attach the training run that produced it. '
+            f"Debug with: import glob; print(glob.glob('/kaggle/input/**/*.bin', recursive=True))")
+    mb = os.path.getsize(hits[0]) / 1e6
+    print(f'  {label:24s} -> {hits[0]}  ({mb:.0f} MB)')
+    if mb < 100:
+        print(f'  {"":24s}    WARNING: {mb:.0f} MB is small for a checkpoint (expect ~499 MB).')
+    return hits[0]
+
+print('Resolving checkpoints:')
+
+args.gcb_dfg_weights = resolve('GCB + DFG', 'saved_models/best_model.bin', override=args.gcb_dfg_weights or None)
+args.gcb_text_weights = resolve('GCB text-only', 'saved_models/best_model_text_only.bin', override=args.gcb_text_weights or None)
+args.codebert_dfg_weights = resolve('CodeBERT + DFG', 'saved_models_codebert_dfg/best_model.bin', override=args.codebert_dfg_weights or None)
+args.codebert_text_weights = resolve('CodeBERT text', 'saved_models_codebert_text/best_model.bin', override=args.codebert_text_weights or None)
+args.unixcoder_dfg_weights = resolve('UniXcoder + DFG', 'saved_models_unixcoder_dfg/model_unixcoder_dfg_best.bin', override=args.unixcoder_dfg_weights or None)
+args.unixcoder_text_weights = resolve('UniXcoder text', 'saved_models_unixcoder/best_model_text_only.bin', override=args.unixcoder_text_weights or None)
+
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
