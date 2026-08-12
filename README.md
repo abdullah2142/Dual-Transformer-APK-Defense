@@ -18,9 +18,9 @@ GraphCodeBERT, UniXcoder) on decompiled bytecode.
 
 ## Core finding
 
-**DFG-aware attention provides no consistent benefit over standard text-only transformers on
-decompiled Android bytecode.** Across three encoder backbones the effect has no consistent
-direction, and every magnitude is comparable to the variation measured across random seeds.
+**DFG-aware attention provides no benefit over standard text-only transformers on decompiled
+Android bytecode.** Across all three encoder backbones it lowers both accuracy and ROC-AUC,
+trading fewer false negatives for more false positives without improving discrimination.
 
 **Why**: JADX decompilation strips meaningful identifier names, replacing them with
 machine-generated tokens such as `class_336` and `method_1192`. The DFG edges still exist, but
