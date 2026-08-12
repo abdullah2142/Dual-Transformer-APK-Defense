@@ -9,7 +9,10 @@ GraphCodeBERT, UniXcoder) on decompiled bytecode.
 >
 > This README describes the repository and deliberately carries **no numbers**. Keeping results
 > in two places is what let six documents drift apart from each other; there is now exactly one
-> source of truth. Start at [PAPER.md](PAPER.md) Part 1 for the current status board.
+> source of truth.
+>
+> **Start at [PAPER.md](PAPER.md) Part 0** — a 30-second summary of what changed and why.
+> Part 1 is the live status board and open decisions.
 
 ---
 

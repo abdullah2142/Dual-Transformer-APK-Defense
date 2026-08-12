@@ -18,6 +18,71 @@ having numbers in two places is what let six documents drift apart.
 
 ---
 
+# Part 0 — What changed, and why
+
+*A 30-second orientation. Read this if the volume of decisions makes it feel like the paper is
+being redesigned. It is not.*
+
+## The paper's architecture has not changed
+
+| | |
+|---|---|
+| **Thesis** | DFG-aware attention gives no consistent benefit on decompiled Android bytecode |
+| **Mechanism** | JADX strips identifiers → DFG edges connect semantically empty tokens |
+| **Contributions** | (1) end-to-end APK pipeline, (2) 200k DFG corpus, (3) negative finding + explanation |
+| **Section plan** | 1–9, unchanged |
+| **Experiments** | tests 2–9, same purposes |
+
+All of this is as it stood on 2026-08-02. **What changed is the evidence underneath it, not the
+claim on top of it.**
+
+## Three things changed, in this order
+
+**1. Data leakage — the original job (§5.1–5.3).** CodeBERT had trained on a different split than
+every grader rebuilt, reading 93.4% instead of ~88.5%; tests 4/6/7 rebuilt a third partition
+whose test set was 89.9% training data; and 7.28% of the test set was byte-identical to a
+training sample. Cost: 2 retrains, script fixes, a duplicate filter. This was the whole reason
+the branch exists — not new scope.
+
+**2. Protocol asymmetries found while fixing #1 (§4.3).** Four of them, all the same class of bug
+— *the two halves of a controlled ablation were not controlled*:
+
+| Found | Asymmetry | Status |
+|---|---|---|
+| finding 1 | docs misdescribed which runs got the higher epoch ceiling | corrected |
+| finding 2 | early stopping never fired; it was a fixed budget | fixed, now fires in all four |
+| finding 3 | CodeBERT's arms scored at different precision (FP32 vs FP16) | fixed |
+| finding 4 | text and DFG arms see different code lengths in two backbones | open (D5) |
+| finding 5 | GCB+DFG optimises at effective batch 32 vs its text arm's 16 | open (D7) |
+
+These mattered because the paper's claim is a within-backbone comparison at sub-percentage-point
+margins. At that scale a protocol asymmetry is not a detail — it is the result.
+
+**3. Documents that described a system that does not exist (§5.5–5.6).** The clearest case: every
+doc said the scanner deploys GraphCodeBERT+DFG at threshold 0.60. Reading the notebook, it
+deploys GraphCodeBERT **text-only** at **0.45** and contains no DFG code at all. Nothing was
+changed here — the documentation was corrected to match the system.
+
+## The claim came out stronger
+
+| | Before | After the 2026-08-12 reruns |
+|---|---|---|
+| DFG effect | reversed on CodeBERT, contradicting the claim | **all three backbones favour text-only** |
+| Consistency | "no consistent benefit" — a shrug | **fewer FN, more FP, lower ROC-AUC in all three** |
+| Early stopping | never fired | fires in all four runs |
+| Scanner | believed to contradict the null-DFG finding | already text-only; no contradiction |
+
+You now have a cleaner version of the paper you set out to write. The corpus, the pipeline, the
+mechanism and the venue framing are untouched.
+
+## What is actually left
+
+Of the open decisions in §1.3, only **two change a number** — D7 (batch mismatch, 1 GPU run) and
+D2 (Table 3's protocol, 3 runs). **D4, D5 and D8 are "state it plainly in the paper"**, not
+"redo the work". Plus the six evaluation re-runs in §1.1, which were always part of the plan.
+
+---
+
 # Part 1 — Status board
 
 ## 1.1 Where the work stands
