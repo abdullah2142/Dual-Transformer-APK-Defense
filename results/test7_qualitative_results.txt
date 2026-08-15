@@ -1,0 +1,528 @@
+Test 7: Qualitative Analysis - Top False Negatives
+============================================================
+Model      : GraphCodeBERT + DFG
+Test set   : 18,541 samples (duplicate-filtered; see REMEDIATION_PLAN.md 5.1)
+Threshold  : argmax (0.5)
+Total FNs  : 1,054
+
+False negatives by source:
+  Draper          618
+  Devign          365
+  LVDAndro         71
+
+
+Top 20 most confident false negatives
+============================================================
+  #  corpus_idx source      conf_safe  filename
+------------------------------------------------------------
+  1      101132 LVDAndro       99.99%  LVDAndro_318427_file
+  2      109831 LVDAndro       99.99%  LVDAndro_32105_file
+  3       16262 LVDAndro       99.99%  LVDAndro_28183_file
+  4      150694 LVDAndro       99.99%  LVDAndro_203996_file
+  5       17992 LVDAndro       99.99%  LVDAndro_305186_file
+  6       34942 Draper         99.99%  Draper_570829_file
+  7        8383 LVDAndro       99.99%  LVDAndro_23381_file
+  8       85128 LVDAndro       99.99%  LVDAndro_315407_file
+  9       79758 LVDAndro       99.99%  LVDAndro_157059_file
+ 10       68725 Draper         99.99%  Draper_354755_file
+ 11        1383 LVDAndro       99.98%  LVDAndro_348246_file
+ 12      117902 LVDAndro       99.98%  LVDAndro_276590_file
+ 13      115815 LVDAndro       99.98%  LVDAndro_40091_file
+ 14       21433 LVDAndro       99.98%  LVDAndro_88679_file
+ 15       62206 Draper         99.98%  Draper_1078808_file
+ 16       99910 Draper         99.98%  Draper_731098_file
+ 17      121784 Draper         99.98%  Draper_519894_file
+ 18      162564 LVDAndro       99.98%  LVDAndro_198189_file
+ 19       59912 LVDAndro       99.97%  LVDAndro_5860_file
+ 20       50626 LVDAndro       99.97%  LVDAndro_252424_file
+
+
+Full code of the top 20 (for pattern classification)
+
+============================================================
+[FN #1] corpus_idx=101132 source=LVDAndro confidence_safe=99.99%
+filename: LVDAndro_318427_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { long l6 = l4 - (l5 - l3);
+l5 = 60000L - (l5 - l2);
+if (l6 <= 0L || l5 <= 0L) {
+this.h.wait(Math.min(l6, l5));
+return new bq(this.d, this.j, this.a, bn2, this.k);
+if (hi.e().e) {
+import com.ado1706.a.a.a.class_486;
+import com.ado1706.a.a.a.class_488;
+import com.ado1706.recorder.b.class_522;
+public final class class_779 {
+private static final NumberFormat field_2661; } }
+
+============================================================
+[FN #2] corpus_idx=109831 source=LVDAndro confidence_safe=99.99%
+filename: LVDAndro_32105_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { void onResultSent(final List list, final int n) {
+if (this.this$0.mConnections.get(this.val$connection.callbacks.asBinder()) != this.val$connection) {
+List applyOptions = list;
+applyOptions = MediaBrowserCompatUtils.applyOptions(list, this.val$options);
+this.val$connection.callbacks.onLoadChildren(this.val$parentId, applyOptions, this.val$options);
+this.q = v.b;
+this.q = v.a;
+import android.support.v4.media.session.MediaSessionCompat$Callback;
+import android.support.v4.media.session.MediaSessionCompat$MediaSessionImpl;
+import android.support.v4.media.session.MediaSessionCompat$MediaSessionImplApi21;
+import android.support.v4.media.session.MediaSessionCompat$MediaSessionImplBase; } }
+
+============================================================
+[FN #3] corpus_idx=16262 source=LVDAndro confidence_safe=99.99%
+filename: LVDAndro_28183_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { class_591.method_1804("AdView was initialized with a Context that wasn't an Activity.");
+Activity var17 = (Activity)var1;
+if (!AdUtil.method_1212(var1)) {
+this.method_1494(var1, "You must have INTERNET and ACCESS_NETWORK_STATE permissions in AndroidManifest.xml.", var16, var2);
+this.method_1491(var17, var16, var7);
+class_369 var12 = new class_369();
+for(int var15 = 0; var15 < var4; ++var15) {
+var6 = var14[var15].trim();
+var12.method_1165(var6);
+if (this.field_1475.method_1101()) {
+this.field_1475.method_1089(); } }
+
+============================================================
+[FN #4] corpus_idx=150694 source=LVDAndro confidence_safe=99.99%
+filename: LVDAndro_203996_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { h.c(object2);
+object.e.loadUrl((String)object2);
+i2.e.reload();
+if (object.e.canGoBack()) {
+object.e.goBack();
+return this.field_15735;
+import d.e.b.b$f;
+import d.e.b.class_134;
+import d.e.b.class_2334;
+import d.e.b.class_362;
+public class class_1635 implements class_183 { } }
+
+============================================================
+[FN #5] corpus_idx=17992 source=LVDAndro confidence_safe=99.99%
+filename: LVDAndro_305186_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { public class MXParser implements XmlPullParser
+protected static final char LOOKUP_MAX_CHAR = '\u0400';
+protected static final char[] NCODING;
+protected static final char[] NO;
+protected static final char[] TANDALONE;
+protected static final char[] VERSION;
+protected static final char[] YES;
+protected static boolean[] lookupNameChar;
+protected static boolean[] lookupNameStartChar;
+protected char[] pc;
+VERSION = "version".toCharArray(); } }
+
+============================================================
+[FN #6] corpus_idx=34942 source=Draper confidence_safe=99.99%
+filename: Draper_570829_file
+------------------------------------------------------------
+void dummy_function() { Set_Filter_Params(int kmer, int binshift, int suppress, int hitmin)
+{ if (kmer <= 1)
+    return (1);
+
+  Kmer     = kmer;
+  Binshift = binshift;
+  Suppress = suppress;
+  Hitmin   = hitmin;
+
+  Kshift = 2*Kmer;
+  Kpowr  = (0x1llu << Kshift);
+  Kmask  = Kpowr-1;
+
+  if (Suppress == 0)
+    TooFrequent = INT32_MAX;
+  else
+    TooFrequent = Suppress;
+
+  return (0);
+} }
+
+============================================================
+[FN #7] corpus_idx=8383 source=LVDAndro confidence_safe=99.99%
+filename: LVDAndro_23381_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { float var3 = TypedValue.applyDimension(1, (float)var5, var6);
+var1.x = (int)((double)var2 + 0.5D);
+var1.y = (int)((double)var3 + 0.5D);
+private void method_682(Uri[] var1) {
+private int method_683(Context var1, AttributeSet var2) {
+byte var3 = 1;
+private void method_684(Point var1) {
+var1.y = (int)((float)var1.y - TypedValue.applyDimension(1, 6.0F, this.getResources().getDisplayMetrics()));
+var1.x = var1.y;
+private void method_685() {
+int var3 = (int)TypedValue.applyDimension(1, 5.0F, this.getContext().getResources().getDisplayMetrics()); } }
+
+============================================================
+[FN #8] corpus_idx=85128 source=LVDAndro confidence_safe=99.99%
+filename: LVDAndro_315407_file
+------------------------------------------------------------
+public class DummyClass { package eu.chainfire.librootjava;
+import eu.chainfire.librootjava.IRootIPC;
+import x6.f;
+public class RootIPC {
+public final String f4893a;
+public final IBinder f4894b;
+public final int f4895c; }
+
+============================================================
+[FN #9] corpus_idx=79758 source=LVDAndro confidence_safe=99.99%
+filename: LVDAndro_157059_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { Iterator var1 = this.capsVerListeners.iterator();
+((CapsVerListener)var1.next()).capsVerUpdated(this.currentCapsVersion);
+public void addCapsVerListener(CapsVerListener var1) {
+this.capsVerListeners.add(var1);
+var1.capsVerUpdated(this.currentCapsVersion);
+public void addPacketListener(Connection var1) {
+var1.addPacketListener(new EntityCapsManager.CapsPacketListener(), var2);
+public void addUserCapsNode(String var1, String var2) {
+this.userCaps.put(var1, var2);
+void calculateEntityCapsVersion(DiscoverInfo var1, String var2, String var3, DataForm var4) {
+var2 = "" + "client/" + var2 + "//" + var3 + "<"; } }
+
+============================================================
+[FN #10] corpus_idx=68725 source=Draper confidence_safe=99.99%
+filename: Draper_354755_file
+------------------------------------------------------------
+void dummy_function() { join(const Bezier * other) const
+{
+	Bezier bezier;
+	bool otherIsEmpty = (other == NULL || other->isEmpty());
+
+	if (isEmpty() && otherIsEmpty) {
+		return bezier;
+	}
+	else {
+		if (isEmpty()) {
+			bezier.set_cp0(m_endpoint0);
+			bezier.set_cp1(other->cp1());
+		}
+		else if (other->isEmpty()) {
+			bezier.set_cp1(other->m_endpoint1);
+			bezier.set_cp0(cp0());
+		}
+		else {
+			bezier.set_cp0(cp0());
+			bezier.set_cp1(other->cp1());
+		}
+	}
+
+	return bezier;
+} }
+
+============================================================
+[FN #11] corpus_idx=1383 source=LVDAndro confidence_safe=99.98%
+filename: LVDAndro_348246_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { wrappers.put("AutoCompleteTextView", (Class<SeekBarWrapper>)AutoCompleteEditTextWrapper.class);
+wrappers.put("ToggleButton", (Class<SeekBarWrapper>)CompoundButtonWrapper.ToggleButtonWrapper.class);
+wrappers.put("ImageView", (Class<SeekBarWrapper>)ImageViewWrapper.class);
+wrappers.put("SeekBar", SeekBarWrapper.class);
+final Class<?> clazz = this.wrappers.get(s);
+if (clazz != null) {
+final ViewWrapper<View> viewWrapper = (ViewWrapper<View>)clazz.newInstance();
+final int id = object.getId();
+viewWrapper.setObject(object);
+viewWrapper.innerInitialize(XmlLayoutBuilder.this.ba, attributeValue.toLowerCase(BA.cul), true);
+object.setId(id); } }
+
+============================================================
+[FN #12] corpus_idx=117902 source=LVDAndro confidence_safe=99.98%
+filename: LVDAndro_276590_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { DOMAINS = new String[]{"syn-ch.com", "syn-ch.org", "syn-ch.ru", "syn-ch.com.ua"};
+listPreference.setSummary((CharSequence)this.resources.getString(2131165535, new Object[]{"syn-ch.com, syn-ch.org, syn-ch.ru, syn-ch.com.ua"}));
+listPreference.setEntries((CharSequence[])DOMAINS);
+listPreference.setEntryValues((CharSequence[])DOMAINS);
+listPreference.setDefaultValue((Object)DOMAINS[0]);
+if (string2.startsWith("/src/") | string2.startsWith("/thumb/")) {
+return super.fixRelativeUrl(string2);
+protected AttachmentModel mapAttachment(JSONObject object, String string2, boolean bl) {
+if ((object = super.mapAttachment((JSONObject)object, string2, bl)) != null) {
+if (object.thumbnail != null) {
+object.thumbnail = object.thumbnail.replace("//", "/").replaceAll("^/\\w+", ""); } }
+
+============================================================
+[FN #13] corpus_idx=115815 source=LVDAndro confidence_safe=99.98%
+filename: LVDAndro_40091_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { public static final int AppCompatTheme_windowMinWidthMajor = 116;
+public static final int AppCompatTheme_windowMinWidthMinor = 117;
+public static final int AppCompatTheme_windowNoTitle = 118;
+public static final int[] ButtonBarLayout = {de.robv.android.xposed.installer.R.attr.allowStacking};
+public static final int ButtonBarLayout_allowStacking = 0;
+public static final int[] ColorStateListItem = {16843173, 16843551, de.robv.android.xposed.installer.R.attr.alpha};
+public static final int ColorStateListItem_alpha = 2;
+public static final int ColorStateListItem_android_alpha = 1;
+public static final int ColorStateListItem_android_color = 0;
+public static final int[] CompoundButton = {16843015, de.robv.android.xposed.installer.R.attr.buttonTint, de.robv.android.xposed.installer.R.attr.buttonTintMode};
+public static final int CompoundButton_android_button = 0; } }
+
+============================================================
+[FN #14] corpus_idx=21433 source=LVDAndro confidence_safe=99.98%
+filename: LVDAndro_88679_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { if (session == null) return string2;
+session.closeAndClearTokenInformation();
+public boolean publishInstall(Context context) {
+Settings.publishInstallAsync(context, this.mAppId);
+public String request(Bundle bundle) throws MalformedURLException, IOException {
+if (!bundle.containsKey("method")) {
+return this.requestImpl(null, bundle, "GET");
+public String request(String string2) throws MalformedURLException, IOException {
+return this.requestImpl(string2, new Bundle(), "GET");
+public String request(String string2, Bundle bundle) throws MalformedURLException, IOException {
+return this.requestImpl(string2, bundle, "GET"); } }
+
+============================================================
+[FN #15] corpus_idx=62206 source=Draper confidence_safe=99.98%
+filename: Draper_1078808_file
+------------------------------------------------------------
+void dummy_function() { gst_rdt_depay_handle_data (GstRDTDepay * rdtdepay, GstClockTime outtime,
+    GstRDTPacket * packet)
+{
+  GstFlowReturn ret;
+  GstBuffer *outbuf;
+  GstMapInfo outmap;
+  guint8 *data, *outdata;
+  guint size;
+  guint16 stream_id;
+  guint32 timestamp;
+  gint gap;
+  guint16 seqnum;
+  guint8 flags;
+  guint16 outflags;
+
+  /* get pointers to the packet data */
+  data = gst_rdt_packet_data_map (packet, &size);
+
+  outbuf = gst_buffer_new_and_alloc (12 + size);
+  GST_BUFFER_TIMESTAMP (outbuf) = outtime;
+
+  GST_DEBUG_OBJECT (rdtdepay, "have size %u", size);
+
+  /* copy over some things */
+  stream_id = gst_rdt_packet_data_get_stream_id (packet);
+  timestamp = gst_rdt_packet_data_get_timestamp (packet);
+  flags = gst_rdt_packet_data_get_flags (packet);
+
+  seqnum = gst_rdt_packet_data_get_seq (packet);
+
+  GST_DEBUG_OBJECT (rdtdepay, "stream_id %u, timestamp %u, seqnum %d, flags %d",
+      stream_id, timestamp, seqnum, flags);
+
+  if (rdtdepay->next_seqnum != -1) {
+    gap = gst_rdt_buffer_compare_seqnum (seqnum, rdtdepay->next_seqnum);
+
+    /* if we have no gap, all is fine */
+    if (G_UNLIKELY (gap != 0)) {
+      GST_LOG_OBJECT (rdtdepay, "got packet %u, expected %u, gap %d", seqnum,
+          rdtdepay->next_seqnum, gap);
+      if (gap < 0) {
+        /* seqnum > next_seqnum, we are missing some packets, this is always a
+         * DISCONT. */
+        GST_LOG_OBJECT (rdtdepay, "%d missing packets", gap);
+        rdtdepay->discont = TRUE;
+      } else {
+        /* seqnum < next_seqnum, we have seen this packet before or the sender
+         * could be restarted. If the packet is not too old, we throw it away as
+         * a duplicate, otherwise we mark discont and continue. 100 misordered
+         * packets is a good threshold. See also RFC 4737. */
+        if (gap < 100)
+          goto dropping;
+
+        GST_LOG_OBJECT (rdtdepay,
+            "%d > 100, packet too old, sender likely restarted", gap);
+        rdtdepay->discont = TRUE;
+      }
+    }
+  }
+  rdtdepay->next_seqnum = (seqnum + 1);
+  if (rdtdepay->next_seqnum == 0xff00)
+    rdtdepay->next_seqnum = 0;
+
+  if ((flags & 1) == 0)
+    outflags = 2;
+  else
+    outflags = 0;
+
+  gst_buffer_map (outbuf, &outmap, GST_MAP_WRITE);
+  outdata = outmap.data;
+  GST_WRITE_UINT16_BE (outdata + 0, 0); /* version   */
+  GST_WRITE_UINT16_BE (outdata + 2, size + 12); /* length    */
+  GST_WRITE_UINT16_BE (outdata + 4, stream_id); /* stream    */
+  GST_WRITE_UINT32_BE (outdata + 6, timestamp); /* timestamp */
+  GST_WRITE_UINT16_BE (outdata + 10, outflags); /* flags     */
+  memcpy (outdata + 12, data, size);
+  gst_buffer_unmap (outbuf, &outmap);
+  gst_buffer_resize (outbuf, 0, 12 + size);
+
+  gst_rdt_packet_data_unmap (packet);
+
+  GST_DEBUG_OBJECT (rdtdepay, "Pushing packet, outtime %" GST_TIME_FORMAT,
+      GST_TIME_ARGS (outtime));
+
+  ret = gst_rdt_depay_push (rdtdepay, outbuf);
+
+  return ret;
+
+  /* ERRORS */
+dropping:
+  {
+    GST_WARNING_OBJECT (rdtdepay, "%d <= 100, dropping old packet", gap);
+    return GST_FLOW_OK;
+  }
+} }
+
+============================================================
+[FN #16] corpus_idx=99910 source=Draper confidence_safe=99.98%
+filename: Draper_731098_file
+------------------------------------------------------------
+void dummy_function() { nokia_isi_modem_real_powerOn (FsoGsmAbstractModem* base) {
+	NokiaIsiModem * self;
+	gboolean result = FALSE;
+	gboolean _tmp0_ = FALSE;
+	FsoFrameworkLogger* _tmp1_ = NULL;
+	gboolean _tmp2_ = FALSE;
+	gboolean _tmp3_ = FALSE;
+	NokiaIsiModemRapuType _tmp4_ = 0;
+	self = (NokiaIsiModem*) base;
+	_tmp0_ = FSO_GSM_ABSTRACT_MODEM_CLASS (nokia_isi_modem_parent_class)->powerOn (G_TYPE_CHECK_INSTANCE_CAST (self, FSO_GSM_TYPE_ABSTRACT_MODEM, FsoGsmAbstractModem));
+	if (!_tmp0_) {
+		result = FALSE;
+		return result;
+	}
+	_tmp1_ = ((FsoFrameworkAbstractObject*) self)->logger;
+	_tmp2_ = fso_framework_logger_debug (_tmp1_, "modem_nokia_isi: powerOn");
+	_vala_assert (_tmp2_, "logger.debug( \"modem_nokia_isi: powerOn\" )");
+	_tmp3_ = self->priv->handle_modem_power;
+	if (!_tmp3_) {
+		result = TRUE;
+		return result;
+	}
+	_nokia_isi_modem_power_off (self);
+	self->priv->startup_sequence = TRUE;
+	nokia_isi_modem_gpio_write (self, NOKIA_ISI_MODEM_cmt_apeslpx, FALSE);
+	nokia_isi_modem_gpio_write (self, NOKIA_ISI_MODEM_cmt_rst_rq, FALSE);
+	_tmp4_ = self->priv->rapu_type;
+	switch (_tmp4_) {
+		case NOKIA_ISI_MODEM_RAPU_TYPE_TYPE_2:
+		{
+			nokia_isi_modem_gpio_write (self, NOKIA_ISI_MODEM_cmt_en, FALSE);
+			usleep ((guint) 20000);
+			nokia_isi_modem_gpio_write (self, NOKIA_ISI_MODEM_cmt_en, TRUE);
+			break;
+		}
+		case NOKIA_ISI_MODEM_RAPU_TYPE_TYPE_1:
+		{
+			nokia_isi_modem_gpio_write (self, NOKIA_ISI_MODEM_cmt_en, FALSE);
+			nokia_isi_modem_gpio_write (self, NOKIA_ISI_MODEM_cmt_bsi, FALSE);
+			nokia_isi_modem_gpio_write (self, NOKIA_ISI_MODEM_cmt_rst, FALSE);
+			nokia_isi_modem_gpio_write (self, NOKIA_ISI_MODEM_cmt_en, TRUE);
+			nokia_isi_modem_gpio_write (self, NOKIA_ISI_MODEM_cmt_rst, TRUE);
+			break;
+		}
+		default:
+		{
+			FsoFrameworkLogger* _tmp5_ = NULL;
+			NokiaIsiModemRapuType _tmp6_ = 0;
+			GEnumValue* _tmp7_;
+			gchar* _tmp8_ = NULL;
+			gchar* _tmp9_ = NULL;
+			_tmp5_ = ((FsoFrameworkAbstractObject*) self)->logger;
+			_tmp6_ = self->priv->rapu_type;
+			_tmp7_ = g_enum_get_value (g_type_class_ref (NOKIA_ISI_MODEM_TYPE_RAPU_TYPE), _tmp6_);
+			_tmp8_ = g_strconcat ("unknown rapu type ", (_tmp7_ != NULL) ? _tmp7_->value_name : NULL, NULL);
+			_tmp9_ = _tmp8_;
+			fso_framework_logger_warning (_tmp5_, _tmp9_);
+			_g_free0 (_tmp9_);
+			result = FALSE;
+			return result;
+		}
+	}
+	nokia_isi_modem_gpio_write (self, NOKIA_ISI_MODEM_cmt_rst_rq, TRUE);
+	result = TRUE;
+	return result;
+} }
+
+============================================================
+[FN #17] corpus_idx=121784 source=Draper confidence_safe=99.98%
+filename: Draper_519894_file
+------------------------------------------------------------
+void dummy_function() { PyFFPoint_compare(PyFF_Point *self,PyObject *other) {
+    double x, y;
+
+    /* I'd like to accept general sequences but there is no PyArg_ParseSequence*/
+    if ( PyTuple_Check(other) && PyTuple_Size(other)==2 ) {
+	if ( !PyArg_ParseTuple(other,"dd", &x, &y ))
+return( -1 );
+    } else if ( PyType_IsSubtype(&PyFF_PointType,((PyObject *)other)->ob_type) ) {
+	x = ((PyFF_Point *) other)->x;
+	y = ((PyFF_Point *) other)->y;
+    } else {
+	PyErr_Format(PyExc_TypeError, "Unexpected type");
+return( -1 );
+    }
+    if ( RealNear(self->x,x) ) {
+	if ( RealNear(self->y,y))
+return( 0 );
+	else if ( self->y>y )
+return( 1 );
+    } else if ( self->x>x )
+return( 1 );
+
+return( -1 );
+} }
+
+============================================================
+[FN #18] corpus_idx=162564 source=LVDAndro confidence_safe=99.98%
+filename: LVDAndro_198189_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { ShellUtils.CommandResult execCmd2 = UtilsBridge.execCmd("cat /sys/class/net/" + str + "/address", false);
+return (execCmd2.result != 0 || (str2 = execCmd2.successMsg) == null || str2.length() <= 0) ? "02:00:00:00:00:00" : str2;
+return str.trim().replaceAll("\\s*", BuildConfig.FLAVOR);
+public static String[] getABIs() {
+if (!TextUtils.isEmpty(Build.CPU_ABI2)) {
+if (Build.FINGERPRINT.startsWith("generic") || Build.FINGERPRINT.toLowerCase().contains("vbox") || Build.FINGERPRINT.toLowerCase().contains("test-keys") || Build.MODEL.contains("google_sdk") || Build.MODEL.contains("Emulator") || Build.MODEL.contains("Android SDK built for x86") || Build.MANUFACTURER.contains("Genymotion") || (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic")) || "google_sdk".equals(Build.PRODUCT)) {
+if (telephonyManager == null || (str = telephonyManager.getNetworkOperatorName()) == null) {
+return intent.resolveActivity(Utils.getApp().getPackageManager()) == null;
+public static boolean isDevelopmentSettingsEnabled() {
+if (Settings.Global.getInt(Utils.getApp().getContentResolver(), "development_settings_enabled", 0) > 0) {
+public static String getUniqueDeviceId() { } }
+
+============================================================
+[FN #19] corpus_idx=59912 source=LVDAndro confidence_safe=99.97%
+filename: LVDAndro_5860_file
+------------------------------------------------------------
+public class DummyClass { TextView var2 = (TextView)SubscriptionEdit.this.findViewById(2131230738);
+if (SubscriptionEdit.this.encloseureHandler.title.length() != 0 && var2.getText().length() == 0) {
+var2.setText(SubscriptionEdit.this.encloseureHandler.getTitle());
+mValues = new int[]{Subscription.GLOBAL, 2, 4, 6, 10, -1};
+String var2 = ((TextView)this.findViewById(2131230735)).getText().toString();
+var2 = var1;
+Spinner var3 = (Spinner)this.findViewById(2131230743);
+int var2 = mValues[var3.getSelectedItemPosition()];
+if (var2 == Subscription.GLOBAL) {
+var1 = (new Config(this.getApplicationContext())).getMax();
+this.encloseureHandler.setMax(var1); }
+
+============================================================
+[FN #20] corpus_idx=50626 source=LVDAndro confidence_safe=99.97%
+filename: LVDAndro_252424_file
+------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { package ml.docilealligator.infinityforreddit.multireddit;
+public class AnonymousMultiredditSubreddit {
+public String username = "-";
+public AnonymousMultiredditSubreddit(String str, String str2) {
+this.subredditName = str2;
+public String getSubredditName() {
+return this.subredditName;
+public void setSubredditName(String str) { } }

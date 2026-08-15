@@ -46,3 +46,9 @@ Paper_Context.md
 # Kaggle run-log dumps (tqdm spam); trajectories are recorded in results/models/*.txt
 out/
 out.zip
+
+# Kaggle output bundles pulled down for inspection
+nam/
+nam.zip
+results/test_2/
+results/test_7/
