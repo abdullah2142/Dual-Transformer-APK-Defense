@@ -488,6 +488,34 @@ else:
         "UniXcoder (Text)": "--",
     }
 
+    # ─── LEAKAGE GUARD (fail-closed) ──────────────────────────────────────────
+    # The duplicate filter only REMOVES samples a model may have memorised, so a
+    # filtered score can never come out much HIGHER than that model's unfiltered
+    # score, and all six models should cluster inside roughly a percentage point.
+    # A model sitting far above the pack means its checkpoint was trained on a
+    # different split and is being scored on its own training data -- exactly the
+    # CodeBERT bug this whole exercise exists to fix. Caught it happening again on
+    # 2026-08-17, when five checkpoints were the retrained ones and CodeBERT+DFG
+    # was still the old leaked one (92.66% against a pack median of 88.3%).
+    _accs = {n: m[6] for n, m in results.items()}
+    _med  = sorted(_accs.values())[len(_accs) // 2]
+    _out  = {n: a for n, a in _accs.items() if a - _med > 0.02}   # 2 percentage points
+    print('\nLeakage guard: median accuracy across models = '
+          f'{_med*100:.4f}%')
+    for _n, _a in sorted(_accs.items(), key=lambda kv: -kv[1]):
+        print(f'  {_n:24s} {_a*100:8.4f}%   {_a*100-_med*100:+6.2f} pp')
+    if _out:
+        raise RuntimeError(
+            'LEAKAGE GUARD TRIPPED. These models score more than 2 pp above the '
+            'median, which the duplicate filter makes impossible for an honestly '
+            'held-out checkpoint:\n  '
+            + '\n  '.join(f'{n}: {a*100:.4f}% (median {_med*100:.4f}%)'
+                           for n, a in _out.items())
+            + '\n\nAlmost certainly an OLD checkpoint is attached for that model. '
+              'Check the "Resolving checkpoints:" lines above and confirm each path '
+              'points at the retrained run.')
+    print('Leakage guard passed: no model is more than 2 pp above the median.\n')
+
     plt.figure(figsize=(16, 7))
 
     # ROC Curve
