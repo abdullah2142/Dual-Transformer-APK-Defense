@@ -27,14 +27,14 @@ class Args:
     train_file = "/kaggle/input/datasets/hasanmahmudabdullah/dfgdataset2/dataset_graphcodebert.jsonl"
     
     # Models with DFG
-    gcb_dfg_weights       = "" # TODO: /kaggle/input/<your-dataset>/saved_models/best_model.bin
-    codebert_dfg_weights  = "" # TODO: /kaggle/input/<your-dataset>/saved_models_codebert_dfg/best_model.bin   (NEW - from retrain)
-    unixcoder_dfg_weights = "" # TODO: /kaggle/input/<your-dataset>/saved_models_unixcoder_dfg/model_unixcoder_dfg_best.bin
+    gcb_dfg_weights       = ""   # leave BLANK - the resolver finds saved_models/best_model.bin
+    codebert_dfg_weights  = ""   # leave BLANK - the resolver finds saved_models_codebert_dfg/best_model.bin
+    unixcoder_dfg_weights = ""   # leave BLANK - the resolver finds saved_models_unixcoder_dfg/model_unixcoder_dfg_best.bin
     
     # Text-only Models
-    gcb_text_weights       = "" # TODO: /kaggle/input/<your-dataset>/saved_models/best_model_text_only.bin
-    codebert_text_weights  = "" # TODO: /kaggle/input/<your-dataset>/saved_models_codebert_text/best_model.bin  (NEW - from retrain)
-    unixcoder_text_weights = "" # TODO: /kaggle/input/<your-dataset>/saved_models_unixcoder/best_model_text_only.bin
+    gcb_text_weights       = ""   # leave BLANK - the resolver finds saved_models/best_model_text_only.bin
+    codebert_text_weights  = ""   # leave BLANK - the resolver finds saved_models_codebert_text/best_model.bin
+    unixcoder_text_weights = ""   # leave BLANK - the resolver finds saved_models_unixcoder/best_model_text_only.bin
 
     code_length       = 384
     data_flow_length  = 128
@@ -91,6 +91,48 @@ args.codebert_dfg_weights = resolve('CodeBERT + DFG', 'saved_models_codebert_dfg
 args.codebert_text_weights = resolve('CodeBERT text', 'saved_models_codebert_text/best_model.bin', override=args.codebert_text_weights or None)
 args.unixcoder_dfg_weights = resolve('UniXcoder + DFG', 'saved_models_unixcoder_dfg/model_unixcoder_dfg_best.bin', override=args.unixcoder_dfg_weights or None)
 args.unixcoder_text_weights = resolve('UniXcoder text', 'saved_models_unixcoder/best_model_text_only.bin', override=args.unixcoder_text_weights or None)
+
+# ─── PROVENANCE SCAN (free, instant) ─────────────────────────────────────────
+# The resolver proves WHERE a checkpoint is, not WHICH RUN produced it. On
+# 2026-08-17 a hardcoded path pointed at saved_models_codebert/ -- the
+# pre-remediation output dir -- and the old leaked CodeBERT+DFG was scored for
+# 45 minutes before anyone noticed.
+#
+# Each training run leaves its own results .txt inside the notebook output it
+# was saved from. Walk up from every checkpoint and print what that file says,
+# so the epoch ceiling, patience, best epoch and recorded accuracy are visible
+# BEFORE any GPU time is spent.
+def scan_provenance(paths):
+    print('\nProvenance scan (from each training run\'s own results file):')
+    keys = ('Max Epochs', 'Epoch ceiling', 'Patience', 'Best Epoch', 'Best epoch',
+            'Best Val Acc', 'Best val accuracy', 'Accuracy', 'Test Accuracy', 'Stop')
+    for label, ckpt in paths.items():
+        found = None
+        d = os.path.dirname(os.path.abspath(ckpt))
+        for _ in range(4):                       # checkpoint dir, then up to 3 parents
+            cands = sorted(_g.glob(os.path.join(d, '*result*.txt')))
+            if cands:
+                found = cands[0]
+                break
+            d = os.path.dirname(d)
+        if not found:
+            print(f'  {label:24s} no results .txt alongside the checkpoint '
+                  f'-- cannot confirm which run this is')
+            continue
+        lines = [l.strip() for l in open(found, errors='replace')
+                 if any(l.strip().startswith(k) for k in keys)]
+        print(f'  {label:24s} {os.path.basename(found)}')
+        for l in lines[:7]:
+            print(f'  {"":24s}   {l}')
+
+scan_provenance({
+    'GCB + DFG':       args.gcb_dfg_weights,
+    'GCB text-only':   args.gcb_text_weights,
+    'CodeBERT + DFG':  args.codebert_dfg_weights,
+    'CodeBERT text':   args.codebert_text_weights,
+    'UniXcoder + DFG': args.unixcoder_dfg_weights,
+    'UniXcoder text':  args.unixcoder_text_weights,
+})
 
 def set_seed(seed):
     random.seed(seed)
@@ -459,6 +501,52 @@ models_to_run = [
     ("UniXcoder (DFG)", "microsoft/unixcoder-base", args.unixcoder_dfg_weights, True),
     ("UniXcoder (Text)", "microsoft/unixcoder-base", args.unixcoder_text_weights, False),
 ]
+
+# ─── PREFLIGHT SMOKE PASS ─────────────────────────────────────────────────────
+# Scores every model on a small slice first, so a wrong checkpoint surfaces in
+# about five minutes instead of after the full ~45-minute pass. Six checkpoints
+# trained on one split cluster within roughly a point; a leaked one sits several
+# points above the pack even on a slice this size.
+#
+# Set PREFLIGHT_N = 0 to skip.
+PREFLIGHT_N = 1500
+
+if PREFLIGHT_N and len(test_indices) > PREFLIGHT_N:
+    _slice = test_indices[::max(1, len(test_indices) // PREFLIGHT_N)][:PREFLIGHT_N]
+    print(f'\n{"="*70}\nPREFLIGHT: scoring all six on {len(_slice):,} samples '
+          f'before the full run\n{"="*70}')
+    _pre = {}
+    for _name, _base, _path, _isdfg in models_to_run:
+        if not _path or not os.path.exists(_path):
+            print(f'  {_name:24s} SKIPPED (no checkpoint)')
+            continue
+        _tok = AutoTokenizer.from_pretrained(_base, use_fast=True)
+        _cfg = RobertaConfig.from_pretrained(_base); _cfg.num_labels = 2
+        _enc = RobertaModel.from_pretrained(_base, config=_cfg)
+        _m = (DFGModel if _isdfg else TextModel)(_enc, _cfg)
+        _ds = (TextDataset if _isdfg else SimpleCodeDataset)(_tok, args, args.train_file)
+        _m.load_state_dict(torch.load(_path, map_location=args.device)); _m.to(args.device)
+        _acc = evaluate(_m, Subset(_ds, _slice), args, is_dfg=_isdfg)[6]
+        _pre[_name] = _acc
+        print(f'  {_name:24s} {_acc*100:8.4f}%')
+        del _m, _enc, _ds
+        torch.cuda.empty_cache()
+
+    _pmed = sorted(_pre.values())[len(_pre) // 2]
+    _pbad = {n: a for n, a in _pre.items() if a - _pmed > 0.02}
+    print(f'\n  preflight median: {_pmed*100:.4f}%')
+    for _n, _a in sorted(_pre.items(), key=lambda kv: -kv[1]):
+        print(f'    {_n:24s} {_a*100:8.4f}%  {_a*100 - _pmed*100:+6.2f} pp')
+    if _pbad:
+        raise RuntimeError(
+            'PREFLIGHT FAILED -- stopping before the full run.\n'
+            + '\n'.join(f'  {n} scores {a*100:.4f}%, {a*100-_pmed*100:+.2f} pp above the '
+                         f'median of {_pmed*100:.4f}%' for n, a in _pbad.items())
+            + '\n\nThat gap means the checkpoint is being scored on its own training '
+              'data, i.e. an OLD pre-remediation run is attached. Check the '
+              '"Resolving checkpoints:" and "Provenance scan" output above.\n'
+              'Nothing was wasted -- only the preflight slice was evaluated.')
+    print('  PREFLIGHT PASSED -- proceeding to the full run.\n')
 
 results = {}
 for name, base_name, path, is_dfg in models_to_run:
