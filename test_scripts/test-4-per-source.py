@@ -22,13 +22,20 @@ print(f"CUDA: {torch.cuda.is_available()}")
 # ─── CONFIGURATION ────────────────────────────────────────────────────────────
 class Args:
     train_file = "/kaggle/input/datasets/hasanmahmudabdullah/dfgdataset2/dataset_graphcodebert.jsonl"
-    gcb_dfg_weights = "" # TODO: /kaggle/input/<your-dataset>/saved_models/best_model.bin
+    # GraphCodeBERT text-only: top of Table 1 and the model the scanner deploys.
+    # Table 4 is a capability claim, so it should rest on the best model rather
+    # than on GCB+DFG, which the paper's own null-DFG finding calls the weaker
+    # variant. See PAPER.md 5.6.
+    gcb_text_weights = ""   # leave BLANK - resolver finds saved_models/best_model_text_only.bin
 
     model_name_or_path = "microsoft/graphcodebert-base"
     tokenizer_name     = "microsoft/graphcodebert-base"
 
-    code_length       = 384
-    data_flow_length  = 128
+    # 512, NOT 384: graphcodebert-train-text-only.ipynb trains at code_length 512
+    # while every other text-only run uses 384. Scoring it at 384 would measure
+    # the model at a length it never saw. See PAPER.md 4.3 finding 4.
+    code_length       = 512
+    data_flow_length  = 128   # unused by the text-only path; kept for TextDataset
     eval_batch_size   = 32
     seed              = 42
 
@@ -76,7 +83,7 @@ def resolve(label, suffix, override=None, roots=('/kaggle/input', '/kaggle/worki
 
 print('Resolving checkpoints:')
 
-args.gcb_dfg_weights = resolve('GCB + DFG', 'saved_models/best_model.bin', override=args.gcb_dfg_weights or None)
+args.gcb_text_weights = resolve('GCB text-only', 'saved_models/best_model_text_only.bin', override=args.gcb_text_weights or None)
 
 def set_seed(seed):
     random.seed(seed)
@@ -325,8 +332,49 @@ for src in SOURCES:
 
 # ─── EVALUATION FUNCTION ──────────────────────────────────────────────────────
 @torch.no_grad()
+class TextModel(nn.Module):
+    """Text-only classifier. Mirrors the TextModel in test-6-imbalanced-eval.py."""
+    def __init__(self, encoder, config):
+        super(TextModel, self).__init__()
+        self.encoder = encoder
+        self.config = config
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, 2)
+
+    def forward(self, input_ids=None, attention_mask=None, labels=None):
+        outputs = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
+        logits = self.classifier(self.dropout(outputs[0][:, 0, :]))
+        prob = F.softmax(logits, dim=-1)
+        if labels is not None:
+            return CrossEntropyLoss()(logits, labels), prob
+        return prob
+
+
+class SimpleCodeDataset(Dataset):
+    """Text-only dataset. Mirrors SimpleCodeDataset in test-6-imbalanced-eval.py.
+    Emits input_ids/attention_mask only -- no DFG tensors."""
+    def __init__(self, tokenizer, args, file_path, indices=None):
+        self.tokenizer, self.args = tokenizer, args
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        self.lines = [lines[i] for i in indices] if indices is not None else lines
+
+    def __len__(self):
+        return len(self.lines)
+
+    def __getitem__(self, idx):
+        entry = json.loads(self.lines[idx])
+        tok = self.tokenizer(entry.get('code', ''), max_length=self.args.code_length,
+                             truncation=True, padding='max_length')
+        return {
+            'input_ids': torch.tensor(tok['input_ids'], dtype=torch.long),
+            'attention_mask': torch.tensor(tok['attention_mask'], dtype=torch.long),
+            'label': torch.tensor(int(entry.get('label', 0) or 0), dtype=torch.long),
+        }
+
+
 def evaluate_subset(model, tokenizer, indices, args, label=''):
-    ds = TextDataset(tokenizer, args, args.train_file, indices=indices)
+    ds = SimpleCodeDataset(tokenizer, args, args.train_file, indices=indices)
     loader = DataLoader(ds, batch_size=args.eval_batch_size, shuffle=False, num_workers=2)
 
     all_preds, all_labels, all_probs = [], [], []
@@ -334,9 +382,8 @@ def evaluate_subset(model, tokenizer, indices, args, label=''):
     model.eval()
     for batch in tqdm(loader, desc=f'Eval ({label})', leave=False):
         inp = {
-            'input_ids': batch['input_ids'].to(args.device),
-            'p_ids':     batch['p_ids'].to(args.device),
-            'attn_mask': batch['attn_mask'].to(args.device)
+            'input_ids':      batch['input_ids'].to(args.device),
+            'attention_mask': batch['attention_mask'].to(args.device),
         }
         labels = batch['label'].to(args.device)
         
@@ -362,8 +409,8 @@ def evaluate_subset(model, tokenizer, indices, args, label=''):
     return acc, prec, rec, f1, auc, fn, len(indices)
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
-if not args.gcb_dfg_weights or not os.path.exists(args.gcb_dfg_weights):
-    print(f"Please configure args.gcb_dfg_weights. Given: {args.gcb_dfg_weights}")
+if not args.gcb_text_weights or not os.path.exists(args.gcb_text_weights):
+    print(f"Please configure args.gcb_text_weights. Given: {args.gcb_text_weights}")
     results = {}
 else:
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, use_fast=True)
@@ -371,9 +418,9 @@ else:
     config.num_labels = 2
     encoder = RobertaModel.from_pretrained(args.model_name_or_path, config=config)
     
-    model = DFGModel(encoder, config)
-    print(f"Loading weights from {args.gcb_dfg_weights}")
-    model.load_state_dict(torch.load(args.gcb_dfg_weights, map_location=args.device))
+    model = TextModel(encoder, config)
+    print(f"Loading weights from {args.gcb_text_weights}")
+    model.load_state_dict(torch.load(args.gcb_text_weights, map_location=args.device))
     model.to(args.device)
     
     print("\nRunning per-source evaluation on test set...\n")
