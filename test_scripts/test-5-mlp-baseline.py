@@ -240,15 +240,14 @@ if os.path.exists(TEST2_OUT):
                 # We don't have F1 and FN from Test 2's summary txt directly, use 0 or dummy
                 transformer_results.append((name, acc, roc, pr, 0.0, 0))
 else:
-    print(f"{TEST2_OUT} not found. Using placeholders.")
-    transformer_results = [
-        ('GraphCodeBERT (DFG)',  0.0, 0.0, 0.0, 0.0, 0),
-        ('GraphCodeBERT (Text)', 0.0, 0.0, 0.0, 0.0, 0),
-        ('CodeBERT (DFG)',       0.0, 0.0, 0.0, 0.0, 0),
-        ('CodeBERT (Text)',      0.0, 0.0, 0.0, 0.0, 0),
-        ('UniXcoder (DFG)',      0.0, 0.0, 0.0, 0.0, 0),
-        ('UniXcoder (Text)',     0.0, 0.0, 0.0, 0.0, 0),
-    ]
+    # Emit NOTHING rather than zero-filled rows. The 2026-08-19 run wrote six
+    # transformer rows reading "Accuracy : 0.0000%", which look like real
+    # measurements and are not. The baselines stand on their own; re-run this
+    # script once test-2 has written test2_auc_results.txt to get the comparison.
+    print(f"{TEST2_OUT} not found -- transformer rows OMITTED (not zero-filled).")
+    print("The TF-IDF baselines are still valid. Re-run after test-2 for the "
+          "comparison chart.")
+    transformer_results = []
 
 REF = [
     ('LR + TF-IDF',  acc_lr,  auc_lr,  pr_lr,  f1_lr,  fn_lr),
@@ -303,6 +302,10 @@ out_txt = '/kaggle/working/test6_baseline_results.txt'
 with open(out_txt, 'w') as fh:
     fh.write('Test 6: MLP / TF-IDF Baseline Results\n')
     fh.write('=' * 60 + '\n')
+    fh.write(f'Test set : {len(y_test):,} samples (duplicate-filtered; see PAPER.md 5.3)\n')
+    if not transformer_results:
+        fh.write('NOTE     : transformer rows omitted -- test2_auc_results.txt was\n')
+        fh.write('           not present when this ran. Re-run after test-2.\n')
     for nm, acc, auc_, pr, f1, fn in REF:
         fn_s = f'{int(fn):,}' if fn else '-'
         fh.write(f'\n{nm}\n')

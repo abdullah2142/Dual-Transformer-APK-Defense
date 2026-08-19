@@ -1,58 +1,29 @@
 Test 6: MLP / TF-IDF Baseline Results
 ============================================================
+Test set : 18,541 samples (duplicate-filtered; see PAPER.md 5.3)
+NOTE     : transformer rows omitted -- test2_auc_results.txt was
+           not present when this ran. Re-run after test-2.
 
 LR + TF-IDF
-  Accuracy : 84.4519%
-  ROC-AUC  : 0.9271
-  PR-AUC   : 0.9270
-  F1       : 0.8432
-  FN       : 1,685
+  Accuracy : 83.6794%
+  ROC-AUC  : 0.9202
+  PR-AUC   : 0.9191
+  F1       : 0.8330
+  FN       : 1,605
 
 MLP + TF-IDF
-  Accuracy : 85.4821%
-  ROC-AUC  : 0.9385
-  PR-AUC   : 0.9408
-  F1       : 0.8559
-  FN       : 1,425
+  Accuracy : 84.8282%
+  ROC-AUC  : 0.9332
+  PR-AUC   : 0.9348
+  F1       : 0.8455
+  FN       : 1,454
 
-CodeBERT (Text)
-  Accuracy : 88.5627%
-  ROC-AUC  : 0.9610
-  PR-AUC   : 0.9625
-  F1       : -
-  FN       : 1,180
-
-CodeBERT (DFG)
-  Accuracy : 88.5427%
-  ROC-AUC  : 0.9604
-  PR-AUC   : 0.9622
-  F1       : -
-  FN       : 1,248
-
-GraphCodeBERT (Text)
-  Accuracy : 88.9300%
-  ROC-AUC  : 0.9596
-  PR-AUC   : 0.9611
-  F1       : -
-  FN       : 1,241
-
-GraphCodeBERT (DFG)
-  Accuracy : 88.5600%
-  ROC-AUC  : 0.9585
-  PR-AUC   : 0.9597
-  F1       : -
-  FN       : 1,196
-
-UniXcoder (Text)
-  Accuracy : 89.0778%
-  ROC-AUC  : 0.9622
-  PR-AUC   : 0.9636
-  F1       : -
-  FN       : 1,238
-
-UniXcoder (DFG)
-  Accuracy : 88.3727%
-  ROC-AUC  : 0.9602
-  PR-AUC   : 0.9612
-  F1       : -
-  FN       : 1,125
+--- provenance -------------------------------------------------------
+Run        : 2026-08-19 Kaggle, Partition N, duplicate-filtered
+Script     : test_scripts/test-5-mlp-baseline.py
+Supersedes : LR 84.4519% / MLP 85.4821% (unfiltered 19,996)
+Note       : the run emitted six transformer rows reading 0.0000%, a
+             placeholder for "test-2 had not run yet". Those rows are
+             removed here and the script no longer produces them.
+             Re-run this script after test-2 for the comparison chart;
+             test6_baseline_bar.png is likewise incomplete until then.
