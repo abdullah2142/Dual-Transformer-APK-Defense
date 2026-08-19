@@ -330,8 +330,7 @@ print("Test-set sample counts per source (after duplicate filter):")
 for src in SOURCES:
     print(f"  {src:12s}: {len(test_indices_by_source.get(src, [])):,}")
 
-# ─── EVALUATION FUNCTION ──────────────────────────────────────────────────────
-@torch.no_grad()
+# ─── TEXT-ONLY MODEL AND DATASET ────────────────────────────────────────────
 class TextModel(nn.Module):
     """Text-only classifier. Mirrors the TextModel in test-6-imbalanced-eval.py."""
     def __init__(self, encoder, config):
@@ -373,6 +372,8 @@ class SimpleCodeDataset(Dataset):
         }
 
 
+# ─── EVALUATION FUNCTION ──────────────────────────────────────────────────────
+@torch.no_grad()
 def evaluate_subset(model, tokenizer, indices, args, label=''):
     ds = SimpleCodeDataset(tokenizer, args, args.train_file, indices=indices)
     loader = DataLoader(ds, batch_size=args.eval_batch_size, shuffle=False, num_workers=2)
