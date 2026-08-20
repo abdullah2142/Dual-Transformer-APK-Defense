@@ -5,7 +5,7 @@
 paragraph lives here. `README.md` describes the repository and deliberately carries no results —
 having numbers in two places is what let six documents drift apart.
 
-**Last verified**: 2026-08-12 · **Target venue**: IEEE Access
+**Last verified**: 2026-08-20 · **Target venue**: IEEE Access
 
 > **Reading rule.** Every result below carries a status tag. Only ✅ figures may be written into
 > the paper as-is.
@@ -90,12 +90,12 @@ D2 (Table 3's protocol, 3 runs). **D4, D5 and D8 are "state it plainly in the pa
 | # | Step | State |
 |---|---|---|
 | 1 | Fix eval scripts: strip filename fallback, add duplicate filter | ✅ done 2026-08-03 |
-| 2 | Re-run test-4, test-6, test-7 | ⬜ blocked on checkpoint paths (§7.1) |
+| 2 | Re-run test-4, test-6, test-7 | ✅ **done** — test-7 and test-6 2026-08-15, test-4 2026-08-20 on GCB text-only |
 | 3 | Retrain CodeBERT text + CodeBERT+DFG on Partition N | ✅ done 2026-08-04 → `training_notebooks/re_train/` |
 | 3b | Retrain all four CodeBERT and GraphCodeBERT runs on one protocol (10 / 2) | ✅ **done 2026-08-12** — early stopping fired in all four (§4.3) |
-| 4 | Re-run test-2 (ROC/PR, regenerates the `.npy` everything downstream reads) | ⬜ waits on 3b |
-| 5 | Re-run test-8 (McNemar) | ⬜ CPU, seconds, waits on 4 |
-| 6 | Re-run test-5 (TF-IDF baselines) | ⬜ CPU, waits on 4 |
+| 4 | Re-run test-2 | ✅ **done 2026-08-20** — 18,541 filtered, all six checkpoints confirmed |
+| 5 | Re-run test-8 | ✅ **done 2026-08-20** — **Table 2b's artifact collapsed** |
+| 6 | Re-run test-5 | ✅ **done 2026-08-19** — chart via `make_baseline_chart.py` |
 | 7 | Re-run test-3 ×3 seeds, **or** relabel Table 3 as the 5-epoch config | ⬜ decision (§4.3) |
 
 **Cost to finish**: 6 evaluation re-runs, plus 3 more GPU runs if Table 3 is re-measured and 1 if
@@ -108,10 +108,10 @@ D7 is closed by retraining.
 | **DFG provides no consistent benefit** | within-backbone comparisons, Table 2 | ✅ **safe** — the core finding survives everything below |
 | DFG lowers accuracy **and** ROC-AUC on all three backbones | Table 2 | ✅ **restored 2026-08-12** — the CodeBERT reversal was an artifact of the truncated text arm plus an FP32/FP16 mismatch; both fixed, and it reversed back (§3.2) |
 | DFG trades false negatives for false positives | Table 2 | ✅ consistent in all three backbones |
-| Training stability ±0.10% | test-3 | ⚠️ measured on the 5-epoch config, unfiltered |
-| Transformers beat TF-IDF | test-5 | ⚠️ unfiltered; re-runs with test-2 |
-| Cross-architecture gap (Table 2b) | test-8 | ❌ entirely a leakage artifact |
-| Per-source generalisation (Table 4) | test-4 | ❌ contaminated partition |
+| Training stability ±0.10% | test-3 | ⚠️ still the 5-epoch config, unfiltered (D2) |
+| Transformers beat TF-IDF | test-5 | ✅ both on 18,541: baselines 83.68/84.83 vs transformers 87.52–88.34 |
+| Cross-architecture gap (Table 2b) | test-8 | ✅ **resolved** — collapsed to +0.34%, p=0.106. Retire *"model choice matters more than DFG"* (§3.4) |
+| Per-source generalisation (Table 4) | test-4 | ✅ **re-run 2026-08-20** on GCB text-only, filtered (§3.5) |
 | Deployment behaviour (Table 5) | test-6 | ❌ contaminated partition *and* model changed |
 | Why DFG fails (Section 8) | test-7 | ❌ contaminated partition — mechanism plausible, examples unreliable |
 | Real-APK calibration (Test 9) | scanner reports | ✅ **safe** — no split dependency |
@@ -126,7 +126,7 @@ everything in Part 5.
 | ~~D1~~ | ~~Epoch ceiling~~ — **settled 2026-08-12**: all four CodeBERT/GCB runs on 10 / 2, early stopping fired in each. UniXcoder remains at 5 / 2, internally consistent | — | §4.3 |
 | D2 | Table 3: re-run at the new ceiling, or label it as the 5-epoch config | Table 3 | §4.3 |
 | ~~D3~~ | ~~Scanner ships GCB+DFG~~ — **retired 2026-08-12: the premise was false.** The scanner has always run GraphCodeBERT **text-only**, and contains no DFG code at all | — | §5.5 |
-| D4 | Whether Table 1 is the unfiltered 19,996 or the duplicate-filtered 18,541 | Tables 1–5 | §5.4 |
+| ~~D4~~ | ~~Filtered vs unfiltered Table 1~~ — **settled 2026-08-20**: Table 1 is the filtered 18,541 from test-2; `results/models/*.txt` are unfiltered per-model figures and must not be mixed in | — | §3.1 |
 | D5 | Sequence lengths differ between the arms of two backbones — disclose, or retrain to match | Tables 1–2, Section 4 | §4.3 |
 | ~~D6~~ | ~~Best model changed~~ — **settled 2026-08-12**: GraphCodeBERT text-only is best *and* is what the scanner deploys. test-6 re-pointed to it; test-4 still needs a text-only path (§5.6) | — | §5.6 |
 | **D7** | **GCB+DFG trains at effective batch 32 vs its text arm's 16 — retrain to match, or disclose?** | Table 2 GCB row | §4.3 |
@@ -191,65 +191,76 @@ for the duplicate-filtered 18,541 alternative and decision D4.
 
 ## 3.1 Table 1 — Full model comparison
 
-| Model | Backbone | Structure | Accuracy | ROC-AUC | PR-AUC | FN | FP | Best ep | Stopped | Status |
-|---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| LR + TF-IDF | — | none | 84.4519% | 0.9271 | 0.9270 | 1,685 | — | — | — | ⚠️ |
-| MLP + TF-IDF | — | none | 85.4821% | 0.9385 | 0.9408 | 1,425 | — | — | — | ⚠️ |
-| CodeBERT | codebert-base | text | 88.4177% | 0.9612 | 0.9632 | 1,312 | 1,004 | 4 | early @6 | ✅ |
-| CodeBERT + DFG | codebert-base | DFG attn | 88.3127% | 0.9600 | 0.9619 | 1,247 | 1,090 | 5 | early @7 | ✅ |
-| **GraphCodeBERT** | graphcodebert | text | **89.2300%** | **0.9630** | **0.9647** | 1,266 | 887 | 4 | early @6 | ✅ |
-| GraphCodeBERT + DFG | graphcodebert | DFG attn | 88.6600% | 0.9600 | 0.9613 | 1,071 | 1,197 | 5 | early @7 | ⚠️ batch (D7) |
-| UniXcoder | unixcoder-base | text | 89.0778% | 0.9622 | 0.9636 | 1,238 | 946 | 4 | cap | ✅ |
-| UniXcoder + DFG | unixcoder-base | DFG attn | 88.3727% | 0.9602 | 0.9612 | 1,125 | 1,200 | 4 | cap | ✅ |
+| Model | Backbone | Structure | Accuracy | ROC-AUC | PR-AUC | FN | FP | Status |
+|---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| LR + TF-IDF | — | none | 83.6794% | 0.9202 | 0.9191 | 1,605 | — | ✅ |
+| MLP + TF-IDF | — | none | 84.8282% | 0.9332 | 0.9348 | 1,454 | — | ✅ |
+| CodeBERT | codebert-base | text | 87.6814% | 0.9571 | 0.9591 | 1,282 | 1,002 | ✅ |
+| CodeBERT + DFG | codebert-base | DFG attn | 87.5196% | 0.9556 | 0.9574 | 1,223 | 1,091 | ✅ |
+| GraphCodeBERT | graphcodebert | text | 88.2692% | 0.9571 | 0.9589 | 1,294 | 881 | ✅ |
+| GraphCodeBERT + DFG | graphcodebert | DFG attn | 87.8593% | 0.9558 | 0.9570 | 1,054 | 1,197 | ⚠️ batch (D7) |
+| **UniXcoder** | unixcoder-base | text | **88.3447%** | 0.9581 | **0.9594** | 1,217 | 944 | ✅ |
+| UniXcoder + DFG | unixcoder-base | DFG attn | 88.3124% | **0.9582** | 0.9589 | 1,093 | 1,074 | ✅ |
 
-**Provenance**: all six transformer rows are from the 2026-08-12 reruns, recorded in
-`results/models/*.txt` with best epoch, stop reason and full validation trajectory. The four CodeBERT and GraphCodeBERT runs are on the unified
-10 / 2 protocol and **early stopping fired in every one** — the first time the protocol has
-operated as the paper describes it (§4.3). The two UniXcoder runs are unchanged at 5 / 2 and
-reproduced their previous numbers exactly, which also confirms the pipeline is deterministic
-under seed 42. Partition N reproduces `163,967 / 15,997 / 19,996` in every run.
+**This is the table for the paper.** All eight rows are scored on the **same duplicate-filtered
+18,541-sample test set** by test-2 on 2026-08-20 (`results/test2_auc_results.txt`), so the numbers
+are mutually comparable and `accuracy = 1 − (FN+FP)/N` reconciles for every row. That settles
+**D4**: Table 1 is the filtered set, and the per-model figures in `results/models/*.txt` are the
+unfiltered 19,996 and must not be mixed in.
 
-**GraphCodeBERT text-only is now the best model at 89.2300%**, overtaking UniXcoder text-only.
-That reversal is what raises **D6**.
+**Provenance verified before the run.** All six checkpoints were resolved by directory match with
+no hardcoded paths, and each training run's own results file was read back and checked against
+this document — see §4.3. Every model's filtered accuracy sits **below** its unfiltered figure by
+0.06–0.96pp, which is the only direction possible when memorised samples are removed.
 
-**The six transformers span 0.92pp (88.31–89.23%).** That convergence — not any individual
-number — is the paper's substantive observation.
+**UniXcoder text-only is the best model at 88.3447%**, with GraphCodeBERT text-only 0.08pp behind.
+The eight-model spread is 4.67pp; the six transformers span **0.83pp (87.52–88.34%)**. That
+convergence — not any individual number — is the paper's substantive observation.
+
+> ⚠️ **The best-model ordering flipped again on filtering.** On the unfiltered set GraphCodeBERT
+> text-only led at 89.23% with UniXcoder at 89.08%; filtered, UniXcoder leads 88.3447% to 88.2692%.
+> The gap either way is well inside the ±0.10% seed noise floor, so **do not claim a best model on
+> accuracy alone.** §5.6's choice of GraphCodeBERT text-only for the deployment experiments rests
+> on architectural coherence and on it being what the scanner ships, not on it topping the table.
 
 ## 3.2 Table 2 — DFG effect per backbone
 
-Delta is text-only minus DFG-aware, so **positive means text-only wins**.
+Delta is text-only minus DFG-aware, so **positive means text-only wins**. All on the
+duplicate-filtered 18,541 set; p-values from test-8, 2026-08-20.
 
-| Backbone | Text-only | DFG-aware | Δ Accuracy | Δ ROC-AUC | Δ FN | Δ FP |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| CodeBERT | 88.4177% | 88.3127% | **+0.105%** | +0.0012 | −65 | +86 |
-| GraphCodeBERT | 89.2300% | 88.6600% | **+0.570%** | +0.0030 | −195 | +310 |
-| UniXcoder | 89.0778% | 88.3727% | **+0.705%** | +0.0020 | −113 | +254 |
+| Backbone | Text-only | DFG-aware | Δ Accuracy | Δ ROC-AUC | Δ FN | Δ FP | McNemar p |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| CodeBERT | 87.6814% | 87.5196% | +0.162% | +0.0015 | −59 | +89 | 0.409 |
+| GraphCodeBERT | 88.2692% | 87.8593% | +0.410% | +0.0013 | −240 | +316 | **0.037** |
+| UniXcoder | 88.3447% | 88.3124% | +0.032% | −0.0001 | −124 | +130 | 0.879 |
 
-**All three backbones favour text-only, and DFG behaves identically in all three**: lower
-accuracy, lower ROC-AUC, **fewer false negatives, more false positives**. That is a coherent
-finding rather than a shrug — DFG-aware attention shifts the operating point toward recall
-without improving discrimination. Because ROC-AUC is threshold-independent, *"DFG lowers ROC-AUC
-on all three backbones"* is the cleanest single statement of the negative result.
+**Text-only wins all three on accuracy, but only GraphCodeBERT significantly.** CodeBERT and
+UniXcoder are statistically indistinguishable, and UniXcoder's is a rounding error.
 
-CodeBERT's +0.105% is within the ±0.10% seed noise floor (§3.3); the other two exceed it.
+**The consistent, reportable effect is the operating-point shift, not the accuracy loss.** DFG
+reduces false negatives in all three backbones (−59, −240, −124) and raises false positives in all
+three (+89, +316, +130). That trade is uniform even where the accuracy delta is noise. This is the
+cleanest statement available:
 
-McNemar p-values are **not** reproduced here — the existing ones were computed on leaked CodeBERT
-predictions and on superseded checkpoints. They are void until test-8 re-runs on the new `.npy`.
+> DFG-aware attention does not improve discrimination on decompiled code. It shifts the operating
+> point toward recall — consistently fewer false negatives at consistently more false positives —
+> while accuracy and ROC-AUC stay flat or fall slightly.
 
-> ### The CodeBERT reversal is resolved
->
-> Between 2026-08-04 and 2026-08-12 the CodeBERT row read **−0.305%**, i.e. DFG ahead — the only
-> backbone where DFG won, and the one fact that broke the paper's core claim. It carried two
-> confounds, both since fixed:
->
-> 1. its text arm selected its best checkpoint on the final epoch with validation still rising,
->    while the DFG arm had converged;
-> 2. the text arm was scored in FP32 while the DFG arm was scored in FP16.
->
-> With both corrected and both arms on 10 / 2, the row reads **+0.105% — text ahead**. The
-> reversal was an artifact, exactly as §4.3 predicted. Keep this episode for the Limitations
-> section: it is a concrete demonstration of how much a training-protocol asymmetry can move a
-> sub-percentage-point ablation.
+> ⚠️ **Do not write "DFG lowers ROC-AUC on all three."** It was true on the unfiltered set but is
+> not here: UniXcoder's ROC-AUC is 0.9581 text vs 0.9582 DFG, a dead heat.
+
+> ⚠️ **GraphCodeBERT is the only significant row, and it is the one with a known confound** — its
+> DFG arm trains at effective batch 32 against its text arm's 16 (**D7**, §4.3 finding 5). The one
+> result strong enough to report is the one whose training protocol was not matched. Either close
+> D7 with a retrain or disclose the confound alongside the p-value.
+
+### The CodeBERT reversal, resolved twice over
+
+The CodeBERT row read **−0.305%** (DFG ahead) on 2026-08-04, carrying two confounds: a text arm
+truncated at its epoch ceiling, and that arm scored in FP32 against a DFG arm scored in FP16. With
+both fixed it read +0.105% unfiltered, and now **+0.162% filtered, p=0.409**. The reversal was an
+artifact throughout. Keep the episode for Limitations: it shows how far a sub-percentage-point
+ablation moves under a training-protocol asymmetry.
 
 ## 3.3 Table 3 — Training stability (multi-seed) ⚠️
 
@@ -267,38 +278,67 @@ This ±0.10% is the yardstick used throughout to judge whether a delta is noise,
 status matters. It is ⚠️ on two counts: measured on the unfiltered test set, and measured on the
 5-epoch GCB text-only configuration that decision D2 may change.
 
-## 3.4 Table 2b — Cross-architecture significance ❌
+## 3.4 Table 2b — Cross-architecture significance ✅ RESOLVED
 
 | Comparison | Δ Accuracy | McNemar p | Verdict |
 |---|:---:|:---:|---|
-| GCB+DFG vs CodeBERT+DFG | −4.546% | p ≈ 7.3e-114 | ❌ **artifact** |
-| GCB+DFG vs UniXcoder+DFG | −0.500% | p = 0.0121 | ❌ recompute |
+| GCB+DFG vs CodeBERT+DFG | **+0.340%** | **p = 0.106** | ✅ **not significant** |
+| GCB+DFG vs UniXcoder+DFG | −0.453% | p = 0.031 | significant |
 
-The −4.55% gap is the memorisation bonus from CodeBERT being graded on its own training data.
-On the 2026-08-12 Table 1 the real gap is 88.6600% vs 88.3127% = **0.35%** — an order of
-magnitude below the 4.55% on record. Expect this row to collapse to non-significant when test-8
-re-runs — **that collapse is the pass/fail check for the
-entire remediation.** The claim *"model choice matters more than DFG structure"* rests entirely
-on this row and must be retired if it collapses.
+### The pass/fail check on the whole remediation — passed
 
-## 3.5 Table 4 — Per-source breakdown ❌
+The first row was the single worst number in the project: **−4.546% at p ≈ 7.3e-114**, produced by
+grading CodeBERT on its own training data. On the corrected checkpoints and the filtered test set
+it reads **+0.340% at p = 0.106 — not significant.** The gap shrank by a factor of 13 and the
+p-value moved 112 orders of magnitude.
 
-Contaminated (Partition S). Retained only to show what changes.
+That is what the entire retrain-and-refilter exercise was for, and it worked.
 
-| Source | N (reported) | Accuracy | ROC-AUC | F1 | FN |
+**Retire the claim *"model choice matters more than DFG structure."*** It rested entirely on that
+row. What the data now shows is the opposite of a hierarchy: of five pairwise comparisons only two
+reach significance, both around 0.4pp, and the largest cross-architecture gap in Table 1 is 0.83pp
+across all six transformers. Neither backbone choice nor DFG augmentation moves the needle much.
+
+The surviving significant row — GCB+DFG vs UniXcoder+DFG at −0.453% — carries the same D7 batch
+confound as the GraphCodeBERT row in Table 2, since it is the same checkpoint.
+
+## 3.5 Table 4 — Per-source breakdown ✅
+
+GraphCodeBERT text-only on the duplicate-filtered test set, 2026-08-20
+(`results/test5_per_source_results.txt` — note the +1 filename offset, §10.2).
+
+| Source | N | Accuracy | ROC-AUC | F1 | FN |
 |---|:---:|:---:|:---:|:---:|:---:|
-| LVDAndro | 7,500 | 97.0667% | 0.9957 | 0.9707 | 133 |
-| Draper | 7,500 | 86.6667% | 0.9264 | 0.8664 | 303 |
-| Juliet | 2,500 | 100.0000% | 1.0000 | 1.0000 | 0 |
-| Devign | 2,496 | 68.9103% | 0.7729 | 0.6844 | 222 |
+| **LVDAndro** | 7,482 | **97.5408%** | **0.9958** | **0.9754** | 110 |
+| Draper | 6,856 | 84.0140% | 0.8964 | 0.8371 | 645 |
+| Juliet | 1,815 | 100.0000% | 1.0000 | 1.0000 | 0 |
+| Devign | 2,388 | 64.7404% | 0.7189 | 0.6463 | 482 |
 
-**The tidy 7,500 / 7,500 / 2,500 / 2,496 counts are themselves the artifact.** Correct counts on
-Partition N are **7,483 / 7,626 / 2,489 / 2,398**, and after the duplicate filter
-**7,482 / 6,856 / 1,815 / 2,388**.
+Macro mean across sources: 86.5738% / 0.9028 / 0.8647. The four Ns sum to 18,541.
 
-**Juliet's 100% must be dropped** — 27.1% of its test partition is verbatim in train/val. Report
-the filtered accuracy on 1,815 clean samples, framed as a synthetic sanity check rather than
-capability.
+Supersedes the contaminated Partition-S table (LVDAndro 97.07%, Draper 86.67%, Devign 68.91%, and
+the tidy 7,500/7,500/2,500/2,496 counts). Two things changed at once — the partition *and* the
+model, which moved from GCB+DFG to GCB text-only (§5.6) — so the rows are not a like-for-like
+before/after.
+
+**LVDAndro at 97.54% is the number every Android claim should quote.** It is the only source that
+is decompiled Android code, it is essentially untouched by duplication (1 sample dropped of 7,483),
+and it now describes the model the scanner deploys.
+
+> ### ⚠️ Juliet stays at 100% — and duplication does not explain it
+>
+> The prediction was that Juliet would collapse once its 674 duplicated samples (27.1%) were
+> removed. **It did not move at all: 100.0000% on 1,815 samples it never saw, zero false
+> negatives.**
+>
+> So the mechanism in the Limitations argument is wrong. Juliet's perfection is not memorisation —
+> it is that synthetic CWE test cases are *trivially separable*, holding structurally to a template
+> the model learns in general rather than per-sample. §6.12 must be rewritten on that basis: the
+> honest claim is "synthetic patterns are trivially easy even when unseen," which is a stronger
+> reason to exclude Juliet from capability claims than duplication ever was.
+>
+> Devign remains the floor at 64.7404%, below the contaminated 68.91% — the scope boundary in §6.6
+> is wider than previously reported, not narrower.
 
 ## 3.6 Table 5 — Deployment threshold (imbalanced 90/10) ❌
 
@@ -883,8 +923,10 @@ Use these paragraphs directly. Numbers inside them are current as of 2026-08-04 
 > vulnerabilities are predominantly inter-procedural. We report this gap transparently and do
 > not generalise Android-domain claims to kernel C analysis."
 
-> ⚠️ Both numbers come from the contaminated test-4. Do not fill them in until it re-runs. Older
-> drafts cite LVDAndro at 98.34% in a heading and 97.07% in the body — neither is usable.
+> ✅ **Numbers available 2026-08-20** (§3.5, GraphCodeBERT text-only, filtered): LVDAndro
+> **97.5408%**, Devign **64.7404%** — a 32.8pp gap, *wider* than the 28.2pp the contaminated table
+> showed. Draper sits between at 84.0140%. Older drafts citing LVDAndro at 98.34% or 97.07% are
+> superseded.
 
 ## 6.7 Threshold 0.60
 
@@ -955,11 +997,19 @@ apps. Your scanner doesn't work."
 
 *Attack*: "100% on Juliet inflates your metrics."
 
-> "Juliet Test Suite samples are reported separately and excluded from capability claims. 27.1%
-> of Juliet's test partition was byte-identical to a training sample and is removed by our
-> duplicate filter; the remaining 1,815 samples are reported as a synthetic sanity check. Their
-> structured, non-obfuscated form makes them substantially easier than real decompiled code. All
-> capability claims reference LVDAndro and Draper exclusively."
+> ⚠️ **Rewritten 2026-08-20.** The previous paragraph implied duplication was doing the work.
+> It is not: after removing the 674 duplicated samples (27.1%), Juliet scores **100.0000% on 1,815
+> samples it never saw, with zero false negatives** (§3.5). Attributing it to memorisation would be
+> a claim the data contradicts, and a reviewer who reruns it would catch that.
+
+> "Juliet Test Suite samples are reported separately and excluded from all capability claims.
+> After removing the 27.1% of Juliet's test partition that was byte-identical to a training sample,
+> the remaining 1,815 unseen samples are still classified with perfect accuracy. This is not
+> memorisation: synthetic CWE test cases are generated from a small set of templates, so a model
+> that has learned the template generalises to unseen instances of it trivially. Juliet therefore
+> measures template recognition rather than vulnerability detection, and we report it only as a
+> sanity check that the pipeline is wired correctly. All capability claims reference LVDAndro —
+> real decompiled Android code, 97.54% — and Draper."
 
 ---
 

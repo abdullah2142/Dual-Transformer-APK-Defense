@@ -1,16 +1,16 @@
 Statistical Significance Testing - McNemar's Test
 ============================================================
-                             comparison    acc_a    acc_b     delta   b    c  statistic        pvalue  significant
-GraphCodeBERT+DFG vs GraphCodeBERT Text 0.885727 0.887828 -0.002100 613  655   1.325710  2.495699e-01        False
-          CodeBERT+DFG vs CodeBERT Text 0.931186 0.933987 -0.002801 388  444   3.635817  5.654883e-02        False
-        UniXcoder+DFG vs UniXcoder Text 0.890728 0.890778 -0.000050 548  549   0.000000  1.000000e+00        False
-      GraphCodeBERT+DFG vs CodeBERT+DFG 0.885727 0.931186 -0.045459 347 1256 514.325639 7.262516e-114         True
-     GraphCodeBERT+DFG vs UniXcoder+DFG 0.885727 0.890728 -0.005001 728  828   6.298843  1.208168e-02         True
+                             comparison    acc_a    acc_b     delta   b   c  statistic   pvalue  significant
+GraphCodeBERT+DFG vs GraphCodeBERT Text 0.878593 0.882692 -0.004099 611 687   4.333590 0.037367         True
+          CodeBERT+DFG vs CodeBERT Text 0.875196 0.876814 -0.001618 603 633   0.680421 0.409442        False
+        UniXcoder+DFG vs UniXcoder Text 0.883124 0.883447 -0.000324 537 543   0.023148 0.879072        False
+      GraphCodeBERT+DFG vs CodeBERT+DFG 0.878593 0.875196  0.003398 767 704   2.613188 0.105978        False
+     GraphCodeBERT+DFG vs UniXcoder+DFG 0.878593 0.883124 -0.004530 694 778   4.680027 0.030515         True
 
 Interpretation:
 p > 0.05 = differences are NOT statistically significant
 p <= 0.05 = differences ARE statistically significant
 
 Significant comparisons (must be reported explicitly):
-  - GraphCodeBERT+DFG vs CodeBERT+DFG (p=0.0000, delta=-4.5459%)
-  - GraphCodeBERT+DFG vs UniXcoder+DFG (p=0.0121, delta=-0.5001%)
+  - GraphCodeBERT+DFG vs GraphCodeBERT Text (p=0.0374, delta=-0.4099%)
+  - GraphCodeBERT+DFG vs UniXcoder+DFG (p=0.0305, delta=-0.4530%)
