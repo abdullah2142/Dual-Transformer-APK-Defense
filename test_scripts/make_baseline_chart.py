@@ -26,6 +26,7 @@ has spent its whole history unpicking.
 """
 
 import argparse
+import pathlib
 import os
 import re
 import sys
@@ -80,6 +81,60 @@ def parse_transformers(path):
     return rows, n
 
 
+def write_svg(rows, n_base, n, path):
+    """Grouped bar chart in raw SVG. No dependencies."""
+    W, H = 1040, 520
+    ML, MR, MT, MB = 66, 24, 54, 132
+    PW, PH = W - ML - MR, H - MT - MB
+    gw = PW / len(rows)
+    bw = gw * 0.34
+    y = lambda v: MT + PH - v * PH          # value 0..1 -> pixel
+
+    e = lambda s: (str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
+    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}"'
+         f' font-family="DejaVu Sans, Arial, sans-serif">',
+         f'<rect width="{W}" height="{H}" fill="white"/>']
+
+    title = 'Accuracy &amp; ROC-AUC: TF-IDF Baselines vs Transformer Models'
+    if n:
+        title += f'  ({n:,} duplicate-filtered test samples)'
+    o.append(f'<text x="{W/2}" y="26" text-anchor="middle" font-size="15" font-weight="600">{title}</text>')
+
+    # baseline shading
+    o.append(f'<rect x="{ML}" y="{MT}" width="{gw*n_base}" height="{PH}" fill="#cc0000" opacity="0.055"/>')
+    o.append(f'<text x="{ML + gw*n_base/2}" y="{MT-8}" text-anchor="middle" font-size="11" fill="#880000">Baselines</text>')
+
+    # y grid + axis
+    for gv in [i / 10 for i in range(0, 11, 2)]:
+        yy = y(gv)
+        o.append(f'<line x1="{ML}" y1="{yy:.1f}" x2="{ML+PW}" y2="{yy:.1f}" stroke="#ccc" stroke-width="1"/>')
+        o.append(f'<text x="{ML-9}" y="{yy+4:.1f}" text-anchor="end" font-size="11" fill="#444">{gv:.1f}</text>')
+    o.append(f'<line x1="{ML}" y1="{MT+PH}" x2="{ML+PW}" y2="{MT+PH}" stroke="#333" stroke-width="1.2"/>')
+    o.append(f'<text x="16" y="{MT+PH/2}" text-anchor="middle" font-size="12" '
+             f'transform="rotate(-90 16 {MT+PH/2})">Score</text>')
+
+    for i, (nm, acc, auc) in enumerate(rows):
+        cx = ML + gw * (i + 0.5)
+        for val, col, off in ((acc, '#4C72B0', -bw/2 - 1), (auc, '#55A868', bw/2 + 1)):
+            bx, by = cx + off - bw/2, y(val)
+            o.append(f'<rect x="{bx:.1f}" y="{by:.1f}" width="{bw:.1f}" height="{MT+PH-by:.1f}" '
+                     f'fill="{col}" opacity="0.9"/>')
+            o.append(f'<text x="{bx+bw/2:.1f}" y="{by-5:.1f}" text-anchor="middle" '
+                     f'font-size="9.5" fill="#222">{val:.3f}</text>')
+        lbl = e(nm.replace(' (', '\n(').replace(' + ', '+\n'))
+        for j, part in enumerate(lbl.split('\n')):
+            o.append(f'<text x="{cx:.1f}" y="{MT+PH+18+j*13:.1f}" text-anchor="middle" '
+                     f'font-size="10.5" fill="#222">{part}</text>')
+
+    lx, ly = ML + PW - 210, MT + 14
+    for k, (lab, col) in enumerate((('Accuracy', '#4C72B0'), ('ROC-AUC', '#55A868'))):
+        o.append(f'<rect x="{lx}" y="{ly + k*20}" width="13" height="13" fill="{col}" opacity="0.9"/>')
+        o.append(f'<text x="{lx+19}" y="{ly + k*20 + 11}" font-size="12" fill="#222">{lab}</text>')
+
+    o.append('</svg>')
+    pathlib.Path(path).write_text('\n'.join(o), encoding='utf-8')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--baselines', default=BASE_DEFAULT)
@@ -118,10 +173,19 @@ def main():
     for nm, acc, auc in rows:
         print(f'  {nm:24s} acc={acc:.4f}  roc={auc:.4f}')
 
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    import numpy as np
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        import numpy as np
+    except ImportError:
+        # No matplotlib? Emit SVG instead. Zero dependencies, and vector output
+        # is better for a paper than a 150-dpi raster anyway.
+        out = a.out.rsplit('.', 1)[0] + '.svg'
+        write_svg(rows, len(base), n, out)
+        print(f'\nmatplotlib not available -- wrote SVG instead')
+        print(f'Saved -> {out}')
+        return
 
     labels = [r[0].replace(' (', '\n(').replace(' + ', '+\n') for r in rows]
     x = np.arange(len(rows))
