@@ -1,10 +1,12 @@
 Test 7: Imbalanced Class Evaluation
 ============================================================
+Model    : GraphCodeBERT text-only (the deployed model, PAPER.md 5.5)
+Test set : 18,541 samples (duplicate-filtered)
 Threshold used: 0.6
 Imbalanced ratio: 90% safe / 10% malicious
 
 
-UniXcoder text-only [balanced 50/50]
+GraphCodeBERT text-only [balanced 50/50]
   acc     : 0.8854
   prec    : 0.9135
   rec     : 0.8482
@@ -15,7 +17,7 @@ UniXcoder text-only [balanced 50/50]
   fp      : 735
   fpr     : 0.0783
 
-UniXcoder text-only [imbalanced 90/10]
+GraphCodeBERT text-only [imbalanced 90/10]
   acc     : 0.9154
   prec    : 0.5494
   rec     : 0.8591
@@ -27,7 +29,7 @@ UniXcoder text-only [imbalanced 90/10]
   fpr     : 0.0783
 
 
-Threshold Sensitivity Sweep (UniXcoder text-only, imbalanced 90/10):
+Threshold Sensitivity Sweep (GraphCodeBERT text-only, imbalanced 90/10):
  Threshold  Precision   Recall       F1      FPR     FN
 -------------------------------------------------------
       0.30     0.4354   0.9108   0.5891   0.1312     93

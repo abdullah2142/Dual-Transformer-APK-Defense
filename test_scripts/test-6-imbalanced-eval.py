@@ -472,8 +472,13 @@ if model_a:
     print('\nThreshold sensitivity (GraphCodeBERT text-only, imbalanced 90/10 set):')
     print(f'{"Threshold":>10} {"Precision":>10} {"Recall":>8} {"F1":>8} {"FPR":>8} {"FN":>6}')
     print('-'*55)
+    # Swept 0.30-0.65 until 2026-08-30. Over that range F1 rose monotonically and
+    # was still climbing at the last point, so the maximum lay outside the sweep
+    # and the claim "F1 is maximised at 0.60" was unsupported by its own table.
+    # Range extended to 0.95 so the optimum is actually contained.
     sweep_results = []
-    for th in [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65]:
+    sweep_rows = []
+    for th in [round(0.30 + 0.05 * i, 2) for i in range(14)]:      # 0.30 .. 0.95
         p = (probs_a_imb >= th).astype(int)
         prec = precision_score(labels_imb, p, zero_division=0)
         rec  = recall_score(labels_imb,    p, zero_division=0)
@@ -485,6 +490,32 @@ if model_a:
         line = f'{th:>10.2f} {prec:>10.4f} {rec:>8.4f} {f1:>8.4f} {fpr:>8.4f} {fn:>6,}'
         print(line)
         sweep_results.append(line)
+        sweep_rows.append(dict(th=th, prec=prec, rec=rec, f1=f1, fpr=fpr, fn=int(fn)))
+
+    # State the optimum rather than leaving it to be eyeballed.
+    best = max(sweep_rows, key=lambda r: r['f1'])
+    edge = best['th'] in (sweep_rows[0]['th'], sweep_rows[-1]['th'])
+    print(f"\n  F1-optimal threshold: {best['th']:.2f}  "
+          f"(F1={best['f1']:.4f}, recall={best['rec']:.4f}, FPR={best['fpr']:.4f}, FN={best['fn']:,})")
+    if edge:
+        print('  *** WARNING: the optimum sits at the EDGE of the swept range, so the true')
+        print('      maximum may lie outside it. Widen the sweep before quoting this value.')
+    else:
+        print('  The optimum is interior to the swept range, so this is a real maximum.')
+    print(f"  Deployed scanner threshold is 0.45 -> F1="
+          f"{[r for r in sweep_rows if r['th']==0.45][0]['f1']:.4f}; "
+          f"0.60 -> {[r for r in sweep_rows if r['th']==0.60][0]['f1']:.4f}")
+
+# ─── SAVE PROBABILITIES ───────────────────────────────────────
+# test-6 used to discard these, which is why every question about the decision
+# threshold cost a full GPU re-run. With them saved, any future sweep is a CPU
+# script over a small file -- same reasoning as results/predictions/ for test-8.
+if model_a:
+    np.save('/kaggle/working/test6_probs_balanced.npy', probs_a)
+    np.save('/kaggle/working/test6_labels_balanced.npy', labels_bal)
+    np.save('/kaggle/working/test6_probs_imbalanced.npy', probs_a_imb)
+    np.save('/kaggle/working/test6_labels_imbalanced.npy', labels_imb)
+    print('\nSaved probabilities -> /kaggle/working/test6_{probs,labels}_{balanced,imbalanced}.npy')
 
 # ─── COMPARISON BAR CHART ─────────────────────────────────────
 if model_a:
@@ -540,6 +571,10 @@ if model_a:
                 else:
                     fh.write(f'  {k:<8}: {res[k]:,}\n')
         
+        fh.write(f'\n\nF1-optimal threshold: {best["th"]:.2f}  (F1={best["f1"]:.4f}, '
+                 f'recall={best["rec"]:.4f}, FPR={best["fpr"]:.4f}, FN={best["fn"]:,})\n')
+        if edge:
+            fh.write('WARNING: optimum at the edge of the swept range -- widen before quoting.\n')
         fh.write('\n\nThreshold Sensitivity Sweep (GraphCodeBERT text-only, imbalanced 90/10):\n')
         fh.write(f'{"Threshold":>10} {"Precision":>10} {"Recall":>8} {"F1":>8} {"FPR":>8} {"FN":>6}\n')
         fh.write('-'*55 + '\n')
