@@ -1,0 +1,40 @@
+Test 7: Imbalanced Class Evaluation
+============================================================
+Threshold used: 0.6
+Imbalanced ratio: 90% safe / 10% malicious
+
+
+UniXcoder text-only [balanced 50/50]
+  acc     : 0.8854
+  prec    : 0.9135
+  rec     : 0.8482
+  f1      : 0.8797
+  auc     : 0.9589
+  pr_auc  : 0.9605
+  fn      : 1,389
+  fp      : 735
+  fpr     : 0.0783
+
+UniXcoder text-only [imbalanced 90/10]
+  acc     : 0.9154
+  prec    : 0.5494
+  rec     : 0.8591
+  f1      : 0.6702
+  auc     : 0.9632
+  pr_auc  : 0.8315
+  fn      : 147
+  fp      : 735
+  fpr     : 0.0783
+
+
+Threshold Sensitivity Sweep (UniXcoder text-only, imbalanced 90/10):
+ Threshold  Precision   Recall       F1      FPR     FN
+-------------------------------------------------------
+      0.30     0.4354   0.9108   0.5891   0.1312     93
+      0.35     0.4522   0.9022   0.6024   0.1214    102
+      0.40     0.4678   0.8907   0.6134   0.1126    114
+      0.45     0.4870   0.8821   0.6276   0.1032    123
+      0.50     0.5078   0.8754   0.6427   0.0943    130
+      0.55     0.5267   0.8686   0.6558   0.0867    137
+      0.60     0.5494   0.8591   0.6702   0.0783    147
+      0.65     0.5668   0.8456   0.6787   0.0718    161

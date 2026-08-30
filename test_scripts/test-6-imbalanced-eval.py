@@ -353,8 +353,15 @@ _train_idx, _val_idx, test_indices, report_sources = get_split_indices(
 print(f"Clean test samples: {len(test_indices):,}")
 
 # ─── LOAD MODEL ───────────────────────────────────────────────
-# Single model: UniXcoder text-only, the best configuration in Table 1
-# (89.0778%). Previously this evaluated GraphCodeBERT+DFG plus a 50/50
+# Single model: GraphCodeBERT text-only -- the model the scanner actually
+# deploys (PAPER.md 5.5), which is what a DEPLOYMENT table should describe.
+#
+# Note it is NOT chosen for being best: on the duplicate-filtered set UniXcoder
+# text-only leads 88.3447% to 88.2692%, having trailed it unfiltered. That 0.08pp
+# is inside the seed-noise floor, so neither is "the best model" and the paper
+# must not claim one on accuracy alone. This table describes what ships.
+#
+# Previously this evaluated GraphCodeBERT+DFG plus a 50/50
 # probability-average "ensemble" with CodeBERT. Both were dropped:
 #   * GCB+DFG (88.5600%) is the weaker variant of the middle backbone, so
 #     characterising deployment with it contradicts the paper's own finding
@@ -366,7 +373,7 @@ if not args.gcb_text_weights or not os.path.exists(args.gcb_text_weights):
     print("Please set args.gcb_text_weights")
     model_a = None
 else:
-    print('Loading UniXcoder (text-only)...')
+    print('Loading GraphCodeBERT (text-only)...')
     cfg_a = RobertaConfig.from_pretrained(args.model_name_or_path)
     cfg_a.num_labels = 2
     tok_a = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=True)
@@ -453,16 +460,16 @@ def evaluate(probs, labels, name, threshold=OPT_THRESHOLD):
 # ─── EVALUATE: BALANCED (original 50/50) ──────────────────────
 if model_a:
     print('\n--- BALANCED (50/50) EVALUATION ---')
-    res_bal_a = evaluate(probs_a, labels_bal, 'UniXcoder text-only [balanced 50/50]')
+    res_bal_a = evaluate(probs_a, labels_bal, 'GraphCodeBERT text-only [balanced 50/50]')
 
 # ─── EVALUATE: IMBALANCED (90/10) ─────────────────────────────
 if model_a:
     print('\n--- IMBALANCED (90% safe / 10% malicious) EVALUATION ---')
-    res_imb_a = evaluate(probs_a_imb, labels_imb, 'UniXcoder text-only [imbalanced 90/10]')
+    res_imb_a = evaluate(probs_a_imb, labels_imb, 'GraphCodeBERT text-only [imbalanced 90/10]')
 
 # ─── THRESHOLD SENSITIVITY ON IMBALANCED SET ──────────────────
 if model_a:
-    print('\nThreshold sensitivity (UniXcoder text-only, imbalanced 90/10 set):')
+    print('\nThreshold sensitivity (GraphCodeBERT text-only, imbalanced 90/10 set):')
     print(f'{"Threshold":>10} {"Precision":>10} {"Recall":>8} {"F1":>8} {"FPR":>8} {"FN":>6}')
     print('-'*55)
     sweep_results = []
@@ -485,7 +492,7 @@ if model_a:
     prec_vals = [res_bal_a['prec'], res_imb_a['prec']]
     rec_vals  = [res_bal_a['rec'],  res_imb_a['rec']]
     f1_vals   = [res_bal_a['f1'],   res_imb_a['f1']]
-    xlabels   = ['UniXcoder\nBalanced', 'UniXcoder\nImbalanced']
+    xlabels   = ['GraphCodeBERT\nBalanced', 'GraphCodeBERT\nImbalanced']
 
     x = np.arange(len(xlabels))
     w = 0.26
@@ -521,6 +528,8 @@ if model_a:
     with open(out_txt, 'w') as fh:
         fh.write('Test 7: Imbalanced Class Evaluation\n')
         fh.write('='*60 + '\n')
+        fh.write('Model    : GraphCodeBERT text-only (the deployed model, PAPER.md 5.5)\n')
+        fh.write(f'Test set : {len(test_indices):,} samples (duplicate-filtered)\n')
         fh.write(f'Threshold used: {OPT_THRESHOLD}\n')
         fh.write(f'Imbalanced ratio: 90% safe / 10% malicious\n\n')
         for res in [res_bal_a, res_imb_a]:
@@ -531,7 +540,7 @@ if model_a:
                 else:
                     fh.write(f'  {k:<8}: {res[k]:,}\n')
         
-        fh.write('\n\nThreshold Sensitivity Sweep (UniXcoder text-only, imbalanced 90/10):\n')
+        fh.write('\n\nThreshold Sensitivity Sweep (GraphCodeBERT text-only, imbalanced 90/10):\n')
         fh.write(f'{"Threshold":>10} {"Precision":>10} {"Recall":>8} {"F1":>8} {"FPR":>8} {"FN":>6}\n')
         fh.write('-'*55 + '\n')
         for line in sweep_results:
