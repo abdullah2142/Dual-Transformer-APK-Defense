@@ -21,7 +21,9 @@ if not report_files:
 all_probs = []
 apk_stats = {}
 
-THRESHOLD = 0.60
+# 0.45, matching the deployed scanner and test-6. Was 0.60, which meant every
+# reported flag rate described an operating point the scanner does not use.
+THRESHOLD = 0.45
 
 for file in report_files:
     with open(file, 'r', encoding='utf-8') as f:

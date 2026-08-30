@@ -15,3 +15,13 @@ the pack median, so the leakage guard passes.
   graphcodebert_dfg   87.8593%      graphcodebert_text  88.2692%
   codebert_dfg        87.5196%      codebert_text       87.6814%
   unixcoder_dfg       88.3124%      unixcoder_text      88.3447%
+
+---------------------------------------------------------------------------
+test6_{probs,labels}_{balanced,imbalanced}.npy -- from test-6, 2026-08-30.
+
+GraphCodeBERT text-only scored on the same 18,541-sample filtered partition,
+in both the balanced 50/50 and the deployment-realistic 90/10 conditions.
+
+Kept for the same reason: test-6 used to discard these, so every question
+about the decision threshold cost a full GPU run. Any future sweep is now a
+CPU script over these files.

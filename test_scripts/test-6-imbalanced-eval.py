@@ -90,7 +90,15 @@ print('Resolving checkpoints:')
 
 args.gcb_text_weights = resolve('GCB text-only', 'saved_models/best_model_text_only.bin', override=args.gcb_text_weights or None)
 
-OPT_THRESHOLD = 0.60
+# 0.45, matching what scanner-pipeline.ipynb actually deploys.
+#
+# NOT the F1 optimum. The 2026-08-30 sweep puts that at 0.90 (F1=0.7347), and
+# we deliberately do not use it: F1 weights precision and recall equally, but a
+# false negative ships a vulnerability while a false positive costs an analyst
+# a few minutes. At 0.90 the scanner would miss 22% of vulnerabilities
+# (recall 77.66%, FN 233) to halve its alert volume. At 0.45 recall is 88.21%
+# at 10.32% FPR. See PAPER.md 6.7.
+OPT_THRESHOLD = 0.45
 
 def set_seed(s):
     random.seed(s); np.random.seed(s); torch.manual_seed(s)

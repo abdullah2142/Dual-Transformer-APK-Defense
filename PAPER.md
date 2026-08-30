@@ -5,7 +5,7 @@
 paragraph lives here. `README.md` describes the repository and deliberately carries no results —
 having numbers in two places is what let six documents drift apart.
 
-**Last verified**: 2026-08-20 · **Target venue**: IEEE Access
+**Last verified**: 2026-08-30 · **Target venue**: IEEE Access
 
 > **Reading rule.** Every result below carries a status tag. Only ✅ figures may be written into
 > the paper as-is.
@@ -130,7 +130,7 @@ everything in Part 5.
 | D5 | Sequence lengths differ between the arms of two backbones — disclose, or retrain to match | Tables 1–2, Section 4 | §4.3 |
 | ~~D6~~ | ~~Best model changed~~ — **settled 2026-08-12**: GraphCodeBERT text-only is best *and* is what the scanner deploys. test-6 re-pointed to it; test-4 still needs a text-only path (§5.6) | — | §5.6 |
 | **D7** | **GCB+DFG trains at effective batch 32 vs its text arm's 16 — retrain to match, or disclose?** | Table 2 GCB row | §4.3 |
-| **D8** | **The scanner runs at threshold 0.45; every document, test-6 and test-9 use 0.60. Align which way?** | Section 5, Section 7, Table 5 | §5.6 |
+| ~~D8~~ | ~~Threshold disagreement~~ — **settled 2026-08-30 on 0.45**, matching the deployed scanner. test-6 and test-9 moved to it. Chosen for recall, not F1 (§6.7) | — | §6.7 |
 
 ---
 
@@ -399,9 +399,11 @@ Superseded twice over: contaminated partition, **and** the model changed (§5.5)
 The distribution is sharply concentrated near 0.0 with a small high-confidence tail — not flat,
 not centred near 0.5.
 
-> ⚠️ **These rates are computed at threshold 0.60, but the scanner ships at 0.45** (D8, §5.6), so
-> they understate what the deployed system actually flags. They also come from the pre-retrain
-> GraphCodeBERT text-only checkpoint. Three of the four deliberately-vulnerable apps are the three
+> ⚠️ **Superseded on two counts — do not cite.** These rates were computed at threshold 0.60,
+> which is no longer the operating point (0.45, §6.7), so they understate what the deployed system
+> flags. And they were produced with `code_length = 384` while the checkpoint trains at 512
+> (§5.5), so every function longer than 384 tokens was truncated harder than in training. Both are
+> fixed in the scanner; these numbers change when it re-runs. Three of the four deliberately-vulnerable apps are the three
 highest-flagged; **InsecureShop at 3.0% is the exception and is addressed in §6.10.**
 
 > **Do not use 89.2% / 5.2% / 5.6% / 4.1%.** Those figures circulated in the pre-consolidation
@@ -944,23 +946,49 @@ Use these paragraphs directly. Numbers inside them are current as of 2026-08-04 
 > showed. Draper sits between at 84.0140%. Older drafts citing LVDAndro at 98.34% or 97.07% are
 > superseded.
 
-## 6.7 Threshold 0.60
+## 6.7 Threshold 0.45 ✅ SETTLED 2026-08-30
 
-> ⚠️ **The system ships 0.45, not 0.60** (D8, §5.6). This paragraph defends a value the scanner
-> does not use, with numbers that exist in no results file. Settle D8 before rewriting it.
+*Attack*: "Why 0.45? And why not the threshold that maximises F1?"
 
-*Attack*: "Why 0.60 rather than the standard 0.50?"
+**The sweep** (GraphCodeBERT text-only, imbalanced 90/10, duplicate-filtered, 2026-08-30):
 
-> "We calibrate the decision threshold under deployment-realistic conditions — a 90% safe / 10%
-> malicious distribution simulating production APK scanning. Threshold sensitivity analysis
-> shows F1 is maximised at 0.60. The standard 0.50 threshold yields lower F1 under imbalance, as
-> it flags too many safe functions. At 0.60 the system functions as a high-precision triage
-> filter."
+| Threshold | Precision | Recall | F1 | FPR | FN |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| 0.30 | 0.4354 | 91.08% | 0.5891 | 13.12% | 93 |
+| **0.45** ← **deployed** | 0.4870 | **88.21%** | 0.6276 | 10.32% | **123** |
+| 0.60 | 0.5494 | 85.91% | 0.6702 | 7.83% | 147 |
+| 0.75 | 0.6100 | 82.17% | 0.7002 | 5.84% | 186 |
+| **0.90** ← **F1-optimal** | 0.6971 | 77.66% | **0.7347** | 3.75% | 233 |
+| 0.95 | 0.7905 | 68.36% | 0.7332 | 2.01% | 330 |
 
-> ⚠️ **The supporting numbers do not exist.** Older drafts cite "83.4% recall at 7.8% FPR", but
-> `results/test7_imbalanced_results.txt` contains **no threshold sweep** — it evaluates only at
-> 0.5. test-6 now writes a sweep, so this becomes re-derivable, but on UniXcoder rather than the
-> GCB+DFG it was originally claimed for. Blocked on D3.
+**Paragraph for Section 5**:
+
+> "We set the decision threshold to 0.45, calibrated under a deployment-realistic 90% safe / 10%
+> malicious distribution. This is deliberately **not** the F1-optimal point. A sweep from 0.30 to
+> 0.95 places the F1 maximum at 0.90 (F1 = 0.7347), but F1 weights precision and recall equally,
+> and in vulnerability triage the two errors are not equally costly: a false positive costs an
+> analyst a few minutes of review, while a false negative ships a vulnerability. Operating at 0.90
+> would raise precision to 0.6971 at the cost of missing 22.3% of vulnerabilities — 233 missed
+> against 123 at 0.45. We therefore optimise for recall subject to a tolerable alert volume,
+> accepting a 10.32% false-positive rate to retain 88.21% recall. The system is framed throughout
+> as a triage filter that surfaces functions for analyst attention, not as a verdict, and the
+> threshold follows that framing."
+
+**Disclose the cost plainly.** Precision at 0.45 is **0.4870** — about half of what the scanner
+flags is a false alarm. Earlier drafts called this "a high-precision triage filter"; the numbers
+have never supported that phrase and it must not appear.
+
+> ### What this replaces
+>
+> Every prior draft claimed *"threshold sensitivity analysis reveals F1 is maximised at 0.60,
+> achieving 83.4% recall at a 7.8% false positive rate."* Three things were wrong with it: the
+> supporting figures appeared in no results file; 0.60 is not the F1 maximum; and until the sweep
+> was widened on 2026-08-30 it stopped at 0.65 with F1 still rising, so it could not have located
+> a maximum at all. The claim was unfalsifiable from its own evidence.
+>
+> The system had meanwhile been running at **0.45** the whole time, so the documented threshold
+> and the deployed one had never matched. All three now agree: `scanner-pipeline.ipynb`,
+> `test-6-imbalanced-eval.py` and `test_9_scanner_calibration.py` are on 0.45.
 
 ## 6.8 The sliding window
 
