@@ -213,6 +213,22 @@ no hardcoded paths, and each training run's own results file was read back and c
 this document — see §4.3. Every model's filtered accuracy sits **below** its unfiltered figure by
 0.06–0.96pp, which is the only direction possible when memorised samples are removed.
 
+> **Uniform evaluation window — decided 2026-08-28.** test-2 scores all six models at a single
+> 384-token window. Two were trained at a different length: GraphCodeBERT text-only at 512, and
+> UniXcoder+DFG at 256 code + 64 DFG. Measured on the test set, **~6% of samples (≈1,150 of
+> 18,541) are long enough for that to change what the model sees** — the other 94% fit inside
+> either window. GraphCodeBERT text-only is therefore likely a slight *under*-estimate.
+>
+> **This is deliberate, not an oversight.** The paper's central claim is a within-backbone
+> comparison, which requires every model to receive identical input. Scoring each model at its own
+> training length would make each number individually more faithful while introducing a permanent
+> confound into the comparison itself — GraphCodeBERT text would read 512 tokens against
+> CodeBERT text's 384, so a win could not be attributed to the model rather than the context. The
+> measurement error is bounded and disclosed; the confound would not be. See §4.3 finding 4.
+>
+> The **scanner is exempt** and runs at 512, matching its checkpoint. It compares nothing, so
+> matching the training length is simply correct there (§5.5).
+
 **UniXcoder text-only is the best model at 88.3447%**, with GraphCodeBERT text-only 0.08pp behind.
 The eight-model spread is 4.67pp; the six transformers span **0.83pp (87.52–88.34%)**. That
 convergence — not any individual number — is the paper's substantive observation.
@@ -1237,7 +1253,18 @@ real vulnerabilities are inter-procedural (pattern P7) and no single-function mo
 them regardless of architecture.
 
 **L3.3 — Context window truncation.** 384 tokens; the sliding window cannot recover signals
-spanning chunk boundaries. Sequences up to 2,543 tokens were observed in Devign.
+spanning chunk boundaries. Sequences up to 2,543 tokens were observed in Devign. Measured on the
+18,541-sample test set: median function is 665 characters, p90 is 2,093 and p99 is 5,626, so
+roughly a fifth of functions exceed a 384-token window at all.
+
+**L3.4 — Evaluation window is uniform, training windows were not.** All six models are scored at
+384 tokens, but GraphCodeBERT text-only was trained at 512 and UniXcoder+DFG at 256+64. About 6%
+of test samples are long enough for the difference to matter. Uniformity was chosen so the
+within-backbone comparison receives identical input; the alternative trades a bounded measurement
+error for an unbounded confound (§3.1). Paper framing: *"All models are evaluated under an
+identical 384-token window. Two were pre-trained by us at other lengths; approximately 6% of test
+functions are long enough for this to affect their inputs, and we accept that bounded error in
+exchange for a strictly like-for-like comparison."*
 
 ## 9.4 Evaluation and deployment
 
