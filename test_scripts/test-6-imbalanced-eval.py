@@ -25,17 +25,24 @@ print(f'CUDA: {torch.cuda.is_available()}')
 # ─── CONFIGURATION ────────────────────────────────────────────
 class Args:
     train_file       = '/kaggle/input/datasets/hasanmahmudabdullah/dfgdataset2/dataset_graphcodebert.jsonl'
-    # Best configuration in Table 1 (89.2300%, 2026-08-12 rerun) AND the model
-    # the scanner actually deploys. See LOAD MODEL below for why this replaced
-    # GraphCodeBERT+DFG and the CodeBERT ensemble; re-pointed from UniXcoder
-    # text-only (89.0778%) when the reruns put GCB text-only on top.
-    gcb_text_weights   = '' # TODO: /kaggle/input/<your-dataset>/saved_models/best_model_text_only.bin
-    model_name_or_path = 'microsoft/graphcodebert-base'
+    # UniXcoder text-only -- the configuration scanner-pipeline.ipynb runs.
+    #
+    # test-6, the scanner and test-9 form ONE story: the operating point, the
+    # sweep that justifies it, and the behaviour on real APKs. They must agree
+    # on the model, or the threshold is calibrated on one and deployed on
+    # another. The rest of the study (tests 2, 3, 4, 7) need not match -- they
+    # answer corpus questions, not deployment ones.
+    #
+    # NOT a claim that UniXcoder is best: Table 1's top three sit inside the
+    # +-0.10% seed-noise floor and PAPER.md 3.1 identifies no best model. The
+    # pipeline is the contribution and is agnostic to the classifier.
+    unixcoder_text_weights = '' # leave BLANK - resolver finds saved_models_unixcoder/best_model_text_only.bin
+    model_name_or_path     = 'microsoft/unixcoder-base'
 
-    # 512, NOT 384: graphcodebert-train-text-only.ipynb trains at code_length
-    # 512 while every other text-only run uses 384. Evaluating at 384 would
-    # score the model at a length it never saw.
-    code_length      = 512
+    # 384: unixcoder-text-only.ipynb trains at 384. It was 512 while this
+    # evaluated GraphCodeBERT text-only, which trains at 512. Always match the
+    # checkpoint -- see PAPER.md 4.3 finding 4.
+    code_length      = 384
     data_flow_length = 128
     eval_batch_size  = 32
     seed             = 42
@@ -88,7 +95,7 @@ def resolve(label, suffix, override=None, roots=('/kaggle/input', '/kaggle/worki
 
 print('Resolving checkpoints:')
 
-args.gcb_text_weights = resolve('GCB text-only', 'saved_models/best_model_text_only.bin', override=args.gcb_text_weights or None)
+args.unixcoder_text_weights = resolve('UniXcoder text-only', 'saved_models_unixcoder/best_model_text_only.bin', override=args.unixcoder_text_weights or None)
 
 # 0.45, matching what scanner-pipeline.ipynb actually deploys.
 #
@@ -98,6 +105,11 @@ args.gcb_text_weights = resolve('GCB text-only', 'saved_models/best_model_text_o
 # a few minutes. At 0.90 the scanner would miss 22% of vulnerabilities
 # (recall 77.66%, FN 233) to halve its alert volume. At 0.45 recall is 88.21%
 # at 10.32% FPR. See PAPER.md 6.7.
+#
+# WARNING: every figure in the paragraph above -- the 0.90 peak, 88.21% recall,
+# 10.32% FPR -- came from the GraphCodeBERT text-only sweep. They will differ
+# for UniXcoder. Re-read them off THIS run's sweep before quoting PAPER.md 6.7,
+# and re-check that 0.45 is still the operating point you want.
 OPT_THRESHOLD = 0.45
 
 def set_seed(s):
@@ -361,13 +373,8 @@ _train_idx, _val_idx, test_indices, report_sources = get_split_indices(
 print(f"Clean test samples: {len(test_indices):,}")
 
 # ─── LOAD MODEL ───────────────────────────────────────────────
-# Single model: GraphCodeBERT text-only -- the model the scanner actually
-# deploys (PAPER.md 5.5), which is what a DEPLOYMENT table should describe.
-#
-# Note it is NOT chosen for being best: on the duplicate-filtered set UniXcoder
-# text-only leads 88.3447% to 88.2692%, having trailed it unfiltered. That 0.08pp
-# is inside the seed-noise floor, so neither is "the best model" and the paper
-# must not claim one on accuracy alone. This table describes what ships.
+# Single model: UniXcoder text-only -- the configuration the scanner runs
+# (PAPER.md 5.5), which is what a DEPLOYMENT table must describe.
 #
 # Previously this evaluated GraphCodeBERT+DFG plus a 50/50
 # probability-average "ensemble" with CodeBERT. Both were dropped:
@@ -377,17 +384,17 @@ print(f"Clean test samples: {len(test_indices):,}")
 #   * The ensemble was never defined in any document, and after the CodeBERT
 #     retrain its partner scores 88.5427% - statistically indistinguishable
 #     from GCB+DFG, so it averaged two equivalent non-best models.
-if not args.gcb_text_weights or not os.path.exists(args.gcb_text_weights):
-    print("Please set args.gcb_text_weights")
+if not args.unixcoder_text_weights or not os.path.exists(args.unixcoder_text_weights):
+    print("Please set args.unixcoder_text_weights")
     model_a = None
 else:
-    print('Loading GraphCodeBERT (text-only)...')
+    print('Loading UniXcoder (text-only)...')
     cfg_a = RobertaConfig.from_pretrained(args.model_name_or_path)
     cfg_a.num_labels = 2
     tok_a = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=True)
     enc_a = RobertaModel.from_pretrained(args.model_name_or_path, config=cfg_a)
     model_a = TextModel(enc_a, cfg_a).to(args.device)
-    model_a.load_state_dict(torch.load(args.gcb_text_weights, map_location=args.device))
+    model_a.load_state_dict(torch.load(args.unixcoder_text_weights, map_location=args.device))
     model_a.eval()
     print('  ✓ Model loaded')
 
@@ -468,16 +475,16 @@ def evaluate(probs, labels, name, threshold=OPT_THRESHOLD):
 # ─── EVALUATE: BALANCED (original 50/50) ──────────────────────
 if model_a:
     print('\n--- BALANCED (50/50) EVALUATION ---')
-    res_bal_a = evaluate(probs_a, labels_bal, 'GraphCodeBERT text-only [balanced 50/50]')
+    res_bal_a = evaluate(probs_a, labels_bal, 'UniXcoder text-only [balanced 50/50]')
 
 # ─── EVALUATE: IMBALANCED (90/10) ─────────────────────────────
 if model_a:
     print('\n--- IMBALANCED (90% safe / 10% malicious) EVALUATION ---')
-    res_imb_a = evaluate(probs_a_imb, labels_imb, 'GraphCodeBERT text-only [imbalanced 90/10]')
+    res_imb_a = evaluate(probs_a_imb, labels_imb, 'UniXcoder text-only [imbalanced 90/10]')
 
 # ─── THRESHOLD SENSITIVITY ON IMBALANCED SET ──────────────────
 if model_a:
-    print('\nThreshold sensitivity (GraphCodeBERT text-only, imbalanced 90/10 set):')
+    print('\nThreshold sensitivity (UniXcoder text-only, imbalanced 90/10 set):')
     print(f'{"Threshold":>10} {"Precision":>10} {"Recall":>8} {"F1":>8} {"FPR":>8} {"FN":>6}')
     print('-'*55)
     # Swept 0.30-0.65 until 2026-08-30. Over that range F1 rose monotonically and
@@ -531,7 +538,7 @@ if model_a:
     prec_vals = [res_bal_a['prec'], res_imb_a['prec']]
     rec_vals  = [res_bal_a['rec'],  res_imb_a['rec']]
     f1_vals   = [res_bal_a['f1'],   res_imb_a['f1']]
-    xlabels   = ['GraphCodeBERT\nBalanced', 'GraphCodeBERT\nImbalanced']
+    xlabels   = ['UniXcoder\nBalanced', 'UniXcoder\nImbalanced']
 
     x = np.arange(len(xlabels))
     w = 0.26
@@ -567,7 +574,7 @@ if model_a:
     with open(out_txt, 'w') as fh:
         fh.write('Test 7: Imbalanced Class Evaluation\n')
         fh.write('='*60 + '\n')
-        fh.write('Model    : GraphCodeBERT text-only (the deployed model, PAPER.md 5.5)\n')
+        fh.write('Model    : UniXcoder text-only (the configuration the scanner runs, PAPER.md 5.5)\n')
         fh.write(f'Test set : {len(test_indices):,} samples (duplicate-filtered)\n')
         fh.write(f'Threshold used: {OPT_THRESHOLD}\n')
         fh.write(f'Imbalanced ratio: 90% safe / 10% malicious\n\n')
@@ -583,7 +590,7 @@ if model_a:
                  f'recall={best["rec"]:.4f}, FPR={best["fpr"]:.4f}, FN={best["fn"]:,})\n')
         if edge:
             fh.write('WARNING: optimum at the edge of the swept range -- widen before quoting.\n')
-        fh.write('\n\nThreshold Sensitivity Sweep (GraphCodeBERT text-only, imbalanced 90/10):\n')
+        fh.write('\n\nThreshold Sensitivity Sweep (UniXcoder text-only, imbalanced 90/10):\n')
         fh.write(f'{"Threshold":>10} {"Precision":>10} {"Recall":>8} {"F1":>8} {"FPR":>8} {"FN":>6}\n')
         fh.write('-'*55 + '\n')
         for line in sweep_results:
