@@ -25,3 +25,9 @@ in both the balanced 50/50 and the deployment-realistic 90/10 conditions.
 Kept for the same reason: test-6 used to discard these, so every question
 about the decision threshold cost a full GPU run. Any future sweep is now a
 CPU script over these files.
+
+The 2026-09-01 test-6 arrays are UniXcoder text-only, matching the scanner.
+They earned their keep immediately: the in-script sweep stopped at 0.95 and
+flagged the F1 optimum as sitting at its edge. Extending past 0.95 was a CPU
+script over test6_probs_imbalanced.npy -- no GPU run -- and showed F1 turns
+over at 0.96, so 0.95 is a genuine interior maximum.

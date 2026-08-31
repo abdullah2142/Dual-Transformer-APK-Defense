@@ -1,51 +1,65 @@
 Test 7: Imbalanced Class Evaluation
 ============================================================
-Model    : GraphCodeBERT text-only (the deployed model, PAPER.md 5.5)
+Model    : UniXcoder text-only (the configuration the scanner runs, PAPER.md 5.5)
 Test set : 18,541 samples (duplicate-filtered)
-Threshold used: 0.6
+Threshold used: 0.45
 Imbalanced ratio: 90% safe / 10% malicious
 
 
-GraphCodeBERT text-only [balanced 50/50]
-  acc     : 0.8854
-  prec    : 0.9135
-  rec     : 0.8482
-  f1      : 0.8797
-  auc     : 0.9589
-  pr_auc  : 0.9605
-  fn      : 1,389
-  fp      : 735
-  fpr     : 0.0783
+UniXcoder text-only [balanced 50/50]
+  acc     : 0.8837
+  prec    : 0.8887
+  rec     : 0.8739
+  f1      : 0.8812
+  auc     : 0.9581
+  pr_auc  : 0.9594
+  fn      : 1,154
+  fp      : 1,002
+  fpr     : 0.1067
 
-GraphCodeBERT text-only [imbalanced 90/10]
-  acc     : 0.9154
-  prec    : 0.5494
-  rec     : 0.8591
-  f1      : 0.6702
-  auc     : 0.9632
-  pr_auc  : 0.8315
-  fn      : 147
-  fp      : 735
-  fpr     : 0.0783
-
-
-F1-optimal threshold: 0.90  (F1=0.7347, recall=0.7766, FPR=0.0375, FN=233)
+UniXcoder text-only [imbalanced 90/10]
+  acc     : 0.8925
+  prec    : 0.4798
+  rec     : 0.8859
+  f1      : 0.6224
+  auc     : 0.9608
+  pr_auc  : 0.8230
+  fn      : 119
+  fp      : 1,002
+  fpr     : 0.1067
 
 
-Threshold Sensitivity Sweep (GraphCodeBERT text-only, imbalanced 90/10):
+F1-optimal threshold: 0.95  (F1=0.7271, recall=0.7804, FPR=0.0407, FN=229)
+WARNING: optimum at the edge of the swept range -- widen before quoting.
+
+
+Threshold Sensitivity Sweep (UniXcoder text-only, imbalanced 90/10):
  Threshold  Precision   Recall       F1      FPR     FN
 -------------------------------------------------------
-      0.30     0.4354   0.9108   0.5891   0.1312     93
-      0.35     0.4522   0.9022   0.6024   0.1214    102
-      0.40     0.4678   0.8907   0.6134   0.1126    114
-      0.45     0.4870   0.8821   0.6276   0.1032    123
-      0.50     0.5078   0.8754   0.6427   0.0943    130
-      0.55     0.5267   0.8686   0.6558   0.0867    137
-      0.60     0.5494   0.8591   0.6702   0.0783    147
-      0.65     0.5668   0.8456   0.6787   0.0718    161
-      0.70     0.5898   0.8341   0.6910   0.0644    173
-      0.75     0.6100   0.8217   0.7002   0.0584    186
-      0.80     0.6261   0.8140   0.7078   0.0540    194
-      0.85     0.6511   0.8035   0.7193   0.0478    205
-      0.90     0.6971   0.7766   0.7347   0.0375    233
-      0.95     0.7905   0.6836   0.7332   0.0201    330
+      0.30     0.4512   0.9051   0.6022   0.1223     99
+      0.35     0.4611   0.8974   0.6092   0.1165    107
+      0.40     0.4701   0.8897   0.6152   0.1114    115
+      0.45     0.4798   0.8859   0.6224   0.1067    119
+      0.50     0.4933   0.8811   0.6325   0.1006    124
+      0.55     0.5030   0.8782   0.6397   0.0964    127
+      0.60     0.5168   0.8715   0.6488   0.0905    134
+      0.65     0.5331   0.8658   0.6598   0.0843    140
+      0.70     0.5488   0.8571   0.6692   0.0783    149
+      0.75     0.5635   0.8466   0.6766   0.0729    160
+      0.80     0.5822   0.8389   0.6874   0.0669    168
+      0.85     0.6080   0.8284   0.7013   0.0593    179
+      0.90     0.6264   0.8150   0.7083   0.0540    193
+      0.95     0.6806   0.7804   0.7271   0.0407    229
+
+--- extended sweep beyond 0.95 (computed from the saved probabilities, no GPU) ---
+The in-script sweep stopped at 0.95 and flagged the optimum as sitting at its
+edge. Extending it from results/predictions/test6_probs_imbalanced.npy shows F1
+turns over immediately after, so 0.95 is a genuine interior maximum:
+
+   thr     prec   recall       F1      FPR     FN
+ 0.950   0.6806   0.7804   0.7271   0.0407    229   <- F1 max
+ 0.960   0.6958   0.7478   0.7209   0.0363    263
+ 0.970   0.7327   0.7124   0.7224   0.0289    300
+ 0.980   0.7738   0.6462   0.7043   0.0210    369
+ 0.990   0.8885   0.5580   0.6855   0.0078    461
+ 0.999   0.9745   0.4756   0.6392   0.0014    547

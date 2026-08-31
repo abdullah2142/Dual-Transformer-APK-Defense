@@ -5,7 +5,7 @@
 paragraph lives here. `README.md` describes the repository and deliberately carries no results —
 having numbers in two places is what let six documents drift apart.
 
-**Last verified**: 2026-08-30 · **Target venue**: IEEE Access
+**Last verified**: 2026-09-01 · **Target venue**: IEEE Access
 
 > **Reading rule.** Every result below carries a status tag. Only ✅ figures may be written into
 > the paper as-is.
@@ -356,17 +356,22 @@ and it now describes the model the scanner deploys.
 > Devign remains the floor at 64.7404%, below the contaminated 68.91% — the scope boundary in §6.6
 > is wider than previously reported, not narrower.
 
-## 3.6 Table 5 — Deployment threshold (imbalanced 90/10) ❌
+## 3.6 Table 5 — Deployment behaviour (imbalanced 90/10) ✅
 
-Superseded twice over: contaminated partition, **and** the model changed (§5.5). Four rows
-(GCB+DFG ×2, Ensemble ×2) collapse to two (UniXcoder ×2).
+UniXcoder text-only — the configuration `scanner-pipeline.ipynb` runs — on the duplicate-filtered
+18,541 set at threshold 0.45 (2026-09-01, `results/test6_imbalanced_results.txt`).
 
-| Model | Condition | Accuracy | Recall | F1 | FPR | FN |
-|---|---|:---:|:---:|:---:|:---:|:---:|
-| GCB+DFG | balanced 50/50 | 94.59% | 94.48% | 0.9459 | 5.31% | 552 |
-| GCB+DFG | imbalanced 90/10 | 94.64% | 94.14% | 0.7782 | 5.31% | 65 |
-| Ensemble | balanced 50/50 | 94.58% | 94.93% | 0.9460 | 5.78% | 507 |
-| Ensemble | imbalanced 90/10 | 94.27% | 94.68% | 0.7675 | 5.78% | 59 |
+| Condition | Accuracy | Precision | Recall | F1 | ROC-AUC | FPR | FN |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| balanced 50/50 | 88.37% | 0.8887 | 87.39% | 0.8812 | 0.9581 | 10.67% | 1,154 |
+| **imbalanced 90/10** | **89.25%** | 0.4798 | **88.59%** | 0.6224 | 0.9608 | 10.67% | **119** |
+
+Recall holds at 88.59% under a deployment-realistic class ratio, essentially unchanged from the
+balanced condition — the model's ranking is stable, and only precision degrades as the positive
+class becomes rare. Threshold rationale and the full sweep are in §6.7.
+
+Supersedes the four-row GCB+DFG-plus-ensemble table on the contaminated partition. Three things
+changed since: the partition, the model, and the threshold.
 
 ## 3.7 Test 9 — Real-world APK scanner calibration ✅
 
@@ -809,30 +814,33 @@ being reported in three of them, and built on the leaked CodeBERT besides.
 >
 > What it did surface is **D8**: the scanner's operating threshold is **0.45**, while test-6,
 > test-9 and §6.7's defence all use **0.60**.
-### 5.6 Which model each experiment uses (revised 2026-08-12)
+### 5.6 Which model each experiment uses (revised 2026-09-01)
 
-With GraphCodeBERT text-only now top of Table 1 *and* the model the scanner deploys, capability
-and deployment claims should all rest on it. The one deliberate exception is test-7.
+**The scanner is a demonstration of the pipeline, not a claim about a model.** Contribution 1 is
+the extraction-and-inference machinery; the classifier is a component plugged into it. That makes
+the consistency requirement much narrower than an earlier revision of this section assumed.
 
-| Experiment | What it claims | Model it should use | Currently loads | Status |
-|---|---|---|---|---|
-| test-2 | six-model comparison | all six | all six | ✅ |
-| test-3 | training stability | GCB text-only | GCB text-only | ✅ model right, **protocol stale** (D2) |
-| test-4 | per-source capability | GCB text-only | **GCB+DFG** | ❌ needs a text-only path — see below |
-| test-6 | deployment threshold | GCB text-only | ~~UniXcoder text~~ → **GCB text-only** | ✅ re-pointed |
-| test-7 | *why DFG fails* | **GCB+DFG** | GCB+DFG | ✅ correct by design |
-| test-9 + scanner | deployed system | GCB text-only | GCB text-only | ✅ needs the retrained checkpoint |
+**The binding constraint**: `test-6`, the **scanner** and `test-9` form one story — the operating
+point, the sweep that justifies it, and the behaviour on real APKs. They must agree on the model,
+or the threshold is calibrated on one and deployed on another. Everything else answers corpus
+questions rather than deployment ones and need not match.
 
-**test-7 stays on DFG deliberately.** Its job is to explain why DFG fails, so it must analyse a
-DFG model's false negatives — the text-only model's mistakes would evidence nothing about DFG.
-GCB+DFG at 88.6600% is the strongest DFG variant, so it is already the right pick.
+| Experiment | What it claims | Model | Must match the scanner? |
+|---|---|---|:---:|
+| test-2 | six-model comparison | all six | no |
+| test-3 | training stability | GCB text-only | no |
+| test-4 | per-source capability | GCB text-only | no |
+| **test-6** | deployment threshold | **UniXcoder text-only** | **yes** ✅ |
+| test-7 | *why DFG fails* | GCB+DFG | no — needs a DFG model by design |
+| **scanner + test-9** | pipeline demonstration | **UniXcoder text-only** | — ✅ |
 
-**test-4 is not a one-line re-point.** Verified 2026-08-12: it defines only a `DFGModel`, and its
-(misleadingly named) `TextDataset` builds `attn_mask` / `p_ids` tensors. Switching it to text-only
-requires adding a text-only model and dataset — the `TextModel` + `SimpleCodeDataset` pair in
-test-6 is proven code to mirror — **and moving `code_length` from 384 to 512**, because
-GraphCodeBERT text-only was trained at 512. Until that is done, Table 4 either stays on GCB+DFG
-or waits.
+**test-7 stays on a DFG model deliberately.** Its job is to explain why DFG fails, so the
+text-only model's mistakes would evidence nothing about DFG.
+
+**An earlier revision over-constrained this.** It treated the scanner as designating "the system
+model" and concluded that test-3 and test-4 had to follow it — implying ~18 GPU hours of
+multi-seed retraining. That does not follow. The paper identifies no best model (§3.1) and the
+pipeline is agnostic to the classifier, so only the deployment trio needs to agree.
 
 > **Sequence-length trap.** GraphCodeBERT text-only trains at `code_length = 512`; every other
 > text-only run uses 384. Any script evaluating it **must** use 512 or it scores the model at a
@@ -946,49 +954,68 @@ Use these paragraphs directly. Numbers inside them are current as of 2026-08-04 
 > showed. Draper sits between at 84.0140%. Older drafts citing LVDAndro at 98.34% or 97.07% are
 > superseded.
 
-## 6.7 Threshold 0.45 ✅ SETTLED 2026-08-30
+## 6.7 Threshold 0.45 ✅ SETTLED
 
 *Attack*: "Why 0.45? And why not the threshold that maximises F1?"
 
-**The sweep** (GraphCodeBERT text-only, imbalanced 90/10, duplicate-filtered, 2026-08-30):
+**The sweep** — UniXcoder text-only, the configuration the scanner runs, on the
+duplicate-filtered 18,541 set under a 90/10 imbalance (2026-09-01):
 
 | Threshold | Precision | Recall | F1 | FPR | FN |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| 0.30 | 0.4354 | 91.08% | 0.5891 | 13.12% | 93 |
-| **0.45** ← **deployed** | 0.4870 | **88.21%** | 0.6276 | 10.32% | **123** |
-| 0.60 | 0.5494 | 85.91% | 0.6702 | 7.83% | 147 |
-| 0.75 | 0.6100 | 82.17% | 0.7002 | 5.84% | 186 |
-| **0.90** ← **F1-optimal** | 0.6971 | 77.66% | **0.7347** | 3.75% | 233 |
-| 0.95 | 0.7905 | 68.36% | 0.7332 | 2.01% | 330 |
+| 0.30 | 0.4512 | 90.51% | 0.6022 | 12.23% | 99 |
+| **0.45** ← **deployed** | 0.4798 | **88.59%** | 0.6224 | 10.67% | **119** |
+| 0.60 | 0.5168 | 87.15% | 0.6488 | 9.05% | 134 |
+| 0.80 | 0.5822 | 83.89% | 0.6874 | 6.69% | 168 |
+| **0.95** ← **F1-optimal** | 0.6806 | 78.04% | **0.7271** | 4.07% | 229 |
+| 0.97 | 0.7327 | 71.24% | 0.7224 | 2.89% | 300 |
+| 0.99 | 0.8885 | 55.80% | 0.6855 | 0.78% | 461 |
+
+Rows beyond 0.95 were computed from the saved probabilities
+(`results/predictions/test6_probs_imbalanced.npy`) rather than a second GPU run, and confirm 0.95
+is a genuine interior maximum rather than a truncation artifact.
 
 **Paragraph for Section 5**:
 
 > "We set the decision threshold to 0.45, calibrated under a deployment-realistic 90% safe / 10%
-> malicious distribution. This is deliberately **not** the F1-optimal point. A sweep from 0.30 to
-> 0.95 places the F1 maximum at 0.90 (F1 = 0.7347), but F1 weights precision and recall equally,
+> malicious distribution. This is deliberately **not** the F1-optimal point. Sweeping from 0.30 to
+> 0.999 places the F1 maximum at 0.95 (F1 = 0.7271), but F1 weights precision and recall equally
 > and in vulnerability triage the two errors are not equally costly: a false positive costs an
-> analyst a few minutes of review, while a false negative ships a vulnerability. Operating at 0.90
-> would raise precision to 0.6971 at the cost of missing 22.3% of vulnerabilities — 233 missed
-> against 123 at 0.45. We therefore optimise for recall subject to a tolerable alert volume,
-> accepting a 10.32% false-positive rate to retain 88.21% recall. The system is framed throughout
-> as a triage filter that surfaces functions for analyst attention, not as a verdict, and the
-> threshold follows that framing."
+> analyst a few minutes of review, while a false negative ships a vulnerability. Operating at 0.95
+> would raise precision from 0.4798 to 0.6806 at the cost of missing 21.96% of vulnerabilities —
+> 229 missed against 119 at 0.45. We therefore optimise for recall subject to a tolerable alert
+> volume, retaining 88.59% recall at a 10.67% false-positive rate. The system is framed throughout
+> as a triage filter that surfaces functions for analyst attention rather than issuing verdicts,
+> and the threshold follows that framing."
 
-**Disclose the cost plainly.** Precision at 0.45 is **0.4870** — about half of what the scanner
-flags is a false alarm. Earlier drafts called this "a high-precision triage filter"; the numbers
-have never supported that phrase and it must not appear.
+> ### The F1 optimum is degenerate here, in both configurations tested
+>
+> | | GraphCodeBERT text-only | UniXcoder text-only |
+> |---|:---:|:---:|
+> | F1-optimal threshold | 0.90 | 0.95 |
+> | recall there | 77.66% | 78.04% |
+> | FN there | 233 | 229 |
+>
+> Both put the optimum where the scanner flags almost nothing and misses roughly 22% of
+> vulnerabilities. That is not a quirk of one checkpoint — it is what F1 does on a 90/10 split,
+> where precision is cheap to buy by declining to predict the rare class. **This makes the case
+> empirical rather than asserted**: F1 is not merely a different choice from ours, it is an
+> unusable objective for triage on this distribution.
+
+**Disclose the cost plainly.** Precision at 0.45 is **0.4798** — slightly under half of what the
+scanner flags is a false alarm. Earlier drafts called this "a high-precision triage filter"; the
+numbers have never supported that phrase and it must not appear.
 
 > ### What this replaces
 >
 > Every prior draft claimed *"threshold sensitivity analysis reveals F1 is maximised at 0.60,
-> achieving 83.4% recall at a 7.8% false positive rate."* Three things were wrong with it: the
-> supporting figures appeared in no results file; 0.60 is not the F1 maximum; and until the sweep
-> was widened on 2026-08-30 it stopped at 0.65 with F1 still rising, so it could not have located
-> a maximum at all. The claim was unfalsifiable from its own evidence.
+> achieving 83.4% recall at a 7.8% false positive rate."* Its figures appeared in no results file;
+> 0.60 is not the F1 maximum for either model; and the sweep it cited stopped at 0.65 with F1 still
+> rising, so it could not have located a maximum at all.
 >
-> The system had meanwhile been running at **0.45** the whole time, so the documented threshold
-> and the deployed one had never matched. All three now agree: `scanner-pipeline.ipynb`,
-> `test-6-imbalanced-eval.py` and `test_9_scanner_calibration.py` are on 0.45.
+> An intermediate version of this section quoted the **GraphCodeBERT** sweep — F1 peak 0.90,
+> 88.21% recall, 10.32% FPR, precision 0.4870. Those are superseded: with the scanner instantiated
+> on UniXcoder text-only, the sweep must describe the model actually deployed.
 
 ## 6.8 The sliding window
 
