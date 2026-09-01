@@ -6,13 +6,32 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-# Find all vulnerability reports in the workspace
-workspace_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Find all vulnerability reports.
+#
+# __file__ is undefined when this is pasted into a notebook cell, which is how
+# it is actually run on Kaggle -- it raised NameError before reading anything.
+# Search the standard roots instead, matching how test-8 and the checkpoint
+# resolver locate their inputs.
+if '__file__' in globals():
+    SEARCH_ROOTS = [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
+else:
+    SEARCH_ROOTS = [r for r in ('/kaggle/input', '/kaggle/working', os.getcwd())
+                    if os.path.isdir(r)]
+
+print(f"Searching for *_vuln_report.json under: {SEARCH_ROOTS}")
 report_files = []
-for root, dirs, files in os.walk(workspace_dir):
-    for file in files:
-        if file.endswith('_vuln_report.json'):
-            report_files.append(os.path.join(root, file))
+_seen = set()
+for _root_dir in SEARCH_ROOTS:
+    for root, dirs, files in os.walk(_root_dir):
+        for file in files:
+            if file.endswith('_vuln_report.json'):
+                _p = os.path.realpath(os.path.join(root, file))
+                if _p not in _seen:          # roots can overlap
+                    _seen.add(_p)
+                    report_files.append(_p)
+print(f"Found {len(report_files)} report(s)")
+for _f in sorted(report_files):
+    print(f"  {_f}")
 
 if not report_files:
     print("No *_vuln_report.json files found. Run the scanner pipeline first.")
