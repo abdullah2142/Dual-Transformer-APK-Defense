@@ -39,6 +39,7 @@ if not report_files:
 
 all_probs = []
 apk_stats = {}
+_failures = []
 
 # 0.45, matching the deployed scanner and test-6. Was 0.60, which meant every
 # reported flag rate described an operating point the scanner does not use.
@@ -87,11 +88,25 @@ for file in report_files:
             }
             all_probs.extend(probs)
         except Exception as e:
-            print(f"Error reading {file}: {e}")
+            # Record and continue so every bad report is reported in one pass,
+            # then fail below. Printing and carrying on would let the
+            # calibration silently describe fewer APKs than were scanned --
+            # which is what the all_probabilities guard above exists to stop.
+            print(f"  ERROR reading {os.path.basename(file)}: {e}")
+            _failures.append((os.path.basename(file), str(e)))
+
+if _failures:
+    raise RuntimeError(
+        f"{len(_failures)} of {len(report_files)} reports could not be read; refusing to "
+        f"produce a calibration over a partial corpus:\n  "
+        + "\n  ".join(f"{n}: {m}" for n, m in _failures))
 
 if not all_probs:
-    print("No probability scores found in the JSON reports.")
-    exit(0)
+    raise RuntimeError(
+        "No probability scores found. Every report parsed but none carried a populated "
+        "'all_probabilities' list -- check the scanner actually ran inference.")
+
+print(f"\nParsed {len(report_files)} reports, {len(all_probs):,} function probabilities total")
 
 # --- 1. Text Report Generation ---
 all_probs = np.array(all_probs)
@@ -132,7 +147,16 @@ else:
 
 print(report)
 
-out_dir = os.path.join(workspace_dir, 'results')
+# workspace_dir no longer exists -- see the search-root block above. On Kaggle
+# write to /kaggle/working so the files land in the notebook output; as a script,
+# write to <repo>/results.
+if '__file__' in globals():
+    out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results')
+elif os.path.isdir('/kaggle/working'):
+    out_dir = '/kaggle/working'
+else:
+    out_dir = os.path.join(os.getcwd(), 'results')
+print(f"Writing outputs to {out_dir}")
 os.makedirs(out_dir, exist_ok=True)
 with open(os.path.join(out_dir, 'test9_scanner_calibration.txt'), 'w', encoding='utf-8') as f:
     f.write(report)
