@@ -1068,8 +1068,10 @@ apps. Your scanner doesn't work."
 > from clean applications in our sample (§3.7): the system is a function-level triage signal and
 > we make no app-level claim."
 
-> ⚠️ Older drafts cite 4.8% vs 8.4%. The real figures are **3.0% vs 9.3%** — the inversion is
-> *wider* than the defence assumed, so the paragraph must own it rather than minimise it.
+> ✅ **Updated 2026-09-01** to the deployed configuration: **3.6% vs 7.2%**. Older drafts cite
+> 4.8% vs 8.4%, then 3.0% vs 9.3%; both predate the current scanner. The inversion persists across
+> every configuration measured, so it is a real property of the system and the paragraph owns it
+> rather than minimising it.
 
 ## 6.11 Static over dynamic analysis
 
@@ -1346,8 +1348,14 @@ rates and probability distributions. No labelling of which specific functions ar
 vulnerable, so precision and recall cannot be computed. The calibration result is an indirect
 inference, not a direct measurement.
 
-**L4.2 — InsecureShop flags below clean apps** (3.0% vs AntennaPod's 9.3%). The system cannot be
-used as an APK-level binary classifier; it is a function-level triage signal.
+**L4.2 — App-level flag rates do not separate vulnerable from clean applications.** InsecureShop
+flags at 3.6% against AntennaPod's 7.2%, and AntennaPod also outranks Vuldroid (6.4%) and DVBA
+(6.5%). Deliberately vulnerable apps average 7.74% against 3.80% for FOSS apps — separated on the
+mean, but with ranges overlapping on three of six clean apps (§3.7). The system cannot be used as
+an APK-level classifier; it is a function-level triage signal, and an app's flag rate reflects
+coding style and size as much as security posture. Paper framing: *"We make no app-level claim.
+Aggregate flag rates characterise the deployed system's behaviour; they do not discriminate
+vulnerable applications from safe ones."*
 
 **L4.3 — Commercial obfuscation defeats targeted filtering.** ProGuard/DexGuard collapse package
 namespaces to single-letter paths, defeating the manifest-aware developer-code filter. The most
