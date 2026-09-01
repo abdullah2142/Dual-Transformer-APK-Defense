@@ -178,7 +178,7 @@ is incorporated.** The paper then explains mechanistically *why* DFG fails in th
 | 4 | Model comparison and ablation | draft in §8.3; needs step 3b + test-2 |
 | 5 | System architecture (threshold 0.60) | needs the threshold sweep re-derived (§6.7) |
 | 6 | Per-source analysis | needs test-4 |
-| 7 | Real-world deployment | needs D3 |
+| 7 | Real-world deployment | ✅ data complete (§3.7); must state that app-level discrimination is weak |
 | 8 | Limitations and qualitative analysis | prose in Parts 6–7; needs test-7 |
 | 9 | Conclusion | — |
 
@@ -375,44 +375,60 @@ changed since: the partition, the model, and the threshold.
 
 ## 3.7 Test 9 — Real-world APK scanner calibration ✅
 
-13 APK reports, 23,005 functions. No split dependency, so unaffected by everything in Part 5.
+UniXcoder text-only at threshold 0.45, `code_length` 384. 13 APKs, 23,005 functions
+(2026-09-01, `results/test9_scanner_calibration.txt`).
 
-| Aggregate metric | Value |
+| Metric | Value |
 |---|---:|
-| Confidently safe (< 0.10) | 84.0% |
-| Uncertain (0.10 – 0.60) | 8.9% |
-| Flagged (≥ 0.60) | 7.1% |
-| Highly confident vuln (> 0.90) | 5.5% |
-| Mean / median | 0.0991 / 0.0053 |
+| Confidently safe (< 0.10) | **93.2%** |
+| Uncertain (0.10 – 0.45) | 1.8% |
+| Flagged (≥ 0.45) | **5.0%** |
+| Highly confident (> 0.90) | 3.7% |
+| Mean / median / std | 0.0525 / 0.0006 / 0.2026 |
+
+**The calibration story is strong.** A median of 0.0006 with 93.2% of functions below 0.10 means
+the model is decisive rather than hedging, and **74% of everything it flags scores above 0.90** —
+these are confident calls, not borderline ones. The distribution is sharply bimodal, which is what
+a triage filter should look like. The script verifies the global flagged count equals the sum of
+the per-APK counts before writing, so the two halves of the table cannot disagree.
 
 | APK | Type | Functions | Flagged | Rate |
-|---|---|:---:|:---:|:---:|
-| Vuldroid | deliberately vulnerable | 47 | 10 | 21.3% |
-| dvba_v1.1.0 | deliberately vulnerable | 77 | 16 | 20.8% |
-| allsafe | vulnerable test app | 149 | 26 | 17.4% |
-| InsecureBankv2 | deliberately vulnerable | 88 | 10 | 11.4% |
-| de.danoeh.antennapod | FOSS podcast | 6,169 | 576 | 9.3% |
-| org.schabi.newpipe | FOSS media | 11,070 | 728 | 6.6% |
-| AndroGoat | deliberately vulnerable | 371 | 23 | 6.2% |
-| com.beemdevelopment.aegis | FOSS 2FA | 1,428 | 84 | 5.9% |
-| Neo_Store_1.2.4 | FOSS app | 2,939 | 153 | 5.2% |
-| InsecureShop | intentionally vulnerable | 336 | 10 | 3.0% |
-| net.thunderbird.android | FOSS email | 95 | 2 | 2.1% |
-| calendar-fdroid-release | FOSS app | 236 | 1 | 0.4% |
-| istark.vpn.starkreloaded | commercial sample | 0 | 0 | 0.0% |
+|---|---|---:|---:|---:|
+| allsafe | deliberately vulnerable | 149 | 19 | **12.8%** |
+| InsecureBankv2 | deliberately vulnerable | 88 | 9 | **10.2%** |
+| de.danoeh.antennapod | FOSS podcast | 6,169 | 443 | 7.2% |
+| AndroGoat | deliberately vulnerable | 371 | 26 | 7.0% |
+| dvba | deliberately vulnerable | 77 | 5 | 6.5% |
+| Vuldroid | deliberately vulnerable | 47 | 3 | 6.4% |
+| Neo_Store | FOSS app | 2,939 | 169 | 5.8% |
+| org.schabi.newpipe | FOSS media | 11,070 | 431 | 3.9% |
+| InsecureShop | intentionally vulnerable | 336 | 12 | 3.6% |
+| net.thunderbird.android | FOSS email | 95 | 3 | 3.2% |
+| com.beemdevelopment.aegis | FOSS 2FA | 1,428 | 22 | 1.5% |
+| calendar-fdroid-release | FOSS app | 236 | 3 | 1.3% |
+| istark.vpn.starkreloaded | commercial sample | 0 | 0 | — |
 
-The distribution is sharply concentrated near 0.0 with a small high-confidence tail — not flat,
-not centred near 0.5.
+> ### ⚠️ App-level discrimination is weak, and the paper must say so
+>
+> Deliberately vulnerable apps average **7.74%** against **3.80%** for FOSS apps — a 2.04×
+> separation on the mean. But **the ranges overlap heavily**: AntennaPod, a clean podcast client,
+> flags at 7.2%, *above* Vuldroid (6.4%) and DVBA (6.5%), both of which exist to be vulnerable.
+> Three of six clean apps flag above the lowest vulnerable one.
+>
+> **Do not claim the scanner distinguishes vulnerable from clean applications.** It does not, at
+> app level. The honest framing is the one already in L4.2: this is a *function-level triage
+> signal*, and an app-level flag rate is a property of coding style and app size as much as of
+> security posture.
+>
+> The earlier draft claimed *"deliberately vulnerable apps are flagged at significantly higher
+> rates,"* citing Vuldroid at 21.3% and DVBA at 20.8%. Those came from a different model at a
+> mismatched sequence length; on the deployed configuration they are 6.4% and 6.5%. The claim does
+> not survive and must be removed.
 
-> ⚠️ **Superseded on two counts — do not cite.** These rates were computed at threshold 0.60,
-> which is no longer the operating point (0.45, §6.7), so they understate what the deployed system
-> flags. And they were produced with `code_length = 384` while the checkpoint trains at 512
-> (§5.5), so every function longer than 384 tokens was truncated harder than in training. Both are
-> fixed in the scanner; these numbers change when it re-runs. Three of the four deliberately-vulnerable apps are the three
-highest-flagged; **InsecureShop at 3.0% is the exception and is addressed in §6.10.**
+> **Supersedes 84.0% / 8.9% / 7.1%.** Those were computed at threshold 0.60 by GraphCodeBERT
+> text-only with `code_length` 384 against a 512-token checkpoint — wrong threshold, wrong model,
+> mismatched truncation. Not comparable to the table above.
 
-> **Do not use 89.2% / 5.2% / 5.6% / 4.1%.** Those figures circulated in the pre-consolidation
-> defence notes and are stale. The correct values are the table above.
 
 ---
 
@@ -1044,11 +1060,13 @@ numbers have never supported that phrase and it must not appear.
 apps. Your scanner doesn't work."
 
 > "InsecureShop — a deliberately vulnerable Android training application — yields a lower
-> vulnerable-function rate (3.0%) than the clean AntennaPod application (9.3%). This reflects
+> vulnerable-function rate (3.6%) than the clean AntennaPod application (7.2%). This reflects
 > the training distribution boundary: InsecureShop's intentional vulnerabilities include
 > hardcoded credentials, SQL injection and insecure SharedPreferences — textbook patterns that
 > may be expressed differently at the decompiled bytecode level than the CVE-labelled patterns
-> on which the model was trained."
+> on which the model was trained. More broadly, app-level flag rates do not separate vulnerable
+> from clean applications in our sample (§3.7): the system is a function-level triage signal and
+> we make no app-level claim."
 
 > ⚠️ Older drafts cite 4.8% vs 8.4%. The real figures are **3.0% vs 9.3%** — the inversion is
 > *wider* than the defence assumed, so the paragraph must own it rather than minimise it.

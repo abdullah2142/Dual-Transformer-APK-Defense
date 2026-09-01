@@ -2,31 +2,40 @@ Test 9: Confidence Calibration - Real World Scanner
 ==================================================
 
 Total functions analysed: 23,005
-Decision threshold: 0.6
+Decision threshold: 0.45
 
 Distribution:
-  Mean: 0.0991
-  Median: 0.0053
-  Std: 0.2463
-  Confidently safe (prob < 0.10): 84.0%
-  Uncertain (0.10 to 0.6): 8.9%
-  Flagged (prob >= 0.6): 7.1%
-  Highly confident vuln (> 0.90): 5.5%
+  Mean: 0.0525
+  Median: 0.0006
+  Std: 0.2026
+  Confidently safe (prob < 0.10): 93.2%
+  Uncertain (0.10 to 0.45): 1.8%
+  Flagged (prob >= 0.45): 5.0%
+  Highly confident vuln (> 0.90): 3.7%
 
 Per-APK breakdown:
-  AndroGoat: 371 scanned, 23 flagged (6.2%)
-  InsecureBankv2: 88 scanned, 10 flagged (11.4%)
-  InsecureShop: 336 scanned, 10 flagged (3.0%)
-  Neo_Store_1.2.4_release: 2939 scanned, 153 flagged (5.2%)
-  Vuldroid: 47 scanned, 10 flagged (21.3%)
-  allsafe: 149 scanned, 26 flagged (17.4%)
-  calendar-fdroid-release: 236 scanned, 1 flagged (0.4%)
-  com.beemdevelopment.aegis_81: 1428 scanned, 84 flagged (5.9%)
-  de.danoeh.antennapod_3110095: 6169 scanned, 576 flagged (9.3%)
-  dvba_v1.1.0: 77 scanned, 16 flagged (20.8%)
+  AndroGoat: 371 scanned, 26 flagged (7.0%)
+  InsecureBankv2: 88 scanned, 9 flagged (10.2%)
+  InsecureShop: 336 scanned, 12 flagged (3.6%)
+  Neo_Store_1.2.4_release: 2939 scanned, 169 flagged (5.8%)
+  Vuldroid: 47 scanned, 3 flagged (6.4%)
+  allsafe: 149 scanned, 19 flagged (12.8%)
+  calendar-fdroid-release: 236 scanned, 3 flagged (1.3%)
+  com.beemdevelopment.aegis_81: 1428 scanned, 22 flagged (1.5%)
+  de.danoeh.antennapod_3110095: 6169 scanned, 443 flagged (7.2%)
+  dvba_v1.1.0: 77 scanned, 5 flagged (6.5%)
   istark.vpn.starkreloaded_5.1-34_minAPI21(arm64-v8a,armeabi,armeabi-v7a,mips,x86,x86_64)(nodpi)_apkmirror.com: 0 scanned, 0 flagged (0.0%)
-  net.thunderbird.android_20: 95 scanned, 2 flagged (2.1%)
-  org.schabi.newpipe_1008_cb84069: 11070 scanned, 728 flagged (6.6%)
+  net.thunderbird.android_20: 95 scanned, 3 flagged (3.2%)
+  org.schabi.newpipe_1008_cb84069: 11070 scanned, 431 flagged (3.9%)
 
 Interpretation:
   Distribution is strongly concentrated near 0.0 with a small high-confidence tail.
+
+--- provenance -------------------------------------------------------
+Run        : 2026-09-01
+Scanner    : UniXcoder text-only, code_length 384, threshold 0.45
+Reports    : 13 x *_vuln_report.json from scanner-pipeline.ipynb
+Consistency: global flagged count equals the sum of per-APK counts (1,145)
+Supersedes : 84.0% / 8.9% / 7.1% at threshold 0.60, produced by a different
+             model at a mismatched sequence length (code_length 384 against a
+             512-token checkpoint). Not comparable.
