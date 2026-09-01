@@ -30,12 +30,3 @@ Per-APK breakdown:
 
 Interpretation:
   Distribution is strongly concentrated near 0.0 with a small high-confidence tail.
-
---- provenance -------------------------------------------------------
-Run        : 2026-09-01
-Scanner    : UniXcoder text-only, code_length 384, threshold 0.45
-Reports    : 13 x *_vuln_report.json from scanner-pipeline.ipynb
-Consistency: global flagged count equals the sum of per-APK counts (1,145)
-Supersedes : 84.0% / 8.9% / 7.1% at threshold 0.60, produced by a different
-             model at a mismatched sequence length (code_length 384 against a
-             512-token checkpoint). Not comparable.
