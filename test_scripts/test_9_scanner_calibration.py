@@ -115,10 +115,26 @@ mean_prob = np.mean(all_probs)
 median_prob = np.median(all_probs)
 std_prob = np.std(all_probs)
 
+# These buckets hardcoded 0.60 while their labels interpolated THRESHOLD, so the
+# 2026-09-01 run printed "Flagged (prob >= 0.45): 4.6%" -- a figure computed at
+# 0.60. It disagreed with the per-APK breakdown in the same file, which uses
+# THRESHOLD correctly and summed to 4.98%. Same defect as the mislabelled model
+# outputs: the label said one thing, the arithmetic did another.
 safe_pct = np.mean(all_probs < 0.10) * 100
-uncertain_pct = np.mean((all_probs >= 0.10) & (all_probs < 0.60)) * 100
-flagged_pct = np.mean(all_probs >= 0.60) * 100
+uncertain_pct = np.mean((all_probs >= 0.10) & (all_probs < THRESHOLD)) * 100
+flagged_pct = np.mean(all_probs >= THRESHOLD) * 100
 highly_conf_pct = np.mean(all_probs > 0.90) * 100
+
+# The two halves of this report must agree: the global flagged share and the
+# per-APK counts are the same quantity computed twice.
+_per_apk_flagged = sum(s['flagged'] for s in apk_stats.values())
+_global_flagged = int(np.sum(all_probs >= THRESHOLD))
+if _per_apk_flagged != _global_flagged:
+    raise AssertionError(
+        f"global flagged count ({_global_flagged:,}) disagrees with the sum of the "
+        f"per-APK counts ({_per_apk_flagged:,}) at threshold {THRESHOLD}.")
+print(f"Consistency check: {_global_flagged:,} flagged of {total_funcs:,} "
+      f"({_global_flagged/total_funcs*100:.2f}%) -- global and per-APK agree")
 
 report = "Test 9: Confidence Calibration - Real World Scanner\n"
 report += "=" * 50 + "\n\n"
