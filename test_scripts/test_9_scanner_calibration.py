@@ -32,22 +32,32 @@ for file in report_files:
             # Find probability field in the report (depends on scanner output format)
             # Assuming format: [{'function': '...', 'probability': 0.12}, ...]
             # or a top-level dict containing a list of findings.
-            probs = []
-            
-            # Simple recursive search for 'probability' or 'confidence' keys
-            def extract_probs(obj):
-                if isinstance(obj, dict):
-                    for k, v in obj.items():
-                        if k in ['probability', 'confidence', 'score']:
-                            if isinstance(v, (int, float)):
-                                probs.append(float(v))
-                        else:
-                            extract_probs(v)
-                elif isinstance(obj, list):
-                    for item in obj:
-                        extract_probs(item)
-            
-            extract_probs(data)
+            # Read the field the scanner actually writes.
+            #
+            # This used to be a recursive hunt for keys named 'probability',
+            # 'confidence' or 'score'. scanner-pipeline.ipynb writes NONE of
+            # those -- it emits a flat list under 'all_probabilities', plus
+            # 'prob' inside each vulnerable_functions entry. So the search
+            # matched nothing and the script exited with "No probability scores
+            # found", silently, on every report. The .ipynb version had it
+            # right; this .py was a bad port of it.
+            #
+            # Fail closed: a report without the key is an error, not an empty
+            # contribution that quietly shrinks the corpus.
+            if 'all_probabilities' not in data:
+                raise KeyError(
+                    f"{os.path.basename(file)} has no 'all_probabilities' key. "
+                    f"Keys present: {sorted(data)}. Expected the output of "
+                    f"scanner-pipeline.ipynb.")
+            probs = [float(x) for x in data['all_probabilities']]
+
+            # A report with zero functions is legitimate -- istark.vpn.starkreloaded
+            # decompiles to a single source file with no extractable methods.
+            declared = data.get('total_functions_scanned')
+            if declared is not None and declared != len(probs):
+                raise ValueError(
+                    f"{os.path.basename(file)}: total_functions_scanned="
+                    f"{declared} but all_probabilities has {len(probs)} entries.")
             
             apk_name = os.path.basename(file).replace('_vuln_report.json', '')
             flagged = sum(1 for p in probs if p >= THRESHOLD)
