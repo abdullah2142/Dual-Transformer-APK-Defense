@@ -59,9 +59,10 @@ These mattered because the paper's claim is a within-backbone comparison at sub-
 margins. At that scale a protocol asymmetry is not a detail — it is the result.
 
 **3. Documents that described a system that does not exist (§5.5–5.6).** The clearest case: every
-doc said the scanner deploys GraphCodeBERT+DFG at threshold 0.60. Reading the notebook, it
-deploys GraphCodeBERT **text-only** at **0.45** and contains no DFG code at all. Nothing was
-changed here — the documentation was corrected to match the system.
+doc said the scanner deploys GraphCodeBERT+DFG at threshold 0.60. Reading the notebook, it ran
+GraphCodeBERT **text-only** at **0.45** and contained no DFG code at all. Nothing was changed at
+the time — the documentation was corrected to match the system. *(The scanner was later moved to
+UniXcoder text-only by choice, 2026-08-31; it has never been a DFG model, which was the point.)*
 
 ## The claim came out stronger
 
@@ -125,10 +126,10 @@ everything in Part 5.
 |---|---|---|---|
 | ~~D1~~ | ~~Epoch ceiling~~ — **settled 2026-08-12**: all four CodeBERT/GCB runs on 10 / 2, early stopping fired in each. UniXcoder remains at 5 / 2, internally consistent | — | §4.3 |
 | D2 | Table 3: re-run at the new ceiling, or label it as the 5-epoch config | Table 3 | §4.3 |
-| ~~D3~~ | ~~Scanner ships GCB+DFG~~ — **retired 2026-08-12: the premise was false.** The scanner has always run GraphCodeBERT **text-only**, and contains no DFG code at all | — | §5.5 |
+| ~~D3~~ | ~~Scanner ships GCB+DFG~~ — **retired 2026-08-12: the premise was false.** It ran GraphCodeBERT **text-only** and contains no DFG code at all. *Superseded 2026-08-31: the scanner was moved to UniXcoder text-only (§5.6); the point that it was never a DFG model stands* | — | §5.5 |
 | ~~D4~~ | ~~Filtered vs unfiltered Table 1~~ — **settled 2026-08-20**: Table 1 is the filtered 18,541 from test-2; `results/models/*.txt` are unfiltered per-model figures and must not be mixed in | — | §3.1 |
 | D5 | Sequence lengths differ between the arms of two backbones — disclose, or retrain to match | Tables 1–2, Section 4 | §4.3 |
-| ~~D6~~ | ~~Best model changed~~ — **settled 2026-08-12**: GraphCodeBERT text-only is best *and* is what the scanner deploys. test-6 re-pointed to it; test-4 still needs a text-only path (§5.6) | — | §5.6 |
+| ~~D6~~ | ~~Best model changed~~ — **settled 2026-08-31**: no model is identifiably best (§3.1). The scanner instantiates **UniXcoder text-only**, and test-6 matches it. test-4 got its text-only path in `daa49a1` and stays on GCB text-only, which is fine — only test-6, the scanner and test-9 need to agree (§5.6) | — | §5.6 |
 | **D7** | **GCB+DFG trains at effective batch 32 vs its text arm's 16 — retrain to match, or disclose?** | Table 2 GCB row | §4.3 |
 | ~~D8~~ | ~~Threshold disagreement~~ — **settled 2026-08-30 on 0.45**, matching the deployed scanner. test-6 and test-9 moved to it. Chosen for recall, not F1 (§6.7) | — | §6.7 |
 
@@ -820,16 +821,20 @@ being reported in three of them, and built on the leaked CodeBERT besides.
 > by checkpoint name.
 >
 > Every prior document — including earlier revisions of this one — claimed the scanner deployed
-> **GraphCodeBERT+DFG at threshold 0.60**. Both halves were wrong. The consequences are good ones:
+> **GraphCodeBERT+DFG at threshold 0.60**. Both halves were wrong.
 >
-> - **The deployment story was never inconsistent.** The scanner has always shipped a text-only
->   model, so it never contradicted the null-DFG finding.
-> - **It already ships the best model.** The 2026-08-12 reruns put GraphCodeBERT text-only on top
->   of Table 1 at 89.2300%, and that is exactly what the scanner loads.
-> - **No scanner re-run is needed for model choice** — only to pick up the *retrained* checkpoint.
+> **The finding that matters, and still holds:** the scanner has never been a DFG model, so the
+> deployment story never contradicted the null-DFG result. That was the substance of D3 and it is
+> unaffected by anything since.
 >
-> What it did surface is **D8**: the scanner's operating threshold is **0.45**, while test-6,
-> test-9 and §6.7's defence all use **0.60**.
+> **What has changed since (2026-08-31).** The scanner now instantiates **UniXcoder text-only**
+> (§5.6), so two claims in the original retirement note no longer hold: it is not loading
+> GraphCodeBERT, and GraphCodeBERT text-only is not "the best model" — on the duplicate-filtered
+> set UniXcoder leads 88.3447% to 88.2692%, a margin inside the seed-noise floor, and §3.1
+> identifies no best model at all. The 89.2300% quoted here was the unfiltered figure.
+>
+> **D8 also came out of this** — the scanner ran at 0.45 while test-6, test-9 and §6.7 all used
+> 0.60 — and is settled on 0.45 throughout (§6.7).
 ### 5.6 Which model each experiment uses (revised 2026-09-01)
 
 **The scanner is a demonstration of the pipeline, not a claim about a model.** Contribution 1 is
