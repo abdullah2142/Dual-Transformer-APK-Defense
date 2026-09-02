@@ -1261,6 +1261,153 @@ three-quarters of top failures are decompilation artifacts.
 
 ---
 
+# Part 8b — Related Work (draft)
+
+> **Status.** Verified against the PDFs in `Paper_Writing/Related Work Papers/`: GraphCodeBERT,
+> Allamanis 2019, ReVeal. Every figure attributed to those three is read from the paper. CodeBERT,
+> UniXcoder, DIRE and LineVul are cited at a level that does not depend on specific numbers —
+> **anything I later add with a figure attached must be checked against its PDF first.** Devign,
+> Draper/VDISC, VulBERTa and ReGVD are referenced for positioning only; PDFs not supplied.
+>
+> **Still needed**: the LVDAndro paper (only a GitHub link is in `Links.txt`). §3.5's LVDAndro
+> row carries every Android claim in the paper, so its construction and labelling must be
+> described from the source, not inferred.
+
+## 8b.1 The gap this paper fills
+
+Stated plainly, so the section can be written toward it:
+
+> Structure-aware code models are motivated by the unreliability of identifier names, evaluated on
+> human-written source where names are merely inconsistent, and increasingly applied to
+> vulnerability detection — a task none of them were originally evaluated on. Nobody has tested
+> whether the mechanism survives when identifiers are not unreliable but **absent**, which is the
+> condition of all decompiled code and therefore of all closed-source Android analysis.
+
+## 8b.2 Pre-trained models of code, and the structure-aware turn
+
+CodeBERT (Feng et al., 2020) established the bimodal NL–PL pre-training recipe. **GraphCodeBERT
+(Guo et al., ICLR 2021)** added data flow, and its motivation is the sentence this paper is built
+against:
+
+> *"Programmers do not always follow the naming conventions so that it is hard to understand the
+> semantic of the variable v only from its name. The semantic structure of code provides a way to
+> understand the semantic of the variable v by leveraging dependency relation between variables."*
+
+The design follows from that premise. Data flow is a graph of "where-the-value-comes-from"
+relations between **variables**; it is injected through a graph-guided masked attention function
+and two structure-aware pre-training objectives, edge prediction and node alignment, on top of
+masked language modelling. Pre-training is on CodeSearchNet — 2.3M functions across six languages,
+paired with natural-language documentation.
+
+**What they demonstrated, precisely** (all verified from the paper):
+
+| Task | GraphCodeBERT | CodeBERT | Δ |
+|---|:---:|:---:|:---:|
+| Code search (MRR, overall) | 0.713 | 0.693 | +0.020 |
+| Clone detection (F1) | 0.971 | 0.965 | +0.006 |
+| Code translation Java→C# (BLEU) | 80.58 | 79.92 | +0.66 |
+| Code refinement, small (BLEU) | 80.02 | 77.42 | +2.60 |
+
+Their own ablation removes data flow entirely and drops code search from **0.713 to 0.693 MRR**,
+which is the cleanest published measurement of what the DFG mechanism is worth: about two MRR
+points, on clean source. They further report that although DFG nodes are only 5–20% of the input,
+the `[CLS]` token directs **10–32% of its attention** to them — evidence, they argue, that the
+model genuinely prefers structural signal.
+
+**Two facts about that evidence matter for us.** First, every task above is code search, clone
+detection, translation or refinement — **GraphCodeBERT was never evaluated on vulnerability
+detection.** Applying it there, as this paper and much recent work does, is already an
+extrapolation. Second, all of it is CodeSearchNet: human-written source with meaningful, if
+inconsistent, identifiers.
+
+UniXcoder (Guo et al., 2022) extends the line with unified cross-modal pre-training and is the
+third backbone here.
+
+## 8b.3 Deep learning for vulnerability detection, and its reliability problem
+
+Reported accuracies in this area reach 95%, and the field's own audits have not been kind to them.
+
+**ReVeal (Chakraborty et al., TSE)** is the closest work in spirit to this paper. Asking *"how well
+do state-of-the-art DL-based techniques perform in a real-world vulnerability prediction
+scenario?"*, they find performance **drops by more than 50%**. A pre-trained model applied to
+real-world vulnerabilities loses ~73% on average; even retrained on real-world data it remains
+~54% below reported figures. Their headline case: VulDeePecker's reported 86.9% precision becomes
+**11.12%** on real data, and 17.68% after retraining.
+
+They attribute this to four causes, three of which this paper encounters directly:
+
+- **Data duplication** — training and test sets overlap by *up to 68%*, "artificially inflating the
+  reported results"
+- **Learning irrelevant features** — models latch onto "specific variable/function names" rather
+  than vulnerability semantics
+- **Inadequate model** — token-based models miss semantic dependencies, and *"even when a
+  graph-based model is used, it does not focus on increasing the class-separation"*
+- Data imbalance
+
+**Allamanis (2019)** quantifies the duplication problem for code models generally: metrics are
+*"inflated by up to 100% when testing on duplicated corpora"*, and performance as experienced by a
+user can be *"up to 50% worse compared to reported results"*. The mechanism is that duplication
+violates the i.i.d. assumption between train and test.
+
+> **How to position our own numbers honestly.** Our corpus is **7.28%** duplicated at test time
+> (§5.3) — far below ReVeal's 68% and the GitHub-mined corpora Allamanis studied — and filtering
+> moved accuracy by only 0.06–0.96pp per model (§3.1). We should cite these two works as the
+> reason we filtered *and* report that the effect here was small. Claiming a large duplication
+> effect would misrepresent our own data; the honest contribution is that we measured it rather
+> than assumed it.
+
+ReVeal's "learning irrelevant features" finding deserves particular emphasis, because **our setting
+is its limiting case**. Where they found models leaning on identifier names, decompilation removes
+those names entirely. A model that had been relying on them has nothing left to rely on — and, as
+we show, the data-flow graph does not fill the gap.
+
+## 8b.4 Decompiled code and the loss of identifier semantics
+
+That identifier names are destroyed by compilation is not our observation; an entire line of work
+exists to recover them. **DIRE (Lacomis et al., ASE 2019)** and its successors train neural models
+to rename decompiled variables precisely because the originals are gone. Their existence is the
+strongest external evidence for our mechanism: if identifier recovery were unnecessary, or if
+structure alone sufficed, that work would not be needed.
+
+This also frames our future work. If DFG fails on decompiled code because its nodes are
+semantically empty, the natural remedy is to populate them — identifier reconstruction *before*
+structural modelling, rather than structural modelling as a substitute for identifiers.
+
+> ⚠️ **Verify before submission**: I have the DIRE PDF but have not read it in this pass. Do not
+> attach any figure or specific claim to DIRE without checking. The framing above rests only on
+> what the work is *for*, which is safe.
+
+## 8b.5 Android and APK-level analysis
+
+*(To be written once the LVDAndro paper is available.)* Needs to cover: LVDAndro's construction and
+labelling; conventional Android static analysers (MobSF, QARK, AndroBugs) and their rule-based
+nature; and why function-level ML triage on decompiled bytecode is a different proposition from
+both.
+
+## 8b.6 What is new here
+
+Against that background, the contributions state cleanly:
+
+1. **The first test of DFG-aware attention on decompiled code.** GraphCodeBERT's mechanism is
+   motivated by unreliable identifiers and validated where identifiers are merely inconsistent. We
+   evaluate it where they are machine-generated, across three backbones under a controlled
+   protocol, and find no consistent benefit (§3.2).
+2. **A mechanistic account rather than a bare negative.** Data flow is defined *over variables*. When
+   decompilation reduces those variables to `class_336` and `method_1192`, the graph is
+   syntactically intact and semantically empty — the edges are correct and carry no information
+   (Part 7).
+3. **A 200k DFG-annotated corpus** spanning decompiled Android Java/Kotlin and C/C++, released
+   deduplicated.
+4. **An end-to-end pipeline** from APK to function-level triage, demonstrated on 13 real
+   applications (§3.7).
+
+> **Framing note.** Position this as *scope*, not contradiction. GraphCodeBERT's results on clean
+> source stand; we replicate none of them and dispute none of them. The claim is narrower and
+> stronger for it: the mechanism does not transfer to a domain where its precondition — that
+> variables are identifiable entities carrying some signal — no longer holds.
+
+---
+
 # Part 9 — Limitations
 
 Ordered by severity. Those marked 🔄 changed materially on 2026-08-04.
