@@ -31,3 +31,21 @@ They earned their keep immediately: the in-script sweep stopped at 0.95 and
 flagged the F1 optimum as sitting at its edge. Extending past 0.95 was a CPU
 script over test6_probs_imbalanced.npy -- no GPU run -- and showed F1 turns
 over at 0.96, so 0.95 is a genuine interior maximum.
+
+---------------------------------------------------------------------------
+test7b_probs_unixcoder_text.npy -- from test-7b, 2026-09-04.
+
+UniXcoder text-only (the deployed scanner model) on the same 18,541-sample
+filtered partition, shape (18541,) float64 -- P(vulnerable) only, where the
+test-2 arrays above carry both columns as float32.
+
+Worth recording why it is kept despite looking redundant: it is BITWISE
+IDENTICAL to column 1 of test_probs_unixcoder_text.npy above. Maximum absolute
+difference 0.0 across all 18,541 samples, zero decision flips at 0.45 or 0.50,
+from a GPU run three weeks later against a checkpoint resolved by path.
+
+That makes it evidence rather than duplication: inference on this model and
+partition is fully deterministic, so the test-2 arrays can be reused for new
+analyses without re-running a GPU. test-7b was derived that way first and then
+confirmed against the weights -- the two agreed on every number and on the
+identity and ordering of all 20 top false negatives.

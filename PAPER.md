@@ -1545,17 +1545,27 @@ high-confidence end. Malformed input does not merely cause errors; it causes *co
 That corroborates §7.1a on a second model, and is exactly what §7.4's re-attributed reading
 predicts.
 
-> **Method note.** Test-7b was derived from `results/predictions/test_probs_unixcoder_text.npy`,
-> saved by test-2's 2026-08-20 run, rather than from a fresh GPU run — the probabilities for this
-> model on this partition already existed. The derivation is guarded: it first rebuilds GCB+DFG's
-> false-negative set from the same arrays and requires an exact set match against the 1,054 corpus
-> indices test-7 recorded on GPU. That guard passes, so the positional mapping is verified rather
-> than assumed. `test_scripts/test-7b-qualitative-scanner-model.py` is the equivalent GPU script and
-> should reproduce this output; `test_scripts/make_test7b_from_predictions.py` is what produced it.
+> **Method note — confirmed on GPU 2026-09-04.** Test-7b was first derived on CPU from
+> `results/predictions/test_probs_unixcoder_text.npy`, saved by test-2's 2026-08-20 run. It has
+> since been re-run properly: `test_scripts/test-7b-qualitative-scanner-model.py` loaded the
+> checkpoint from
+> `/kaggle/input/notebooks/iahmed223141/unixcoder-text-only/saved_models_unixcoder/best_model_text_only.bin`
+> (504 MB) and recomputed everything from the weights.
 >
-> **Still to do**: hand-classify the 20 bodies into P1–P7, as §7.1 was. The malformed/`Log.x()`
-> flags in the output file are mechanical aids, not a classification.
-
+> **The two agree completely.** All four pre-registered values matched (88.3717 / 1,154 / 88.3447 /
+> 1,217), the top-20 table is byte-identical — same samples, same order, same confidences, same
+> malformed and `Log.x()` flags — and the 18,541 probabilities are **bitwise identical** to
+> test-2's August array, maximum absolute difference 0.0 with zero decision flips at either
+> threshold. Inference on this model and partition is fully deterministic, which is also a useful
+> fact about test-2's saved predictions generally: they can be reused without re-running a GPU.
+>
+> The committed `results/test7b_qualitative_scanner_results.txt` is the **GPU run**, because it
+> records the resolved checkpoint path. The cross-model overlap is set arithmetic over two GPU
+> runs' outputs and lives in `results/test7b_crossmodel_overlap.txt`.
+>
+> **Still to do**: hand-classify the 20 bodies into P1–P7, as §7.1 was. The malformed and
+> `Log.x()` flags in the output file are mechanical aids, not a classification.
+>
 ---
 
 # Part 8 — Draft paper sentences

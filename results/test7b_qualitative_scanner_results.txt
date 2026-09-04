@@ -2,29 +2,22 @@ Test 7b: Qualitative Analysis - Top False Negatives (DEPLOYED SCANNER MODEL)
 ==============================================================================
 Model         : UniXcoder text-only  (the model scanner-pipeline.ipynb ships)
 Backbone      : microsoft/unixcoder-base
+Checkpoint    : /kaggle/input/notebooks/iahmed223141/unixcoder-text-only/saved_models_unixcoder/best_model_text_only.bin
 code_length   : 384   (truncation=True, no sliding window -- PAPER.md 6.8)
-Threshold     : 0.45  (deployed scanner value, PAPER.md 6.7)
+Threshold     : 0.45  (deployed scanner value)
 Test set      : 18,541 samples, duplicate-filtered (PAPER.md 5.3)
-Derived from  : results/predictions/test_probs_unixcoder_text.npy (test-2, 2026-08-20)
-Guard         : GCB+DFG FN set rebuilt from the same arrays reproduces test-7's
-                1,054 corpus indices exactly, so the positional mapping is verified.
 
 Accuracy @0.45: 88.3717%     false negatives: 1,154
 Accuracy @0.50: 88.3447%     false negatives: 1,217
-  test-2 independently records this model at 88.3447% / FN 1,217 by argmax.
+  test-2 reports this model at 88.3447% / FN 1,217 by argmax; the @0.50
+  row is the cross-check. A mismatch means the wrong checkpoint loaded.
 
 False negatives by source (@0.45):
   Draper          605
   Devign          457
   LVDAndro         92
 
-Of 1,154 false negatives: 93 are not brace-balanced (8.1%), 15 contain a Log.x() call (1.3%)
-
-Cross-model comparison with test-7 (GraphCodeBERT+DFG, argmax):
-  shared false negatives : 750
-  UniXcoder text-only only: 404
-  GraphCodeBERT+DFG only : 304
-  Jaccard                : 0.514
+Of 1,154 false negatives: 93 malformed (8.1%), 15 contain a Log.x() call (1.3%)
 
 
 Top 20 most confident false negatives
@@ -618,4 +611,4 @@ void dummy_function() { gli_putchar_utf8(glui32 val, FILE *fl)
 } }
 
 
-Provenance: test_scripts/make_test7b_from_predictions.py
+Provenance: test_scripts/test-7b-qualitative-scanner-model.py

@@ -1,0 +1,28 @@
+Test 7b cross-model comparison: do the two architectures fail on the same samples?
+==============================================================================
+A  UniXcoder text-only  @0.45   (deployed scanner model, test-7b, GPU run 2026-09-04)
+B  GraphCodeBERT + DFG  @argmax (test-7, GPU run 2026-08-15)
+Both on the same duplicate-filtered 18,541-sample partition.
+
+|A| false negatives        : 1,154
+|B| false negatives        : 1,054
+positives in the test set  : 9,153
+
+observed |A n B|           : 750
+expected if independent    : 132.9      (|A|x|B| / positives)
+ENRICHMENT                 : 5.6x
+Jaccard |AnB|/|AuB|        : 0.514
+
+  65.0% of the scanner model's false negatives are also GCB+DFG false negatives
+  71.2% of GCB+DFG's false negatives are also scanner-model false negatives
+  A only: 404   B only: 304
+
+Reading: two different backbones (UniXcoder vs GraphCodeBERT) and two different
+architectures (plain text vs DFG-attention) converge on the same samples far more
+often than chance. The failures are a property of the inputs, not of the
+architecture -- which is the mechanism PAPER.md Part 7 argues for, and it answers
+whether the effect holds for the text-only arms as well as the DFG one. It does.
+
+Provenance: computed from results/test7b_false_negatives.json and
+results/test7_false_negatives.json by test_scripts/make_test7b_from_predictions.py.
+Both inputs are GPU runs; this file is set arithmetic over their outputs.
