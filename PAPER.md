@@ -109,7 +109,7 @@ D7 is closed by retraining.
 | **DFG provides no consistent benefit** | within-backbone comparisons, Table 2 | ✅ **safe** — the core finding survives everything below |
 | DFG lowers accuracy **and** ROC-AUC on all three backbones | Table 2 | ✅ **restored 2026-08-12** — the CodeBERT reversal was an artifact of the truncated text arm plus an FP32/FP16 mismatch; both fixed, and it reversed back (§3.2) |
 | DFG trades false negatives for false positives | Table 2 | ✅ consistent in all three backbones |
-| Training stability ±0.10% | test-3 | ⚠️ still the 5-epoch config, unfiltered (D2) |
+| Training stability ±0.10% | test-3 | ❌ **withdrawn 2026-09-04** — warm-started from our own fine-tuned checkpoint, so it is not fine-tuning seed variance and is biased low (§3.3a). Re-run pending |
 | Transformers beat TF-IDF | test-5 | ✅ both on 18,541: baselines 83.68/84.83 vs transformers 87.52–88.34 |
 | Cross-architecture gap (Table 2b) | test-8 | ✅ **resolved** — collapsed to +0.34%, p=0.106. Retire *"model choice matters more than DFG"* (§3.4) |
 | Per-source generalisation (Table 4) | test-4 | ✅ **re-run 2026-08-20** on GCB text-only, filtered (§3.5) |
@@ -125,7 +125,7 @@ everything in Part 5.
 | # | Decision | Blocks | §  |
 |---|---|---|---|
 | ~~D1~~ | ~~Epoch ceiling~~ — **settled 2026-08-12**: all four CodeBERT/GCB runs on 10 / 2, early stopping fired in each. UniXcoder remains at 5 / 2, internally consistent | — | §4.3 |
-| D2 | Table 3: re-run at the new ceiling, or label it as the 5-epoch config | Table 3 | §4.3 |
+| **D2** 🔄 | ~~Table 3: re-run at the new ceiling, or label it as the 5-epoch config~~ — **decided 2026-09-04: re-run.** `test_scripts/test-3-multiseed.ipynb` is built and split-verified; three Kaggle sessions pending. Also fixes a warm-start defect the old notebook had (§3.3a) | Table 3 | §3.3a |
 | ~~D3~~ | ~~Scanner ships GCB+DFG~~ — **retired 2026-08-12: the premise was false.** It ran GraphCodeBERT **text-only** and contains no DFG code at all. *Superseded 2026-08-31: the scanner was moved to UniXcoder text-only (§5.6); the point that it was never a DFG model stands* | — | §5.5 |
 | ~~D4~~ | ~~Filtered vs unfiltered Table 1~~ — **settled 2026-08-20**: Table 1 is the filtered 18,541 from test-2; `results/models/*.txt` are unfiltered per-model figures and must not be mixed in | — | §3.1 |
 | D5 | Sequence lengths differ between the arms of two backbones — disclose, or retrain to match | Tables 1–2, Section 4 | §4.3 |
@@ -292,8 +292,9 @@ ablation moves under a training-protocol asymmetry.
 
 ## 3.3 Table 3 — Training stability (multi-seed) ⚠️
 
-GraphCodeBERT text-only, retrained from an identical pretrained encoder across 3 seeds. Split
-seed pinned at 42; only the training seed varies.
+GraphCodeBERT text-only across 3 seeds. Split seed pinned at 42; only the training seed varies.
+
+> ❌ **Superseded 2026-09-04 — do not cite this table.** §3.3a explains why and what replaces it.
 
 | Seed | Accuracy | ROC-AUC | PR-AUC | F1 (macro) |
 |:---:|:---:|:---:|:---:|:---:|
@@ -303,8 +304,64 @@ seed pinned at 42; only the training seed varies.
 | **mean ± std** | **88.93% ± 0.10%** | **0.9598 ± 0.0009** | **0.9613 ± 0.0012** | **0.8893 ± 0.0010** |
 
 This ±0.10% is the yardstick used throughout to judge whether a delta is noise, so its own
-status matters. It is ⚠️ on two counts: measured on the unfiltered test set, and measured on the
-5-epoch GCB text-only configuration that decision D2 may change.
+status matters — and it does not survive inspection.
+
+## 3.3a Why Table 3 is being re-run 🔄 **D2 decided 2026-09-04**
+
+**The ±0.10% above is not fine-tuning seed variance, and it is biased low.**
+`test_scripts/test_3_multiseed_broken_down/*.ipynb` sets
+
+```
+pretrained_encoder = ".../graphcodebert-train-text-only/saved_models/best_model_text_only.bin"
+```
+
+— **our own fine-tuned checkpoint**, trained at seed 42 on this exact training set. Each "seed"
+deep-copies that converged encoder, re-initialises only the classifier head, and continues
+training. All three runs therefore start inside the same basin, having already seen every
+training sample. What ±0.10% measures is head-initialisation and data-order jitter on a
+converged model, not the variance of fine-tuning from scratch.
+
+**This matters because of what the number is used for.** Table 3 is the yardstick for deciding
+whether Table 2's deltas are noise — and the significant one, GCB text vs DFG, is **0.410pp**.
+Understating the noise floor makes that result look sturdier than the evidence supports. The bias
+runs in the direction that flatters the paper, which is the direction that has to be fixed rather
+than disclosed.
+
+Three further defects in the same files, all smaller:
+
+1. **5-epoch ceiling** while Tables 1–2 use 10 / 2 (D1).
+2. **Stale outputs.** `results/test3_seed*_results.txt` are dated 2026-08-02 and predate the
+   duplicate filter — 88.8278% against Table 1's 88.2692% for the same model is the filter's
+   absence showing. The *notebooks* were later fixed and do filter; only the committed outputs
+   are stale.
+3. **Each file reports "1 seeds".** Table 3's three rows are three separate single-seed runs
+   stitched together by hand, not one multi-seed run.
+
+> **Correction.** §4.3's option table says "Table 3's seeds ran at 512." They ran at
+> `code_length = 384`. The claim is wrong wherever it appears.
+
+### The replacement
+
+`test_scripts/test-3-multiseed.ipynb` — one seed per Kaggle session, `SEED` at the top.
+
+| | old | new |
+|---|---|---|
+| starting weights | our fine-tuned checkpoint | **`microsoft/graphcodebert-base`** (cold start) |
+| epochs / patience | 5 / 2 | **10 / 2** |
+| train `code_length` | 384 | **512** |
+| eval `code_length` | 384 | 384 |
+| test partition | filtered 18,541 | filtered 18,541 |
+
+512 train / 384 eval mirrors `graphcodebert-train-text-only.ipynb` and test-2 exactly, so **seed
+42 should reproduce Table 1's 88.2692%**; the notebook prints that comparison and flags a delta
+above 0.5pp. The split cell was verified offline to produce sets byte-identical to
+`split_and_filter.py` — 163,967 / 15,997 / 18,541 — and asserts those three sizes before training.
+
+**What the result could do to the paper.** If the honest spread comes back **well under 0.41pp**,
+Table 2's GCB finding stands and is better supported than it is today. If it comes back **near or
+above 0.41pp**, the one statistically significant within-backbone result is inside seed noise, and
+§3.2 needs rewriting. That second outcome is live — a cold-start spread is normally several times
+a warm-start one — so this is a genuine test rather than a formality.
 
 ## 3.4 Table 2b — Cross-architecture significance ✅ RESOLVED
 
@@ -684,7 +741,7 @@ length in the same run would confound the very comparison it exists to clean up.
 | Option | Cost | Effect |
 |---|---|---|
 | Disclose in Limitations, keep the runs | none | honest; reframes GCB/UniXcoder rows as a budget-allocation question |
-| Set GCB text-only to 384 and retrain | 1 run | CodeBERT and GCB share one convention; also re-opens D2, since Table 3's seeds ran at 512 |
+| Set GCB text-only to 384 and retrain | 1 run | CodeBERT and GCB share one convention; also re-opens D2. *(Corrected 2026-09-04: this row previously said "Table 3's seeds ran at 512" — they ran at 384. See §3.3a.)* |
 | Make all three uniform | several runs | requires retraining DFG arms too |
 
 ### Outcome of the retrain — 2026-08-12
@@ -754,10 +811,9 @@ protocol is a common 10 / 3 budget across all six, letting early stopping genuin
 4 more GPU runs (6 total rather than 2). **The paper must describe one protocol, uniformly
 applied.** Settle before writing Section 3.
 
-**D2 — open**: `test-3-seed{42,123,2025}` train GCB text-only at 5 / 2, the same configuration
-being changed. If GCB text-only moves, ±0.10% no longer measures what Table 1 reports. Either
-re-run the three seed notebooks (3 GPU runs) or state that Table 3 characterises the 5-epoch
-configuration.
+**D2 — decided 2026-09-04: re-run.** See §3.3a. The old notebooks are superseded by
+`test_scripts/test-3-multiseed.ipynb`, which cold-starts from `microsoft/graphcodebert-base`,
+trains at 10 / 2, and scores the filtered 18,541. Three sessions pending.
 
 ## 4.4 Historical note
 
@@ -834,6 +890,26 @@ test set.
 
 **LVDAndro, on which every Android claim rests, is unaffected at 0.01%.** 51 code bodies carry
 contradictory labels (102 entries); all are Devign.
+
+> ### ✅ Near-duplicates checked too, 2026-09-02
+>
+> Byte-identity is a weak test — reindenting a function defeats it. Re-running the check with all
+> whitespace collapsed (`re.sub(r'\s+', ' ', code).strip()`):
+>
+> | Test set | byte-identical | whitespace-normalised |
+> |---|:---:|:---:|
+> | unfiltered (19,996) | 1,455 (7.28%) | 1,458 (7.29%) |
+> | **filtered (18,541)** | **0** | **3 (0.02%)** |
+>
+> The two measures agree to within 3 rows, so the duplication is literal copying rather than
+> reformatting, and the byte-identical filter removes essentially all of it. **Three near-duplicates
+> survive into the filtered set** — corpus indices 1588 (Devign) and 80322, 146726 (Juliet). Two are
+> Juliet `good()`/`bad()` scaffolding, the same template boilerplate §5.3 already blames for Juliet's
+> 27.1% duplication rate.
+>
+> At 0.02% this changes no reported number, and it is far too small to explain Juliet's 100.0000%
+> (2 rows out of 1,815). Recorded because "we removed byte-identical duplicates" invites the obvious
+> reviewer question, and the answer is now measured rather than assumed.
 
 **Both causes are confirmed in `dataset_creation_scripts/`; no dedupe step exists anywhere in
 that pipeline.** Draft disclosure paragraph:
