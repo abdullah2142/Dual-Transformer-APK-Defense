@@ -114,7 +114,7 @@ D7 is closed by retraining.
 | Cross-architecture gap (Table 2b) | test-8 | ✅ **resolved** — collapsed to +0.34%, p=0.106. Retire *"model choice matters more than DFG"* (§3.4) |
 | Per-source generalisation (Table 4) | test-4 | ✅ **re-run 2026-08-20** on GCB text-only, filtered (§3.5) |
 | Deployment behaviour (Table 5) | test-6 | ❌ contaminated partition *and* model changed |
-| Why DFG fails (Section 8) | test-7 | ❌ contaminated partition — mechanism plausible, examples unreliable |
+| Why DFG fails (Section 8) | test-7 | ✅ **re-run 2026-08-15, re-derived 2026-09-02** — 1,054 FNs on the filtered partition, distribution rebuilt (§7.1) |
 | Real-APK calibration (Test 9) | scanner reports | ✅ **safe** — no split dependency |
 
 **The headline result is safe; much of its supporting evidence is not.** That distinction drives
@@ -132,6 +132,7 @@ everything in Part 5.
 | ~~D6~~ | ~~Best model changed~~ — **settled 2026-08-31**: no model is identifiably best (§3.1). The scanner instantiates **UniXcoder text-only**, and test-6 matches it. test-4 got its text-only path in `daa49a1` and stays on GCB text-only, which is fine — only test-6, the scanner and test-9 need to agree (§5.6) | — | §5.6 |
 | **D7** | **GCB+DFG trains at effective batch 32 vs its text arm's 16 — retrain to match, or disclose?** | Table 2 GCB row | §4.3 |
 | ~~D8~~ | ~~Threshold disagreement~~ — **settled 2026-08-30 on 0.45**, matching the deployed scanner. test-6 and test-9 moved to it. Chosen for recall, not F1 (§6.7) | — | §6.7 |
+| **D9** | **LVDAndro windowing is broken (§3.5b): ±5 rows over a per-line CSV, so 83.3% of records are not valid Java and a `Log.x()` regex reproduces 82.95% of labels. Rebuild the corpus and retrain all six, or disclose and restrict what Table 4's LVDAndro row is used for?** | Table 4 LVDAndro row, §6.6 | §3.5b |
 
 ---
 
@@ -156,8 +157,18 @@ is incorporated.** The paper then explains mechanistically *why* DFG fails in th
 
 ## 2.2 Contributions
 
-1. **End-to-end Android APK pipeline** — first published system for DFG extraction from
-   decompiled bytecode at scale across Java, Kotlin and C/C++.
+1. **End-to-end Android APK pipeline** — APK to function-level triage, with DFG extraction from
+   decompiled bytecode.
+
+   > ⚠️ **Narrowed 2026-09-02 after reading the scanner.** The old wording said "at scale across
+   > Java, Kotlin and C/C++". That is true of **neither** code path on its own:
+   > - `test_scripts/scanner-pipeline.ipynb` builds tree-sitter for **Java + Kotlin only**,
+   >   collects `.java`/`.kt`, and has **no native-library extraction** — no `.so`, no `lib/`,
+   >   no JNI. The JNI attack surface is outside what the scanner reaches.
+   > - `dataset_creation_scripts/` has `DFG_c` and `DFG_java` — **C and Java, no Kotlin**.
+   >
+   > Cross-language coverage comes from the **corpus**, not the scanner. §6.9's JNI argument is
+   > about the training corpus and must not be restated as a scanner capability.
 2. **200k DFG-annotated vulnerability corpus** — large, balanced, not otherwise available
    publicly. Released deduplicated (§5.4).
 3. **Informative negative finding with a mechanistic explanation** — the field assumes DFG helps
@@ -338,9 +349,70 @@ the tidy 7,500/7,500/2,500/2,496 counts). Two things changed at once — the par
 model, which moved from GCB+DFG to GCB text-only (§5.6) — so the rows are not a like-for-like
 before/after.
 
-**LVDAndro at 97.54% is the number every Android claim should quote.** It is the only source that
-is decompiled Android code, it is essentially untouched by duplication (1 sample dropped of 7,483),
-and it now describes the model the scanner deploys.
+**⚠️ LVDAndro at 97.54% must not be quoted as an Android capability number.** It is the only
+source that is decompiled Android code, it is essentially untouched by duplication (1 sample
+dropped of 7,483), and it describes the model the scanner deploys — but §3.5b shows most of the
+figure is reproducible by a single regular expression, so it measures far less than it appears to.
+*Supersedes the previous wording, "the number every Android claim should quote," which was written
+before the LVDAndro paper was read and is withdrawn.*
+
+## 3.5b What the LVDAndro row actually measures ⚠️ **audit, 2026-09-02**
+
+Reading the LVDAndro paper (§8b.5) prompted a direct check of our own LVDAndro records. Two
+findings, both measured on the exact 7,482 filtered test rows behind the 97.5408% above.
+
+**Finding 1 — the labels are largely predictable from one token.** LVDAndro's ground truth is the
+union of MobSF and QARK findings, and CWE-532 (*Insertion of Sensitive Information into Log File*)
+is among its most populous classes. In our test subset:
+
+| | LVDAndro test rows | share labelled vulnerable |
+|---|:---:|:---:|
+| contains `Log.v/d/i/w/e(` | 2,672 (35.7%) | **96.8%** |
+| does not | 4,810 (64.3%) | 24.7% |
+
+The single rule *"contains a `Log.x()` call ⇒ vulnerable"* scores **82.95%** on this subset, with
+no model at all. Fine-tuned GraphCodeBERT scores 97.5408%. The transformer is genuinely ahead, but
+the honest framing is ~15 points over a one-line regex, not ~97% from scratch — and the residue is
+plausibly further scanner signatures rather than semantic understanding. Draper, Devign and Juliet
+contain no `Log.x()` calls at all, so this is specific to the Android source and does not touch
+their rows.
+
+**Finding 2 — 83.3% of our LVDAndro records are not valid Java.** Brace-balance is a weak
+necessary condition for parseability, and by source:
+
+| Source | brace-balanced |
+|---|:---:|
+| Juliet | 100.0% |
+| Draper | 99.5% |
+| Devign | 97.4% |
+| **LVDAndro** | **16.7%** |
+
+The cause is ours, not JADX's. `dataset_creation_scripts/lvdprocess.py` builds each record with
+`window_radius=5` — a ±5-row window around a flagged line, joined with `\n`, giving the 11-line
+records that are 96.6% of the LVDAndro portion. But the window is taken over **rows of LVDAndro's
+CSV**, which are individual scanned lines, not consecutive lines of the original file. Adjacent
+rows can be arbitrarily far apart in the source, so a record can concatenate unrelated fragments.
+A real example (`LVDAndro_279755_file`, label 1) puts a `public class TutorialFragment` declaration
+between two unclosed method signatures and ends mid-expression on `return String.valueOf(this.g`.
+
+**What this does and does not affect.**
+
+- ✅ **The central finding is unaffected.** DFG and text-only arms consume byte-identical inputs,
+  so the comparison in Tables 1, 2 and 2b remains internally valid. Nothing about the null result
+  depends on LVDAndro being well-formed.
+- ⚠️ **Table 4's LVDAndro row cannot be read as "accuracy on Android code."** It is accuracy on
+  11-row scanner-output windows whose labels are strongly signalled by a logging API call.
+- ⚠️ **§6.6's LVDAndro–Devign gap is partly an artifact.** Some of the 32.8pp is a genuine domain
+  gap; some is that one side is far more shortcut-prone than the other. The two are not separated.
+- ➕ **It sharpens the mechanism, for the honest reason.** For 37.5% of the corpus the DFG is
+  extracted from a best-effort parse of syntactically invalid input, so its edges can connect
+  variables that never interacted in any real program. That is a stronger statement than "edges
+  connect anonymised tokens" — but it must be presented as a defect we found in our own pipeline,
+  not as a designed contribution.
+
+**Not yet decided** — see **D8**. Rebuilding the LVDAndro portion with a source-line-aware window
+is the correct fix and would require regenerating the corpus and retraining all six models. The
+alternative is to disclose and restrict what the row is used for.
 
 > ### ⚠️ Juliet stays at 100% — and duplication does not explain it
 >
@@ -439,12 +511,21 @@ the per-APK counts before writing, so the two halves of the table cannot disagre
 
 199,960 samples, strict 1:1 safe-to-vulnerable, four sources:
 
-| Source | N | Content |
-|---|:---:|---|
-| LVDAndro | 75,000 | decompiled Android Java — **all Android claims rest here** |
-| Draper | 75,000 | C/C++ NVD/SARD CVEs |
-| Juliet | 25,000 | synthetic CWE test suite |
-| Devign | 24,960 | C/C++ QEMU/FFmpeg |
+| Source | N | Vulnerable | Language *(measured)* | Content |
+|---|:---:|:---:|---|---|
+| LVDAndro | 75,000 | 37,500 | Java (100.0%) | decompiled Android — **all Android claims rest here** |
+| Draper | 75,000 | 37,500 | C/C++ | NVD/SARD CVEs |
+| Juliet | 25,000 | 12,500 | **Java (99.8%)** | synthetic CWE test suite |
+| Devign | 24,960 | 12,460 | C | QEMU/FFmpeg |
+
+> ### ⚠️ Juliet is a **Java** source, not C/C++ (measured 2026-09-02)
+>
+> Classifying every function body by content, **99.8% of Juliet is Java**, not C/C++. Several
+> places in this document had it the other way round; §6.9 is corrected below. **Cross-language
+> coverage rests on Draper and Devign alone**, and any sentence claiming Juliet contributes C/C++
+> patterns is wrong.
+>
+> Found while writing Section 4 of the manuscript, by checking the corpus rather than the docs.
 
 Keys are exactly `code`, `dfg`, `label`, `filename`. All 199,960 filenames are unique, so there
 is no filename-group leakage — but APK-level provenance is not preserved, so **same-APK leakage
@@ -907,8 +988,9 @@ Use these paragraphs directly. Numbers inside them are current as of 2026-08-04 
 > vulnerability detection fails post-decompilation, saving the community compute and directing
 > future work toward identifier reconstruction or alternative structural representations."
 
-> ⚠️ Earlier drafts cited "1,184 false negatives" here. The qualitative run used UniXcoder+DFG,
-> which has **1,125**. Fix the count when test-7 re-runs.
+> ✅ **Settled 2026-09-02: the number is 1,054.** Earlier drafts cited "1,184"; an intermediate
+> note here guessed the run had used UniXcoder+DFG at 1,125. Both are wrong. The clean test-7 run
+> used **GraphCodeBERT+DFG**, whose FN count is **1,054**, matching Table 1 for the same model.
 
 ## 6.2 Cross-backbone inconsistency
 
@@ -974,6 +1056,14 @@ Use these paragraphs directly. Numbers inside them are current as of 2026-08-04 
 > **97.5408%**, Devign **64.7404%** — a 32.8pp gap, *wider* than the 28.2pp the contaminated table
 > showed. Draper sits between at 84.0140%. Older drafts citing LVDAndro at 98.34% or 97.07% are
 > superseded.
+>
+> ⚠️ **Weakened by §3.5b (2026-09-02).** The rebuttal above attributes the whole gap to domain
+> scope. That is no longer defensible: a single `Log.x()` regex scores 82.95% on the LVDAndro side
+> and there is no comparable shortcut on the Devign side, so part of the 32.8pp is shortcut
+> availability rather than domain difficulty. The kernel-C arguments (token window, inter-procedural
+> vulnerabilities, underrepresentation) still stand on their own and should carry this defence;
+> the sentence "its accuracy on decompiled Android Java confirms fitness for that purpose" must be
+> dropped, because §3.5b shows that accuracy does not establish fitness.
 
 ## 6.7 Threshold 0.45 ✅ SETTLED
 
@@ -1038,9 +1128,26 @@ numbers have never supported that phrase and it must not appear.
 > 88.21% recall, 10.32% FPR, precision 0.4870. Those are superseded: with the scanner instantiated
 > on UniXcoder text-only, the sweep must describe the model actually deployed.
 
-## 6.8 The sliding window
+## 6.8 The sliding window ❌ **RETRACTED 2026-09-02 — the deployed scanner truncates**
 
 *Attack*: "Functions exceeding 384 tokens are truncated."
+
+> ❌ **The answer is: yes, they are.** The defence below describes
+> `training_notebooks/old_train/scanner-pipeline-final.ipynb`, which is the **only** file in the
+> repo containing `stride = code_length // 2`. The shipped scanner
+> (`test_scripts/scanner-pipeline.ipynb`) calls the tokenizer with
+> `max_length=384, truncation=True` and has no windowing at all. Verified by reading
+> `infer_vulnerability` and `infer_vulnerabilities_batched` directly.
+>
+> The `results[m_id] = max(results.get(m_id, 0.0), p_vuln)` line looks like chunk aggregation but
+> is **dead code**: `all_methods.append((m_id_counter, m['code'], [], short_class))` increments
+> the counter per method, so every `m_id` is unique and the `max` never combines anything.
+> Note that call also passes the DFG slot as `[]` — the scanner is text-only by construction.
+>
+> **Every number in §3.7 and Test 9 was produced under truncation, not windowing.** Do not cite
+> the paragraph below; it describes capability the measured system does not have.
+
+*Superseded text, retained for provenance:*
 
 > "For functions exceeding 384 tokens the pipeline generates overlapping chunks (stride =
 > code_length / 2), processes each independently, and takes the maximum vulnerability
@@ -1055,9 +1162,13 @@ numbers have never supported that phrase and it must not appear.
 
 > "Modern Android applications routinely use JNI to call compiled C++ shared libraries. An
 > Android security scanner processing only Java misses the native attack surface. By training on
-> both Java (LVDAndro) and C/C++ (Draper, Devign, Juliet) patterns, the model acquires
+> both Java (LVDAndro, Juliet) and C/C++ (Draper, Devign) patterns, the model acquires
 > cross-language knowledge reflecting the hybrid reality of production APKs. Per-source
 > evaluation confirms this does not harm Java performance."
+
+> ⚠️ **Corrected 2026-09-02.** The original read "C/C++ (Draper, Devign, Juliet)". Juliet is 99.8%
+> Java (§4.1), so it belongs on the other side of that sentence. The argument is unaffected — the
+> corpus does span both languages — but the attribution was wrong.
 
 ## 6.10 The InsecureShop result
 
@@ -1111,31 +1222,60 @@ apps. Your scanner doesn't work."
 
 # Part 7 — Qualitative analysis (Section 8 material)
 
-> ❌ **Every count in this Part comes from test-7, which ran on the contaminated Partition S.**
-> The top-20 most confident false negatives may themselves be training samples, so the specific
-> examples and the 5/4/3/3/2/1/1/1 distribution must be re-derived. **The mechanism is likely to
-> survive — it is grounded in decompiler behaviour, not in any particular sample — but the
-> evidence for it does not yet exist in usable form. This is the highest-priority re-run: it is
-> what turns the negative result into a contribution.**
+> ✅ **Re-derived 2026-09-02 from the clean run.** test-7 was re-run on the duplicate-filtered
+> partition on 2026-08-15 (`results/test7_qualitative_results.txt`, GraphCodeBERT+DFG,
+> **1,054 false negatives**), but this Part was not rewritten against it until now, because
+> re-deriving the distribution required reading and hand-classifying all 20 bodies rather than
+> copying numbers across. That is done; §7.1 below is the new distribution and supersedes the
+> Partition-S 5/4/3/3/2/1/1/1 table entirely.
 >
-> test-7 now records `corpus_idx` and `source` per false negative, so the re-derived list will be
-> traceable and comparable across models and runs.
+> **Cross-check**: test-7's 1,054 FNs for GCB+DFG match Table 1's FN column for the same model
+> exactly, from two independent scripts.
+>
+> **The mechanism survived, and got stronger** — see the confidence asymmetry in §7.1a and the
+> non-Android case in §7.7, neither of which existed in the old analysis.
 
-## 7.1 Distribution (to be re-derived)
+## 7.1 Distribution ✅ re-derived 2026-09-02
+
+GraphCodeBERT+DFG, filtered partition, 20 most confident false negatives (99.97–99.99% confidence
+of safety). Hand-classified; several samples show more than one pattern and are assigned their
+dominant one.
 
 | Pattern | Description | top-20 | Source |
 |---|---|:---:|---|
-| P5a | full machine-generated obfuscation | 5 | LVDAndro |
-| P1 | structural fragmentation | 4 | LVDAndro |
-| P5b | Kotlin/lambda synthetic obfuscation | 3 | LVDAndro |
-| P7 | inter-procedural access | 3 | LVDAndro |
-| P2 | benign surface appearance | 2 | LVDAndro |
-| P3 | arithmetic edge case | 1 | LVDAndro |
-| P6 | control-flow / flag logic | 1 | Draper |
-| P4 | Android API semantic bypass | 1 | LVDAndro |
+| P1 | structural fragmentation | 5 | LVDAndro |
+| P5a | machine-generated identifiers | 5 | LVDAndro |
+| P2 | benign surface, no vulnerability logic | 3 | LVDAndro ×2, Draper |
+| P4 | Android API semantic bypass | 2 | LVDAndro |
+| P3 | arithmetic edge case | 2 | Draper |
+| **P5c** | **compiler-generated identifiers in C** | **1** | **Draper** |
+| P6 | control-flow / comparison logic | 1 | Draper |
+| P7 | inter-procedural access | 1 | LVDAndro |
 
-P5a + P5b = 8/20 — obfuscation-driven DFG degradation dominates. P5a + P1 + P5b = 12/20 —
-three-quarters of top failures are decompilation artifacts.
+**P5a + P1 = 10/20**, and 12 of the 15 LVDAndro cases show fragmentation, so identifier loss and
+malformed structure together account for the bulk of confident failures.
+
+**P5b is gone.** No Kotlin/lambda case appears in the clean top-20. The old table's 3 were
+Partition-S samples. Keep L2.2 as a limitation, but **do not cite a P5b count.**
+
+**P5c is new** and is the most useful single sample in the set — see §7.7.
+
+## 7.1a The confidence asymmetry — the strongest evidence for the mechanism
+
+Source distribution differs sharply between *all* false negatives and the *most confident* ones:
+
+| Source | all 1,054 FNs | top-20 most confident |
+|---|:---:|:---:|
+| Draper | 618 (58.6%) | 5 (25%) |
+| Devign | 365 (34.6%) | 0 |
+| **LVDAndro** | **71 (6.7%)** | **15 (75%)** |
+| Juliet | 0 | 0 |
+
+**LVDAndro supplies 6.7% of the errors and 75% of the errors made with near-total certainty** — an
+elevenfold overrepresentation. The model is rarely wrong on decompiled Android code, and when it is
+wrong there it is wrong with more confidence than anywhere else in the corpus. A model still
+drawing signal from the graph would hedge on inputs whose graphs are uninformative; this one calls
+them unambiguously safe.
 
 ## 7.2 P5a — Full machine-generated identifier obfuscation
 
@@ -1150,7 +1290,13 @@ three-quarters of top failures are decompilation artifacts.
 > the mechanistic explanation for the null ablation result: under full obfuscation, DFG-aware
 > attention reduces to standard attention over a graph of meaningless connections."
 
-## 7.3 P5b — Kotlin/lambda synthetic obfuscation
+## 7.3 P5b — Kotlin/lambda synthetic obfuscation ⚠️ **no longer evidenced**
+
+> ⚠️ **No Kotlin/lambda case appears in the clean top-20** (§7.1). The three that did were
+> Partition-S samples. The phenomenon is real and stays as limitation L2.2, but the paragraph below
+> is now an unevidenced claim about the corpus rather than a finding about the model's failures.
+> **Do not cite it as part of the qualitative analysis** unless a Kotlin case is found in a
+> re-derived list.
 
 > "A Kotlin-specific variant (P5b) accounts for a further set of false negatives. The Kotlin
 > compiler generates synthetic class names for lambda expressions (e.g.
@@ -1161,7 +1307,7 @@ three-quarters of top failures are decompilation artifacts.
 > invocations — that differ structurally from the Java-centric LVDAndro training samples,
 > creating an additional distributional gap."
 
-## 7.4 P1 — Structural fragmentation
+## 7.4 P1 — Structural fragmentation ⚠️ **cause re-attributed 2026-09-02**
 
 > "Structural fragmentation (P1) arises because JADX occasionally produces syntactically
 > impossible Java: `package` declarations inside method bodies, `import` statements after
@@ -1172,6 +1318,32 @@ three-quarters of top failures are decompilation artifacts.
 > confidence reflects that no valid Java program would ever look like this — the structural
 > impossibility itself signals 'not malicious' to a model trained primarily on syntactically
 > valid code."
+
+> ### ⚠️ The behavioural claim survives; the causal attribution does not
+>
+> The §3.5b audit forces a correction here. **The paragraph above blames JADX. The dominant cause
+> is our own windowing.** Measured over test-7's 1,054 false negatives:
+>
+> | Source | FNs | not brace-balanced |
+> |---|:---:|:---:|
+> | **LVDAndro** | 71 | **63 (88.7%)** |
+> | Draper | 618 | 8 (1.3%) |
+> | Devign | 365 | 4 (1.1%) |
+>
+> and **13 of the 20 most-confident false negatives are brace-unbalanced**, 13 of the 15 LVDAndro
+> ones. So P1 is real, sharply concentrated, and the model's reaction to it is exactly as
+> described — malformed input reads as "not a program," and the model returns 99.9%+ safe.
+>
+> What changes is what P1 is *evidence of*. Only LVDAndro records are affected, and §3.5b shows
+> their malformation comes from a ±5-row window taken over LVDAndro's per-line CSV rather than
+> over consecutive source lines. **P1 therefore describes a defect in our corpus construction, not
+> a property of JADX output or of decompiled Android code.** Written up as-is it would tell
+> readers something false about decompilers.
+>
+> For the manuscript: keep the behavioural observation (models trained on valid code assign high
+> safe-confidence to input that violates the grammar — that is a genuine and useful finding about
+> robustness), and drop the JADX attribution. If D9 is resolved by rebuilding the corpus, P1
+> should be re-derived afterwards; its 5 instances would likely shrink substantially.
 
 ## 7.5 P7 — Inter-procedural access patterns
 
@@ -1206,6 +1378,99 @@ three-quarters of top failures are decompilation artifacts.
 > `getStringExtra` calls and hardcoded resource identifiers. Detecting this requires knowledge
 > of which specific API usage patterns are dangerous, semantic knowledge that cannot be derived
 > from intra-function data flow analysis alone."
+
+## 7.7 P5c — the same mechanism outside Android ✅ **new, 2026-09-02**
+
+One Draper sample is worth more than its single count. `Draper_731098_file` is the C function
+`nokia_isi_modem_real_powerOn`, and its locals are named `_tmp0_` through `_tmp9_`:
+
+```c
+gboolean _tmp0_ = FALSE;
+FsoFrameworkLogger* _tmp1_ = NULL;
+NokiaIsiModemRapuType _tmp4_ = 0;
+```
+
+**These names were generated by the Vala source-to-source compiler**, not by a decompiler and not
+by an obfuscator. The model misses it at **99.98% confidence of safety** — the same failure
+signature as the fully obfuscated LVDAndro cases.
+
+**Why this matters more than one sample should.** Every other piece of evidence in this Part is
+Android, so a reviewer can reasonably ask whether the finding is really about JADX, or ProGuard, or
+Android specifically. This sample answers that: the mechanism is about *machine-generated
+identifiers*, whatever produces them. Obfuscator, decompiler, or transpiler — once the nodes carry
+no semantic content, the edges over them carry no information. It generalises the claim at no cost
+in scope, and it ties directly to Dramko et al.'s account of what compilation destroys (§8b.4).
+
+## 7.8 The deployed scanner model fails the same way ✅ **new, 2026-09-02 (test-7b)**
+
+Everything above profiles **GraphCodeBERT + DFG**. The scanner ships **UniXcoder text-only** (D6,
+§5.6), so Section 8 described failures of a model we do not deploy, and the mechanism rested on a
+single model's 20 samples. Test-7b closes both gaps.
+
+`results/test7b_qualitative_scanner_results.txt` — UniXcoder text-only, the exact scanner
+configuration (`microsoft/unixcoder-base`, 384 tokens, truncation, threshold 0.45), same
+duplicate-filtered 18,541 partition.
+
+| | @0.45 (deployed) | @0.50 (argmax) |
+|---|:---:|:---:|
+| Accuracy | 88.3717% | 88.3447% |
+| False negatives | 1,154 | 1,217 |
+
+The @0.50 row reproduces test-2's independently recorded 88.3447% / FN 1,217 exactly. FNs by
+source at 0.45: Draper 605, Devign 457, LVDAndro 92.
+
+### 7.8a The two architectures fail on the same samples
+
+This is the result worth putting in the paper. Comparing the scanner model's 1,154 false negatives
+against GCB+DFG's 1,054:
+
+| | |
+|---|:---:|
+| shared false negatives | **750** |
+| expected if independent | 132.9 |
+| **enrichment** | **5.6×** |
+| Jaccard | 0.514 |
+| GCB+DFG FNs also missed by the scanner model | **71.2%** |
+
+Two different backbones (GraphCodeBERT vs UniXcoder) and two different architectures (DFG-attention
+vs plain text) converge on **the same 750 samples**, 5.6× more than chance. **The failures are a
+property of the inputs, not of the architecture.** That is the strongest available evidence for the
+mechanism this paper argues: if identifier loss is what defeats the models, every model should fail
+in the same places regardless of whether it consumes a graph — and it does.
+
+It also disposes of a reviewer question Part 7 could not previously answer: *does the mechanism hold
+for the text-only arms, or only the DFG one?* It holds for both.
+
+### 7.8b The pattern distribution reproduces on a different backbone
+
+Top-20 most confident false negatives, scanner model vs GCB+DFG:
+
+| | UniXcoder text-only | GraphCodeBERT + DFG |
+|---|:---:|:---:|
+| LVDAndro / Draper | 11 / 9 | 15 / 5 |
+| not brace-balanced | 10 / 20 | 13 / 20 |
+| LVDAndro cases malformed | 10 of 11 | 13 of 15 |
+
+P1 (structural fragmentation) and P5a (machine-generated identifiers) dominate both. Draper is
+more prominent for the scanner model, consistent with §7.7's P5c — the mechanism is not
+Android-specific.
+
+**The confidence asymmetry sharpens further.** Only **8.1%** of the scanner model's 1,154 false
+negatives are malformed, but **50%** of its top 20 are — a **6.2× concentration** at the
+high-confidence end. Malformed input does not merely cause errors; it causes *confident* errors.
+That corroborates §7.1a on a second model, and is exactly what §7.4's re-attributed reading
+predicts.
+
+> **Method note.** Test-7b was derived from `results/predictions/test_probs_unixcoder_text.npy`,
+> saved by test-2's 2026-08-20 run, rather than from a fresh GPU run — the probabilities for this
+> model on this partition already existed. The derivation is guarded: it first rebuilds GCB+DFG's
+> false-negative set from the same arrays and requires an exact set match against the 1,054 corpus
+> indices test-7 recorded on GPU. That guard passes, so the positional mapping is verified rather
+> than assumed. `test_scripts/test-7b-qualitative-scanner-model.py` is the equivalent GPU script and
+> should reproduce this output; `test_scripts/make_test7b_from_predictions.py` is what produced it.
+>
+> **Still to do**: hand-classify the 20 bodies into P1–P7, as §7.1 was. The malformed/`Log.x()`
+> flags in the output file are mechanical aids, not a classification.
 
 ---
 
@@ -1263,15 +1528,13 @@ three-quarters of top failures are decompilation artifacts.
 
 # Part 8b — Related Work (draft)
 
-> **Status.** Verified against the PDFs in `Paper_Writing/Related Work Papers/`: GraphCodeBERT,
-> Allamanis 2019, ReVeal. Every figure attributed to those three is read from the paper. CodeBERT,
-> UniXcoder, DIRE and LineVul are cited at a level that does not depend on specific numbers —
-> **anything I later add with a figure attached must be checked against its PDF first.** Devign,
-> Draper/VDISC, VulBERTa and ReGVD are referenced for positioning only; PDFs not supplied.
+> **Status.** All seven supplied PDFs read: GraphCodeBERT, CodeBERT, UniXcoder, ReVeal,
+> Allamanis 2019, DIRE (Dramko et al.), LineVul. Every figure and quotation below is taken from
+> the paper itself. Devign, Draper/VDISC, VulBERTa and ReGVD are referenced for positioning only
+> and carry no figures; PDFs not supplied.
 >
-> **Still needed**: the LVDAndro paper (only a GitHub link is in `Links.txt`). §3.5's LVDAndro
-> row carries every Android claim in the paper, so its construction and labelling must be
-> described from the source, not inferred.
+> **LVDAndro PDF supplied and read 2026-09-02** (Senanayake et al., SECRYPT 2023). Reading it
+> triggered the §3.5b audit, which materially changes how the LVDAndro row must be reported.
 
 ## 8b.1 The gap this paper fills
 
@@ -1285,7 +1548,10 @@ Stated plainly, so the section can be written toward it:
 
 ## 8b.2 Pre-trained models of code, and the structure-aware turn
 
-CodeBERT (Feng et al., 2020) established the bimodal NL–PL pre-training recipe. **GraphCodeBERT
+**CodeBERT** (Feng et al., Findings of EMNLP 2020) established the bimodal NL–PL recipe: a
+multi-layer Transformer trained with masked language modelling plus replaced token detection,
+using both bimodal NL–PL pairs and unimodal code. It was evaluated on **natural-language code
+search and code documentation generation**. **GraphCodeBERT
 (Guo et al., ICLR 2021)** added data flow, and its motivation is the sentence this paper is built
 against:
 
@@ -1320,8 +1586,19 @@ detection.** Applying it there, as this paper and much recent work does, is alre
 extrapolation. Second, all of it is CodeSearchNet: human-written source with meaningful, if
 inconsistent, identifiers.
 
-UniXcoder (Guo et al., 2022) extends the line with unified cross-modal pre-training and is the
-third backbone here.
+**UniXcoder** (Guo et al., ACL 2022) is the third backbone, and takes a third route to structure.
+It uses mask attention matrices with prefix adapters to switch between encoder, decoder and
+encoder-decoder behaviour, and enriches code representation with **AST and code comments** — the
+AST flattened by a one-to-one mapping into a sequence that "retains all structural information."
+It is evaluated on five code-related tasks across nine datasets.
+
+> **Worth drawing out for Section 2.** The three backbones lean on three different auxiliary
+> signals, and decompilation damages each differently. CodeBERT's is natural-language
+> documentation; UniXcoder's is comments *and* AST; GraphCodeBERT's is data flow over variables.
+> **Compilation strips comments and documentation outright**, so two of those signals have no
+> analogue whatsoever in decompiled input. AST survives — control and block structure are largely
+> recoverable. Data flow also survives *structurally*, which is precisely the trap: the edges are
+> still computable, so nothing announces that the nodes they connect have been emptied.
 
 ## 8b.3 Deep learning for vulnerability detection, and its reliability problem
 
@@ -1344,6 +1621,16 @@ They attribute this to four causes, three of which this paper encounters directl
   graph-based model is used, it does not focus on increasing the class-separation"*
 - Data imbalance
 
+A further datapoint sits inside this literature and points the same way as our result.
+**LineVul** (Fu & Tantithamthavorn, MSR 2022) is a Transformer-based line-level vulnerability
+predictor evaluated on 188k+ C/C++ functions. Its comparison is against **IVDetect, a graph-based
+approach** (FA-GCN with a GNN explainer), and LineVul reports **160–379% higher F1** at function
+level. That is a token-based Transformer decisively outperforming a graph neural network at
+vulnerability detection **on clean source code** — where, unlike our setting, the graph's nodes
+still carry meaningful names. It is independent evidence that structural augmentation is not
+automatically the stronger choice for this task, and it is a useful thing to cite before we make
+the same argument in a harder setting.
+
 **Allamanis (2019)** quantifies the duplication problem for code models generally: metrics are
 *"inflated by up to 100% when testing on duplicated corpora"*, and performance as experienced by a
 user can be *"up to 50% worse compared to reported results"*. The mechanism is that duplication
@@ -1363,26 +1650,79 @@ we show, the data-flow graph does not fill the gap.
 
 ## 8b.4 Decompiled code and the loss of identifier semantics
 
-That identifier names are destroyed by compilation is not our observation; an entire line of work
-exists to recover them. **DIRE (Lacomis et al., ASE 2019)** and its successors train neural models
-to rename decompiled variables precisely because the originals are gone. Their existence is the
-strongest external evidence for our mechanism: if identifier recovery were unnecessary, or if
-structure alone sufficed, that work would not be needed.
+That identifier names are destroyed by compilation is not our observation, and we should cite it
+rather than argue it. **Dramko et al. (TOSEM 2023)**, extending DIRE (Lacomis et al., ASE 2019),
+put it directly:
+
+> *"Compilers discard source-level information and lower its level of abstraction in the interest
+> of binary size, execution time, and even obfuscation. As a result, variable names, user-defined
+> types, and idiomatic structure are all lost at compile time… In particular, variable names, which
+> are highly important for code comprehension and readability, become nothing more than arbitrary
+> placeholders such as `VAR1` and `VAR2`."*
+
+Our `class_336` and `method_1192` are the Android form of exactly this. They also note that while
+compilers *can* preserve names via debug information, **"malware authors and commercial vendors
+typically set compiler flags to prevent this"** — which is why the problem is unavoidable in the
+threat model we care about, not an artifact of our pipeline.
+
+An entire family of neural renaming techniques exists to undo this — DIRE, DIRECT, DIRTY — and
+their existence is the strongest external evidence for our mechanism. **If structure alone were
+sufficient to recover the semantics that names carry, this line of work would not be necessary.**
+Notably, Dramko et al. also cite code duplication in training data as a known threat to these
+models, which connects them to Allamanis and to §5.3.
 
 This also frames our future work. If DFG fails on decompiled code because its nodes are
 semantically empty, the natural remedy is to populate them — identifier reconstruction *before*
 structural modelling, rather than structural modelling as a substitute for identifiers.
 
-> ⚠️ **Verify before submission**: I have the DIRE PDF but have not read it in this pass. Do not
-> attach any figure or specific claim to DIRE without checking. The framing above rests only on
-> what the work is *for*, which is safe.
+> **Citation care**: the supplied PDF is Dramko et al. (TOSEM 2023), which *extends* the original
+> DIRE paper (Lacomis et al., ASE 2019). Both quotations above are from the 2023 paper. Cite the
+> 2019 paper for DIRE itself and the 2023 one for these statements about what compilation destroys.
 
 ## 8b.5 Android and APK-level analysis
 
-*(To be written once the LVDAndro paper is available.)* Needs to cover: LVDAndro's construction and
-labelling; conventional Android static analysers (MobSF, QARK, AndroBugs) and their rule-based
-nature; and why function-level ML triage on decompiled bytecode is a different proposition from
-both.
+**LVDAndro** (Senanayake et al., SECRYPT 2023, pp. 659–666) is the source of the Android half of
+our corpus and the only one of our four sources that is decompiled Android code, so its
+construction deserves description rather than citation.
+
+It is built in three stages: APKs are scraped from FossDroid (33%), AndroZoo (46%) and other
+repositories (21%); each is decompiled and scanned; and the resulting per-line records are
+preprocessed. The published dataset is a sequence of three; **Dataset 03** (Dec-2022) is the one
+in general use — 15,021 apps, 21,289,029 code samples, 14,689,432 vulnerable against 6,599,597
+non-vulnerable, spanning 23 CWE-IDs.
+
+Three properties of it matter for how our own results must be read:
+
+**Labels are static-analyser output, not human judgement.** Vulnerability status and CWE-ID come
+from running **MobSF and QARK** over the decompiled source and taking the union of their findings
+— the stated aim being that "ML models trained with LVDAndro learn the capabilities of all
+scanners." The authors are explicit about what that inherits: the two tools *"rely on signatures,
+which are known for producing a high number of false negatives."* Any model trained on LVDAndro is
+therefore learning to reproduce a signature-based scanner, and its ceiling is that scanner's
+behaviour rather than ground-truth exploitability. Their own headline comparison — MobSF 91%,
+QARK 89%, proposed AutoML model 94% — should be read with the same caveat, since the labels the
+94% is scored against were themselves produced by the 91% and 89% tools.
+
+**The unit is a line, not a function.** LVDAndro's schema stores `Code` ("original source code
+line") and `Processed_code` ("source code line after preprocessing"). It is a line-level corpus.
+Function-level use therefore requires a windowing step, which is where §3.5b's problem enters.
+
+**Preprocessing normalises away lexical content.** User-defined string values are replaced with
+`user_str`, and all comments with `//user_comment`. We ingest the raw `Code` field rather than
+`Processed_code`, so we do not inherit this — verified: 0 of 75,000 of our LVDAndro records
+contain `user_str` and 1 contains `user_comment`. Worth stating explicitly, because a reader who
+knows LVDAndro will otherwise assume our identifier-semantics argument is confounded by the
+dataset's own normalisation. It is not; the anonymisation we describe is JADX's, not LVDAndro's.
+
+**Positioning.** LVDAndro's own proof-of-concept uses AutoML over classical classifiers — RF, MLP,
+SVC and similar — on TF-IDF-style features of single lines. That is a different proposition from
+ours in three ways: we work at function granularity with a 384-token window rather than per line;
+we fine-tune pre-trained code transformers rather than fit classical models; and our question is
+comparative — whether *structural* augmentation helps — rather than whether the dataset supports
+detection at all. Their contribution is the labelled resource; ours uses it as one of four sources
+and does not inherit its accuracy claims. Conventional Android analysers (MobSF, QARK, AndroBugs)
+sit underneath both as rule-based detectors: they are the labelling instrument here, not a
+baseline we outperform, and we make no claim to beat them.
 
 ## 8b.6 What is new here
 
@@ -1453,8 +1793,13 @@ the text-only models too.
 `-$$Lambda$ClassName$hashcode`, non-semantic by design and structurally different from both
 clean and ProGuard-obfuscated Java. Underrepresented in training.
 
-**L2.3 — Structural fragmentation.** JADX sometimes emits output violating Java grammar. The
-`DummyClass` wrapper cannot repair a syntactically invalid interior.
+**L2.3 — Structural fragmentation.** JADX sometimes emits output violating Java grammar, and the
+`DummyClass` wrapper cannot repair a syntactically invalid interior. **Quantified 2026-09-02
+(§3.5b): only 16.7% of LVDAndro test records are brace-balanced, against 99.5% (Draper), 97.4%
+(Devign) and 100% (Juliet).** The dominant cause is not JADX but our own windowing — a ±5-row
+window over LVDAndro's per-line CSV concatenates lines that are not adjacent in the source file.
+Earlier wording ("occasionally", "sometimes") understated this by a wide margin for the Android
+portion.
 
 **L2.4 — Fractional sampling.** Each source was sampled, not used in full, to enforce class
 balance. The sampled subset may not represent the full within-source distribution; Devign in
@@ -1466,13 +1811,52 @@ and Devign — are likelier to hit the cap, potentially discarding vulnerability
 
 **L2.6 — 51 contradictory-label groups** (102 entries), all Devign.
 
+**L2.7 — LVDAndro labels are scanner-derived, and shortcut-prone.** Ground truth is the union of
+MobSF and QARK findings (§8b.5); the LVDAndro authors note both "rely on signatures." A single
+`Log.x()` regex reproduces 82.95% of the labels in our LVDAndro test subset. Reported accuracy on
+this source therefore measures agreement with a signature scanner, upper-bounded by that scanner's
+own false-negative rate, and should not be quoted as vulnerability-detection capability.
+
+**L2.8 — The language router mis-routes 28.1% of Juliet.** *Root cause located 2026-09-02:*
+`dataset_creation_scripts/parse.py` `guess_language()` tests for `import `, `class `, `package `
+and `public static void main` — **all file-scope markers** — then falls through to
+`return 'c'  # Default fallback`. A bare Java **method body** contains none of them, so it is
+parsed as C. Reproducing the heuristic offline accounts for **99.2%** of the affected samples.
+LVDAndro escapes only because its windowing pulls in file-scope lines, so one defect accidentally
+masks the other. The heuristic sends **7,026 of 25,000 Juliet samples (28.1%)** to the C
+path, wrapping Java bodies in `void dummy_function() { … }` and parsing them under the C grammar.
+Draper and Devign are affected at 0.6% and 0.2%; LVDAndro not at all. The DFGs for those 7,026
+samples are extracted from a failed parse. **Juliet still scores 100.0000%** (§3.5), so the
+practical impact is nil — but that is itself the point worth making: a quarter of the source can be
+parsed under the wrong grammar without measurable loss, which is stronger evidence that synthetic
+test cases are trivially separable than the duplication argument in §6.12 ever was.
+
 ## 9.3 Model and architecture
 
-**L3.1 — Sliding-window DFG filtering is imprecise.** Chunk DFG nodes are filtered by substring
-match (`node[0] in chunk_code`). For obfuscated code with single-letter variables (`a`, `i`,
-`n`) this produces false matches — `i` matches any chunk containing the letter. Filtering by
-character offset would be correct. Given the null result the practical impact is likely minimal,
-but it means the sliding window's DFG quality is lower than achievable.
+**L3.1 — ~~Sliding-window DFG filtering is imprecise~~ → superseded; the real limit is truncation.**
+The substring-match issue (`node[0] in chunk_code`, where `i` matches any chunk containing the
+letter) is real but lives in `old_train/scanner-pipeline-final.ipynb`, which no reported result
+uses. **The shipped scanner truncates at 384 tokens with no windowing at all** (§6.8).
+
+> ⚠️ **Corrected 2026-09-02.** This entry previously read "roughly a fifth of functions lose
+> everything past the cut," carrying a corpus-wide figure into a statement about the scanner. That
+> fifth is driven almost entirely by the C/C++ sources the scanner never sees. Approximate share of
+> test functions exceeding 384 tokens, by source (chars-per-token bracketed 3.0–4.0):
+>
+> | Source | n | median chars | exceeds 384 tokens |
+> |---|:---:|:---:|:---:|
+> | **LVDAndro** (Java) | 7,482 | 610 | **0.9 – 2.7%** |
+> | Draper | 6,856 | 734 | 18.1 – 30.2% |
+> | Devign | 2,388 | 967 | 35.3 – 44.1% |
+> | Juliet | 1,815 | 1,073 | 43.6 – 48.6% |
+> | all | 18,541 | 665 | 15.8 – 22.7% |
+>
+> **Caveat that matters more than the table.** LVDAndro records are our own 11-row windows
+> (§3.5b), not natural methods, so they are a weak proxy for the length of a real decompiled APK
+> method. The honest statement is that truncation exposure is *low for short Java units and high
+> for C/C++*, and that **the scanner's true exposure is unmeasured** — it needs the token-length
+> distribution of Test 9's 23,005 scanned functions, which lives in the `*_vuln_report.json` files
+> on Kaggle and is not in this repo. Until that exists, do not quote a percentage for the scanner.
 
 **L3.2 — Single-function analysis scope.** Models classify functions in isolation, with no
 access to calling context, class-level state or inter-function flows. A substantial fraction of

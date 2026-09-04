@@ -1,0 +1,621 @@
+Test 7b: Qualitative Analysis - Top False Negatives (DEPLOYED SCANNER MODEL)
+==============================================================================
+Model         : UniXcoder text-only  (the model scanner-pipeline.ipynb ships)
+Backbone      : microsoft/unixcoder-base
+code_length   : 384   (truncation=True, no sliding window -- PAPER.md 6.8)
+Threshold     : 0.45  (deployed scanner value, PAPER.md 6.7)
+Test set      : 18,541 samples, duplicate-filtered (PAPER.md 5.3)
+Derived from  : results/predictions/test_probs_unixcoder_text.npy (test-2, 2026-08-20)
+Guard         : GCB+DFG FN set rebuilt from the same arrays reproduces test-7's
+                1,054 corpus indices exactly, so the positional mapping is verified.
+
+Accuracy @0.45: 88.3717%     false negatives: 1,154
+Accuracy @0.50: 88.3447%     false negatives: 1,217
+  test-2 independently records this model at 88.3447% / FN 1,217 by argmax.
+
+False negatives by source (@0.45):
+  Draper          605
+  Devign          457
+  LVDAndro         92
+
+Of 1,154 false negatives: 93 are not brace-balanced (8.1%), 15 contain a Log.x() call (1.3%)
+
+Cross-model comparison with test-7 (GraphCodeBERT+DFG, argmax):
+  shared false negatives : 750
+  UniXcoder text-only only: 404
+  GraphCodeBERT+DFG only : 304
+  Jaccard                : 0.514
+
+
+Top 20 most confident false negatives
+==============================================================================
+  #  corpus_idx source      conf_safe        form  log  filename
+------------------------------------------------------------------------------
+  1       73340 Draper        100.00% well-formed   no  Draper_1119884_file
+  2      109831 LVDAndro      100.00%   malformed   no  LVDAndro_32105_file
+  3      108008 Draper        100.00% well-formed   no  Draper_807010_file
+  4      192085 LVDAndro      100.00%   malformed   no  LVDAndro_154260_file
+  5       16262 LVDAndro      100.00%   malformed   no  LVDAndro_28183_file
+  6        7266 LVDAndro      100.00% well-formed   no  LVDAndro_171418_file
+  7      162564 LVDAndro       99.99%   malformed   no  LVDAndro_198189_file
+  8      177821 LVDAndro       99.99%   malformed   no  LVDAndro_135004_file
+  9      106490 Draper         99.99% well-formed   no  Draper_1144372_file
+ 10       21433 LVDAndro       99.99%   malformed   no  LVDAndro_88679_file
+ 11      176281 LVDAndro       99.99%   malformed   no  LVDAndro_76167_file
+ 12      101962 LVDAndro       99.99%   malformed   no  LVDAndro_210698_file
+ 13       19645 LVDAndro       99.99%   malformed   no  LVDAndro_305037_file
+ 14          14 Draper         99.99% well-formed   no  Draper_646614_file
+ 15       92749 Draper         99.99% well-formed   no  Draper_830015_file
+ 16       57823 LVDAndro       99.99%   malformed   no  LVDAndro_261191_file
+ 17      141417 Draper         99.99% well-formed   no  Draper_289785_file
+ 18       51584 Draper         99.99% well-formed   no  Draper_84191_file
+ 19       85869 Draper         99.98% well-formed   no  Draper_150197_file
+ 20      141404 Draper         99.98% well-formed   no  Draper_18446_file
+
+
+Full code of the top 20 (for hand-classification, PAPER.md Part 7)
+
+==============================================================================
+[FN #1] corpus_idx=73340 source=Draper confidence_safe=100.00% well-formed
+filename: Draper_1119884_file
+------------------------------------------------------------------------------
+void dummy_function() { ilGetString(ILenum StringName)
+{
+	switch (StringName)
+	{
+		case IL_VENDOR:
+			return (ILconst_string)_ilVendor;
+		case IL_VERSION_NUM: //changed 2003-08-30: IL_VERSION changes									//switch define ;-)
+			return (ILconst_string)_ilVersion;
+		case IL_LOAD_EXT:
+			return (ILconst_string)_ilLoadExt;
+		case IL_SAVE_EXT:
+			return (ILconst_string)_ilSaveExt;
+		case IL_TGA_ID_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilTgaId;
+		case IL_TGA_AUTHNAME_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilTgaAuthName;
+		case IL_TGA_AUTHCOMMENT_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilTgaAuthComment;
+		case IL_PNG_AUTHNAME_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilPngAuthName;
+		case IL_PNG_TITLE_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilPngTitle;
+		case IL_PNG_DESCRIPTION_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilPngDescription;
+		//2003-08-31: added tif strings
+		case IL_TIF_DESCRIPTION_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilTifDescription;
+		case IL_TIF_HOSTCOMPUTER_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilTifHostComputer;
+		case IL_TIF_DOCUMENTNAME_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilTifDocumentName;
+		case IL_TIF_AUTHNAME_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilTifAuthName;
+		case IL_CHEAD_HEADER_STRING:
+			return (ILconst_string)ilStates[ilCurrentPos].ilCHeader;
+		default:
+			ilSetError(IL_INVALID_ENUM);
+			break;
+	}
+	return NULL;
+} }
+
+==============================================================================
+[FN #2] corpus_idx=109831 source=LVDAndro confidence_safe=100.00% MALFORMED
+filename: LVDAndro_32105_file
+------------------------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { void onResultSent(final List list, final int n) {
+if (this.this$0.mConnections.get(this.val$connection.callbacks.asBinder()) != this.val$connection) {
+List applyOptions = list;
+applyOptions = MediaBrowserCompatUtils.applyOptions(list, this.val$options);
+this.val$connection.callbacks.onLoadChildren(this.val$parentId, applyOptions, this.val$options);
+this.q = v.b;
+this.q = v.a;
+import android.support.v4.media.session.MediaSessionCompat$Callback;
+import android.support.v4.media.session.MediaSessionCompat$MediaSessionImpl;
+import android.support.v4.media.session.MediaSessionCompat$MediaSessionImplApi21;
+import android.support.v4.media.session.MediaSessionCompat$MediaSessionImplBase; } }
+
+==============================================================================
+[FN #3] corpus_idx=108008 source=Draper confidence_safe=100.00% well-formed
+filename: Draper_807010_file
+------------------------------------------------------------------------------
+void dummy_function() { chk_minus (FP___TYPE a, FP___TYPE b, FP___TYPE r)
+{
+	/* special case subtraction of QUAD_MIN */
+	if (b == QUAD_MIN) {
+		if (a >= 0)
+			return 1;
+		else
+			return 0;
+	}
+	/* this is allowed for b != QUAD_MIN */
+	return chk_plus (a, -b, r);
+} }
+
+==============================================================================
+[FN #4] corpus_idx=192085 source=LVDAndro confidence_safe=100.00% MALFORMED
+filename: LVDAndro_154260_file
+------------------------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { final void method_29() {
+this.field_18.method_60();
+} else if (this.field_17 != null) {
+this.field_17.method_124();
+this.field_16.method_55(350L);
+if (bc == null || bd == null) {
+public final class CaptureActivity extends Activity implements SurfaceHolder$Callback, i
+static final String[] cb;
+private static final String[] cc;
+private SharedPreferences$OnSharedPreferenceChangeListener cH;
+private int cz; } }
+
+==============================================================================
+[FN #5] corpus_idx=16262 source=LVDAndro confidence_safe=100.00% MALFORMED
+filename: LVDAndro_28183_file
+------------------------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { class_591.method_1804("AdView was initialized with a Context that wasn't an Activity.");
+Activity var17 = (Activity)var1;
+if (!AdUtil.method_1212(var1)) {
+this.method_1494(var1, "You must have INTERNET and ACCESS_NETWORK_STATE permissions in AndroidManifest.xml.", var16, var2);
+this.method_1491(var17, var16, var7);
+class_369 var12 = new class_369();
+for(int var15 = 0; var15 < var4; ++var15) {
+var6 = var14[var15].trim();
+var12.method_1165(var6);
+if (this.field_1475.method_1101()) {
+this.field_1475.method_1089(); } }
+
+==============================================================================
+[FN #6] corpus_idx=7266 source=LVDAndro confidence_safe=100.00% well-formed
+filename: LVDAndro_171418_file
+------------------------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { private static Hashtable<Activity, k> m = new Hashtable<>();
+protected d a = new d();
+private FrameLayout e;
+private UZActivityResult h;
+private d j = d.a();
+void a(WebViewProvider webViewProvider, int i);
+void a(WebViewProvider webViewProvider, String str);
+void a(WebViewProvider webViewProvider, String str, Bitmap bitmap);
+void a(a aVar, int i, Object obj);
+boolean a(int i);
+boolean a(Intent intent, int i, boolean z); } }
+
+==============================================================================
+[FN #7] corpus_idx=162564 source=LVDAndro confidence_safe=99.99% MALFORMED
+filename: LVDAndro_198189_file
+------------------------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { ShellUtils.CommandResult execCmd2 = UtilsBridge.execCmd("cat /sys/class/net/" + str + "/address", false);
+return (execCmd2.result != 0 || (str2 = execCmd2.successMsg) == null || str2.length() <= 0) ? "02:00:00:00:00:00" : str2;
+return str.trim().replaceAll("\\s*", BuildConfig.FLAVOR);
+public static String[] getABIs() {
+if (!TextUtils.isEmpty(Build.CPU_ABI2)) {
+if (Build.FINGERPRINT.startsWith("generic") || Build.FINGERPRINT.toLowerCase().contains("vbox") || Build.FINGERPRINT.toLowerCase().contains("test-keys") || Build.MODEL.contains("google_sdk") || Build.MODEL.contains("Emulator") || Build.MODEL.contains("Android SDK built for x86") || Build.MANUFACTURER.contains("Genymotion") || (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic")) || "google_sdk".equals(Build.PRODUCT)) {
+if (telephonyManager == null || (str = telephonyManager.getNetworkOperatorName()) == null) {
+return intent.resolveActivity(Utils.getApp().getPackageManager()) == null;
+public static boolean isDevelopmentSettingsEnabled() {
+if (Settings.Global.getInt(Utils.getApp().getContentResolver(), "development_settings_enabled", 0) > 0) {
+public static String getUniqueDeviceId() { } }
+
+==============================================================================
+[FN #8] corpus_idx=177821 source=LVDAndro confidence_safe=99.99% MALFORMED
+filename: LVDAndro_135004_file
+------------------------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { public boolean setLastStationId(int var1) {
+public boolean setSkipLanding(boolean var1) {
+public boolean setUserInfo(String var1, String var2) {
+Editor var3 = this.mPreferences.edit();
+return this.check(var3, "setUserInfo()");
+this.mShowValue = this.interpret(set, "showValue", this.mShowValue);
+public class HorizontalRatingBar extends View
+private int mColorPrimary;
+private int mColorPrimaryShadow;
+private int mColorSecondary;
+private int mColorSecondaryShadow; } }
+
+==============================================================================
+[FN #9] corpus_idx=106490 source=Draper confidence_safe=99.99% well-formed
+filename: Draper_1144372_file
+------------------------------------------------------------------------------
+void dummy_function() { ScanGlyfIds(void)
+{
+	Assert(m_pCmap_3_10 || m_pCmap_3_1);
+	if (m_nMaxGlyfId != -1) // return if called more than once
+		return true;
+
+	// determine ranges of Unicode codepoints supported by this font
+	// TODO: is there a more efficient way to do this?
+
+	unsigned int nUni;
+	bool fInUsedRange = false;
+	m_cnUnicode = 0;
+	for (nUni = 0; nUni <= 0x0010FFFD; nUni++)
+	{
+		utf16 gid;
+		if (nUni == 0x0000FFFE || nUni == 0x0000FFFF) // invalid
+			gid = 0;
+		else
+			gid = GlyphFromCmap(nUni, NULL);
+
+        if (gid != 0 && !fInUsedRange)
+		{
+			// Record the beginning of the range
+			m_vnMinUnicode.push_back(nUni);
+			fInUsedRange = true;
+		}
+		else if (gid == 0 && fInUsedRange)
+		{
+			// Record the end of the range.
+			m_vnLimUnicode.push_back(nUni);
+			fInUsedRange = false;
+		}
+		if (gid != 0)
+			m_cnUnicode++;
+	}
+	if (fInUsedRange)
+		m_vnLimUnicode.push_back(nUni);
+	Assert(m_vnLimUnicode.size() == m_vnMinUnicode.size());
+
+	// create array indexed by glyf id containing unicode codepoints
+	unsigned int *prgnUsed = new unsigned int[0x10000];
+	if (!prgnUsed)
+	{
+		g_errorList.AddError(129, NULL,
+			"Memory failure: could not allocate prgUsed array when scanning glyph ids");
+		return false;
+	}
+	// initialize all elements to zero
+	for (int ig = 0; ig < 0xFFFF; ig++)
+		prgnUsed[ig] = 0;
+	m_nMaxGlyfId = 0;
+
+	// get glyf id for all unicode codepoints and look for collisions
+	GrcFont::iterator fit;
+	GrcFont::iterator fitEnd = this->End();
+	for (fit = this->Begin(); fit != fitEnd; ++fit)
+	{
+		nUni = *fit;
+		Assert(nUni != 0x0000FFFE);  // invalid
+		Assert(nUni != 0x0000FFFF);  // invalid
+		Assert(nUni != 0x0010FFFE);  // invalid
+		Assert(nUni != 0x0010FFFF);  // invalid
+
+		utf16 gid = GlyphFromCmap(nUni, NULL); // find glyf id
+		if (gid == 0) // 0 - normally is default glyf id
+		{
+			Assert(false); // iterators only cover codepoints with valid glyph IDs
+			continue;
+		}
+		m_nMaxGlyfId = max(m_nMaxGlyfId, static_cast<int>(gid)); // track largest glyf id
+		if (!prgnUsed[gid]) // if this glyf id not seen yet
+		{
+			prgnUsed[gid] = nUni; // store current unicode id
+		}
+		else
+		{
+			// track Unicode ids that collide
+			int nPrevUni = prgnUsed[gid];
+			if (nPrevUni != 0x0000FFFF) 
+			{
+				// first collision - need to store both Unicode ids in array and current id
+				m_vnCollisions.push_back(nPrevUni);
+				// indicate one collision occurred, don't want to store array id if another
+				// collision occurs; 0xFFFF is an illegal unicode value
+				prgnUsed[gid] = 0x0000FFFF; 
+			}
+			m_vnCollisions.push_back(nUni); // store current unicode id always
+		}
+	}
+	delete [] prgnUsed;
+	return true;
+} }
+
+==============================================================================
+[FN #10] corpus_idx=21433 source=LVDAndro confidence_safe=99.99% MALFORMED
+filename: LVDAndro_88679_file
+------------------------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { if (session == null) return string2;
+session.closeAndClearTokenInformation();
+public boolean publishInstall(Context context) {
+Settings.publishInstallAsync(context, this.mAppId);
+public String request(Bundle bundle) throws MalformedURLException, IOException {
+if (!bundle.containsKey("method")) {
+return this.requestImpl(null, bundle, "GET");
+public String request(String string2) throws MalformedURLException, IOException {
+return this.requestImpl(string2, new Bundle(), "GET");
+public String request(String string2, Bundle bundle) throws MalformedURLException, IOException {
+return this.requestImpl(string2, bundle, "GET"); } }
+
+==============================================================================
+[FN #11] corpus_idx=176281 source=LVDAndro confidence_safe=99.99% MALFORMED
+filename: LVDAndro_76167_file
+------------------------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { import androidx.sqlite.db.SupportSQLiteOpenHelper;
+public class SupportHelper implements SupportSQLiteOpenHelper {
+private final boolean clearPassphrase;
+private SQLiteOpenHelper standardHelper;
+SupportHelper(final SupportSQLiteOpenHelper.Configuration configuration, byte[] bArr, SQLiteDatabaseHook sQLiteDatabaseHook, boolean z) {
+SQLiteDatabase.loadLibs(configuration.context);
+this.clearPassphrase = z;
+this.standardHelper = new SQLiteOpenHelper(configuration.context, configuration.name, null, configuration.callback.version, sQLiteDatabaseHook) {
+configuration.callback.onCreate(sQLiteDatabase);
+configuration.callback.onUpgrade(sQLiteDatabase, i, i2);
+configuration.callback.onDowngrade(sQLiteDatabase, i, i2); } }
+
+==============================================================================
+[FN #12] corpus_idx=101962 source=LVDAndro confidence_safe=99.99% MALFORMED
+filename: LVDAndro_210698_file
+------------------------------------------------------------------------------
+public class DummyClass { this.field_1636 = var1.getNavigationContentDescription();
+return this.field_1634.getContext();
+this.field_1634.setNavigationContentDescription(this.field_1636);
+this.field_1634.setNavigationContentDescription(var1);
+this.field_1634.setNavigationIcon(var1);
+Drawable drawable2;
+public class CanvasView extends View implements OnSharedPreferenceChangeListener {
+CanvasView.InRangeStatus inRangeStatus;
+public CanvasView(Context var1, AttributeSet var2) {
+this.settings = PreferenceManager.getDefaultSharedPreferences(var1);
+this.setBackground(); }
+
+==============================================================================
+[FN #13] corpus_idx=19645 source=LVDAndro confidence_safe=99.99% MALFORMED
+filename: LVDAndro_305037_file
+------------------------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { private void initialize(Bundle var1) {
+this.button1 = (Button)this.findViewById(R$id.button1);
+this.webview1 = (WebView)this.findViewById(R$id.webview1);
+this.button1.setOnClickListener(new OnClickListener() {
+this.webview1.setWebViewClient(new WebViewClient() {
+private void initializeLogic() {
+public ArrayList getCheckedItemPositionsToArray(ListView var1) {
+SparseBooleanArray var4 = var1.getCheckedItemPositions();
+for(int var2 = 0; var2 < var4.size(); ++var2) {
+if (var4.valueAt(var2)) {
+var3.add((double)var4.keyAt(var2)); } }
+
+==============================================================================
+[FN #14] corpus_idx=14 source=Draper confidence_safe=99.99% well-formed
+filename: Draper_646614_file
+------------------------------------------------------------------------------
+void dummy_function() { __find_matchendcase(void)
+{
+ int32 caselev = 0;
+ for (;;)
+  {
+   if (__syncto_class != SYNC_STMT) return;
+   if (__vskipto4_any(ENDCASE, CASE, CASEX, CASEZ))
+    {
+     if (__toktyp == ENDCASE) { if (caselev <= 0) return; caselev--; }
+     else caselev++;
+    }
+   else return;
+  }
+} }
+
+==============================================================================
+[FN #15] corpus_idx=92749 source=Draper confidence_safe=99.99% well-formed
+filename: Draper_830015_file
+------------------------------------------------------------------------------
+void dummy_function() { do_hybrid_window(int order, int n, int non_rec, float *out,
+                             float *hist, float *out2, const float *window)
+{
+    int i;
+    float buffer1[order + 1];
+    float buffer2[order + 1];
+    float work[order + n + non_rec];
+
+    apply_window(work, window, hist, order + n + non_rec);
+
+    convolve(buffer1, work + order    , n      , order);
+    convolve(buffer2, work + order + n, non_rec, order);
+
+    for (i=0; i <= order; i++) {
+        out2[i] = out2[i] * 0.5625 + buffer1[i];
+        out [i] = out2[i]          + buffer2[i];
+    }
+
+    /* Multiply by the white noise correcting factor (WNCF). */
+    *out *= 257./256.;
+} }
+
+==============================================================================
+[FN #16] corpus_idx=57823 source=LVDAndro confidence_safe=99.99% MALFORMED
+filename: LVDAndro_261191_file
+------------------------------------------------------------------------------
+public class DummyClass { public void dummyMethod() { this.setDirectionArrow(((BitmapDrawable)mapView.getContext().getResources().getDrawable(R.drawable.person)).getBitmap(), ((BitmapDrawable)mapView.getContext().getResources().getDrawable(R.drawable.round_navigation_white_48)).getBitmap());
+new Thread((Runnable)iterator.next()).start();
+} else if (motionEvent.getAction() == 2 && this.isFollowLocationEnabled()) {
+this.mDirectionArrowCenterX = (float)this.mDirectionArrowBitmap.getWidth() / 2.0f - 0.5f;
+protected void setLocation(Location location) {
+public class MapQuestRoadManager extends RoadManager {
+final File osmdroidBasePath = this.getOsmdroidBasePath();
+File osmdroidTileCache = this.getOsmdroidTileCache();
+this.setOsmdroidBasePath(new File(sharedPreferences.getString("osmdroid.basePath", this.getOsmdroidBasePath().getAbsolutePath())));
+this.setOsmdroidTileCache(new File(sharedPreferences.getString("osmdroid.cachePath", this.getOsmdroidTileCache().getAbsolutePath())));
+this.expirationOverride = sharedPreferences.getLong("osmdroid.ExpirationOverride", -1L); } }
+
+==============================================================================
+[FN #17] corpus_idx=141417 source=Draper confidence_safe=99.99% well-formed
+filename: Draper_289785_file
+------------------------------------------------------------------------------
+void dummy_function() { updateScrollBars( uint f )
+{
+    sbDirty = sbDirty | f;
+    if ( inSbUpdate )
+	return;
+    inSbUpdate = true;
+
+    if ( testTableFlags(Tbl_autoHScrollBar) && (sbDirty & horRange) ||
+	 testTableFlags(Tbl_autoVScrollBar) && (sbDirty & verRange) )
+					// if range change and auto
+	doAutoScrollBars();		// turn scroll bars on/off if needed
+
+    if ( !autoUpdate() ) {
+	inSbUpdate = false;
+	return;
+    }
+    if ( yOffset() > 0 && testTableFlags( Tbl_autoVScrollBar ) &&
+	 !testTableFlags( Tbl_vScrollBar ) ) {
+	setYOffset( 0 );
+    }
+    if ( xOffset() > 0 && testTableFlags( Tbl_autoHScrollBar ) &&
+	 !testTableFlags( Tbl_hScrollBar ) ) {
+	setXOffset( 0 );
+    }
+    if ( !isVisible() ) {
+	inSbUpdate = false;
+	return;
+    }
+
+    if ( testTableFlags(Tbl_hScrollBar) && (sbDirty & horMask) != 0 ) {
+	if ( sbDirty & horGeometry )
+	    hScrollBar->setGeometry( 0,height() - HSBEXT,
+                                     viewWidth() + frameWidth()*2,
+                                   HSBEXT);
+
+	if ( sbDirty & horSteps ) {
+	    if ( cellW )
+		hScrollBar->setSteps( qMin((int)cellW,viewWidth()/2), viewWidth() );
+	    else
+		hScrollBar->setSteps( 16, viewWidth() );
+	}
+
+	if ( sbDirty & horRange )
+	    hScrollBar->setRange( 0, maxXOffset() );
+
+	if ( sbDirty & horValue )
+	    hScrollBar->setValue( xOffs );
+
+			// show scrollbar only when it has a sane geometry
+	if ( !hScrollBar->isVisible() )
+	    hScrollBar->show();
+    }
+
+    if ( testTableFlags(Tbl_vScrollBar) && (sbDirty & verMask) != 0 ) {
+	if ( sbDirty & verGeometry )
+	    vScrollBar->setGeometry( width() - VSBEXT, 0,
+                                     VSBEXT,
+                                     viewHeight() + frameWidth()*2 );
+
+	if ( sbDirty & verSteps ) {
+	    if ( cellH )
+		vScrollBar->setSteps( qMin((int)cellH,viewHeight()/2), viewHeight() );
+	    else
+		vScrollBar->setSteps( 16, viewHeight() );  // fttb! ###
+	}
+
+	if ( sbDirty & verRange )
+	    vScrollBar->setRange( 0, maxYOffset() );
+
+	if ( sbDirty & verValue )
+	    vScrollBar->setValue( yOffs );
+
+			// show scrollbar only when it has a sane geometry
+	if ( !vScrollBar->isVisible() )
+	    vScrollBar->show();
+    }
+    if ( coveringCornerSquare &&
+	 ( (sbDirty & verGeometry ) || (sbDirty & horGeometry)) )
+	cornerSquare->move( maxViewX() + frameWidth() + 1,
+			    maxViewY() + frameWidth() + 1 );
+
+    sbDirty = 0;
+    inSbUpdate = false;
+} }
+
+==============================================================================
+[FN #18] corpus_idx=51584 source=Draper confidence_safe=99.99% well-formed
+filename: Draper_84191_file
+------------------------------------------------------------------------------
+void dummy_function() { yydestruct (const char *yymsg, int yytype, YYSTYPE *yyvaluep, parser_helper_t *ctx)
+{
+  YYUSE (yyvaluep);
+  YYUSE (ctx);
+  if (!yymsg)
+    yymsg = "Deleting";
+  YY_SYMBOL_PRINT (yymsg, yytype, yyvaluep, yylocationp);
+
+  YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
+  switch (yytype)
+    {
+          case 3: /* STRING  */
+#line 86 "parser/parser.y" /* yacc.c:1257  */
+      { free(((*yyvaluep).s)); }
+#line 1030 "parser/parser.c" /* yacc.c:1257  */
+        break;
+
+    case 15: /* section_name  */
+#line 86 "parser/parser.y" /* yacc.c:1257  */
+      { free(((*yyvaluep).s)); }
+#line 1036 "parser/parser.c" /* yacc.c:1257  */
+        break;
+
+    case 17: /* value  */
+#line 86 "parser/parser.y" /* yacc.c:1257  */
+      { free(((*yyvaluep).s)); }
+#line 1042 "parser/parser.c" /* yacc.c:1257  */
+        break;
+
+
+      default:
+        break;
+    }
+  YY_IGNORE_MAYBE_UNINITIALIZED_END
+} }
+
+==============================================================================
+[FN #19] corpus_idx=85869 source=Draper confidence_safe=99.98% well-formed
+filename: Draper_150197_file
+------------------------------------------------------------------------------
+void dummy_function() { del_from_hash(hash_type type, const char *hashindex, void *pointer)
+{
+	rb_dlink_list *table = hash_function[type].table;
+	unsigned int hashv;
+
+	if(EmptyString(hashindex) || (pointer == NULL))
+		return;
+
+	hashv = (hash_function[type].func) ((const unsigned char *)hashindex,
+					    hash_function[type].hashbits,
+					    hash_function[type].hashlen);
+	rb_dlinkFindDestroy(pointer, &table[hashv]);
+} }
+
+==============================================================================
+[FN #20] corpus_idx=141404 source=Draper confidence_safe=99.98% well-formed
+filename: Draper_18446_file
+------------------------------------------------------------------------------
+void dummy_function() { gli_putchar_utf8(glui32 val, FILE *fl)
+{
+    if (val < 0x80)
+    {
+        putc(val, fl);
+    }
+    else if (val < 0x800)
+    {
+        putc((0xC0 | ((val & 0x7C0) >> 6)), fl);
+        putc((0x80 |  (val & 0x03F)     ),  fl);
+    }
+    else if (val < 0x10000)
+    {
+        putc((0xE0 | ((val & 0xF000) >> 12)), fl);
+        putc((0x80 | ((val & 0x0FC0) >>  6)), fl);
+        putc((0x80 |  (val & 0x003F)      ),  fl);
+    }
+    else if (val < 0x200000)
+    {
+        putc((0xF0 | ((val & 0x1C0000) >> 18)), fl);
+        putc((0x80 | ((val & 0x03F000) >> 12)), fl);
+        putc((0x80 | ((val & 0x000FC0) >>  6)), fl);
+        putc((0x80 |  (val & 0x00003F)      ),  fl);
+    }
+    else
+    {
+        putc('?', fl);
+    }
+} }
+
+
+Provenance: test_scripts/make_test7b_from_predictions.py
