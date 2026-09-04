@@ -125,7 +125,7 @@ everything in Part 5.
 | # | Decision | Blocks | §  |
 |---|---|---|---|
 | ~~D1~~ | ~~Epoch ceiling~~ — **settled 2026-08-12**: all four CodeBERT/GCB runs on 10 / 2, early stopping fired in each. UniXcoder remains at 5 / 2, internally consistent | — | §4.3 |
-| **D2** 🔄 | ~~Table 3: re-run at the new ceiling, or label it as the 5-epoch config~~ — **decided 2026-09-04: re-run.** `test_scripts/test-3-multiseed.ipynb` is built and split-verified; three Kaggle sessions pending. Also fixes a warm-start defect the old notebook had (§3.3a) | Table 3 | §3.3a |
+| **D2** 🔄 | ~~Table 3: re-run at the new ceiling, or label it as the 5-epoch config~~ — **decided 2026-09-04: re-run.** `test_scripts/test_3_multiseed/test-3-seed{42,123,2025}.ipynb` are built and split-verified; three Kaggle sessions pending. Also fixes a warm-start defect the old notebook had (§3.3a) | Table 3 | §3.3a |
 | ~~D3~~ | ~~Scanner ships GCB+DFG~~ — **retired 2026-08-12: the premise was false.** It ran GraphCodeBERT **text-only** and contains no DFG code at all. *Superseded 2026-08-31: the scanner was moved to UniXcoder text-only (§5.6); the point that it was never a DFG model stands* | — | §5.5 |
 | ~~D4~~ | ~~Filtered vs unfiltered Table 1~~ — **settled 2026-08-20**: Table 1 is the filtered 18,541 from test-2; `results/models/*.txt` are unfiltered per-model figures and must not be mixed in | — | §3.1 |
 | D5 | Sequence lengths differ between the arms of two backbones — disclose, or retrain to match | Tables 1–2, Section 4 | §4.3 |
@@ -342,7 +342,14 @@ Three further defects in the same files, all smaller:
 
 ### The replacement
 
-`test_scripts/test-3-multiseed.ipynb` — one seed per Kaggle session, `SEED` at the top.
+`test_scripts/test_3_multiseed/test-3-seed{42,123,2025}.ipynb` — one notebook per seed, one
+Kaggle session each. A cold-start run is ~5–9 h against Kaggle's 12 h ceiling, so three in one
+session would die mid-run. The three files are byte-identical apart from the `SEED` line and a
+closing "run this next" message, so the training configuration cannot drift between them.
+
+> ⚠️ **Do not confuse these with `test_scripts/test_3_multiseed_broken_down/`**, which holds the
+> superseded warm-start notebooks. Running one of those by mistake costs a full session and
+> returns the biased number this section exists to replace.
 
 | | old | new |
 |---|---|---|
@@ -812,8 +819,8 @@ protocol is a common 10 / 3 budget across all six, letting early stopping genuin
 applied.** Settle before writing Section 3.
 
 **D2 — decided 2026-09-04: re-run.** See §3.3a. The old notebooks are superseded by
-`test_scripts/test-3-multiseed.ipynb`, which cold-starts from `microsoft/graphcodebert-base`,
-trains at 10 / 2, and scores the filtered 18,541. Three sessions pending.
+`test_scripts/test_3_multiseed/`, which cold-starts from `microsoft/graphcodebert-base`, trains
+at 10 / 2, and scores the filtered 18,541. One notebook per seed, three sessions pending.
 
 ## 4.4 Historical note
 
