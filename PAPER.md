@@ -1108,11 +1108,29 @@ Use these paragraphs directly. Numbers inside them are current as of 2026-08-04 
 
 *Attack*: "Why did some models train for 4 epochs and others 5? Unfair comparison."
 
-> ⚠️ **Rewrite required.** The previous paragraph claimed the protocol lets each model "train
-> until it reaches its true capability upper bound." §4.3 shows early stopping never fired in
-> any 5-epoch run — every one hit the cap. That defence is not supported. Rewrite after D1 is
-> settled, describing whatever uniform protocol is actually adopted, and disclose that two runs
-> were retrained at a raised ceiling because they reached the cap while still improving.
+> ✅ **Written 2026-09-04, now that D1 is settled.** *The previous paragraph claimed the protocol
+> lets each model "train until it reaches its true capability upper bound" — unsupported, because
+> early stopping never fired in any 5-epoch run. Replaced by the following, which describes what
+> the runs behind Tables 1–2 actually did.*
+
+> "All models train under early stopping on validation accuracy with patience 2, retaining the
+> best checkpoint. An audit of the initial runs found that this protocol had not in fact been
+> exercised: every run at a 5-epoch ceiling terminated on the ceiling rather than on exhausted
+> patience, and two — CodeBERT text-only and GraphCodeBERT text-only — selected their best
+> checkpoint on the final epoch with validation accuracy still rising. Those runs were therefore
+> undertrained, and we retrained all four CodeBERT and GraphCodeBERT models at a 10-epoch ceiling.
+> Early stopping fired in every one, each peaking at epoch 4 or 5 and then declining for two
+> consecutive epochs, confirming that 10 epochs is not a binding constraint. The two UniXcoder
+> models retain a 5-epoch ceiling: both peaked at epoch 4, so the ceiling did not truncate them,
+> and both arms of that backbone share it, leaving the within-backbone comparison unaffected.
+> Reported accuracies are from the retrained models throughout."
+
+> **Why the honest version is the stronger one.** The retrain moved both undertrained text arms
+> *up* — CodeBERT text **+0.170pp** and GCB text **+0.300pp** against their 5-epoch figures (§4.3).
+> The text arms are the DFG arms' comparators, so raising them makes the DFG deltas *harder* to
+> obtain, not easier. Disclosing that we found the flaw ourselves, and that fixing it worked
+> against our own result, is a stronger position than defending a protocol that was not running as
+> described.
 
 ## 6.5 Dataset construction
 
@@ -1848,13 +1866,24 @@ Ordered by severity. Those marked 🔄 changed materially on 2026-08-04.
 
 ## 9.1 Training and evaluation
 
-**L1.1 🔄 — Epoch ceiling truncated two runs.** `codebert-train-text` and
-`graphcodebert-train-text-only` selected their best checkpoint on the final epoch with
-validation still rising, and early stopping never fired in any 5-epoch run. Their reported
-accuracies are floors. Both are retrained at a raised ceiling (§4.3). *Supersedes the older
-"fixed 3-epoch budget may undertrain the DFG mechanism" limitation, which described an abandoned
-methodology and pointed the opposite way — under early stopping it is the text-only arms that
-were undertrained.*
+**L1.1 ✅ — Epoch ceiling truncated two runs; fixed 2026-08-12.** In the original runs, early
+stopping never *fired* in any of the five 5-epoch runs — all terminated on `num_train_epochs`. But
+only two were still improving at the cap: `codebert-train-text` and `graphcodebert-train-text-only`
+selected their best checkpoint on the final epoch with validation still rising, so their reported
+accuracies were floors. The other three had already peaked at epoch 4 and were declining
+(patience 1/2), so the cap was not binding for them.
+
+**All four CodeBERT and GraphCodeBERT runs were retrained at 10 / 2, and early stopping fired in
+every one** (§4.3). Each peaked at epoch 4 or 5 then declined for two consecutive epochs, so 10 is
+comfortably clear of the wall. The figures in Tables 1–2 are the retrained ones.
+
+**Residual, disclosed:** the two UniXcoder runs remain at **5 / 2** — verified in their `Args`
+blocks. They were not retrained because neither was truncated: `unixcoder-text-only` peaked at
+epoch 4 and `unixcoder-dfg-final` peaked at 4 then declined at 5. Both arms of that backbone share
+the same ceiling, so the within-backbone comparison this paper makes is unaffected; what differs is
+the ceiling *across* backbones (4 runs at 10 / 2, 2 at 5 / 2). *Supersedes the older "fixed 3-epoch
+budget may undertrain the DFG mechanism" limitation, which described an abandoned methodology and
+pointed the opposite way — under early stopping it is the text-only arms that were undertrained.*
 
 **L1.2 — DFG built over parser-recovery wrappers.** Decompiled fragments frequently lack
 enclosing class or method context required for valid Java parsing. Each is wrapped in
