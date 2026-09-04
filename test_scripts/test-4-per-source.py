@@ -496,7 +496,10 @@ if results:
                         ha='center', va='bottom', fontsize=9)
 
     ax.set_ylabel('Score')
-    ax.set_title('Test Set Performance by Source (GraphCodeBERT + DFG)')
+    # This script loads saved_models/best_model_text_only.bin (see args.gcb_text_weights),
+    # so the title must say text-only. It read "GraphCodeBERT + DFG" until 2026-09-02,
+    # which made results/test5_per_source_bar.png contradict PAPER.md 3.5.
+    ax.set_title('Test Set Performance by Source (GraphCodeBERT text-only)')
     ax.set_xticks(x)
     ax.set_xticklabels([results[s]['label'] for s in sources], rotation=15, ha='right')
     ax.set_ylim(0, 1.15)
