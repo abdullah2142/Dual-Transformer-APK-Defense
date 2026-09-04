@@ -309,7 +309,7 @@ status matters — and it does not survive inspection.
 ## 3.3a Why Table 3 is being re-run 🔄 **D2 decided 2026-09-04**
 
 **The ±0.10% above is not fine-tuning seed variance, and it is biased low.**
-`test_scripts/test_3_multiseed_broken_down/*.ipynb` sets
+`test_scripts/superseded/test_3_multiseed_warmstart/*.ipynb` sets
 
 ```
 pretrained_encoder = ".../graphcodebert-train-text-only/saved_models/best_model_text_only.bin"
@@ -347,9 +347,10 @@ Kaggle session each. A cold-start run is ~5–9 h against Kaggle's 12 h ceiling,
 session would die mid-run. The three files are byte-identical apart from the `SEED` line and a
 closing "run this next" message, so the training configuration cannot drift between them.
 
-> ⚠️ **Do not confuse these with `test_scripts/test_3_multiseed_broken_down/`**, which holds the
-> superseded warm-start notebooks. Running one of those by mistake costs a full session and
-> returns the biased number this section exists to replace.
+> The superseded warm-start notebooks were moved to
+> `test_scripts/superseded/test_3_multiseed_warmstart/` on 2026-09-04 so the two sets cannot be
+> confused — running one by mistake costs a full session and returns the biased number this
+> section exists to replace. `test_scripts/superseded/README.md` records why.
 
 | | old | new |
 |---|---|---|
@@ -2008,7 +2009,8 @@ general C/C++ vulnerability detector.
 | `training_notebooks/re_train/` | the six training notebooks, each carrying its own run's outputs |
 | `training_notebooks/old_train/` | the pre-remediation notebooks — historical, do not run |
 | `test_scripts/` | all evaluation scripts, plus `split_and_filter.py` and `scanner-pipeline.ipynb` |
-| `test_scripts/test_3_multiseed_broken_down/` | the three multi-seed notebooks |
+| `test_scripts/test_3_multiseed/` | the three multi-seed notebooks (cold start, 10/2) |
+| `test_scripts/superseded/` | withdrawn scripts, kept for provenance — **do not run** |
 | `dataset_creation_scripts/` | raw APK → JSONL pipeline, plus `make_dedup_dataset.py` |
 | `results/models/*.txt` | per-model training results |
 | `results/` | evaluation outputs and figures |
