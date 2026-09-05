@@ -1,0 +1,40 @@
+Test 3 seed 42 -- SUPERSEDED RUN (no LR warmup)
+================================================================
+Ran 2026-09-05, ~9.5 GPU hours. NOT part of Table 3.
+
+Config: GraphCodeBERT text-only, cold start from microsoft/graphcodebert-base,
+512 train / 384 eval, 10 epochs / patience 2, filtered 18,541 test set.
+        num_warmup_steps = 0        <-- the defect
+
+Result:  Accuracy 88.0050%   ROC-AUC 0.9561   F1 0.8763   FN 1,278  FP 946
+         Best val 88.9417% at epoch 5, early stopping at epoch 7.
+
+Trajectory: 87.5852 -> 88.3791 -> 88.4353 -> 88.9167 -> 88.9417 -> 88.6041 -> 88.8417
+
+WHY IT WAS DISCARDED
+--------------------
+graphcodebert-train-text-only.ipynb, which produced Table 1's checkpoint, uses
+num_warmup_steps=int(total_steps * 0.1). This notebook passed 0. Everything else
+matched -- model class, optimizer, drop_last, AMP, gradient clipping, sampler,
+sequence lengths, partition.
+
+Seed 42 was supposed to reproduce Table 1's 88.2692% and came back 0.2642pp low.
+
+WHAT IT IS STILL EVIDENCE FOR
+-----------------------------
+Warmup is not cosmetic on this task. Removing it changed the whole trajectory:
+
+  with 10% warmup (Table 1) : 86.45 -> 87.39 -> 88.84 -> 89.19* -> 89.04 -> 88.86
+  with no warmup (this run) : 87.59 -> 88.38 -> 88.44 -> 88.92 -> 88.94* -> 88.60 -> 88.84
+
+No warmup starts the LR at full value, so epoch 1 is better (87.59 vs 86.45) but
+the peak is worse (88.94 vs 89.19) and arrives a epoch later. Final test accuracy
+falls 0.2642pp.
+
+That number is worth keeping. A single unmatched schedule detail moves accuracy by
+0.26pp, which is comparable to the 0.410pp DFG delta that PAPER.md 3.2 reports as
+the one statistically significant within-backbone result. It is an independent
+instance of the point Section VI already makes about protocol sensitivity, and it
+argues for measuring the seed noise floor rather than assuming it is small.
+
+Superseded by the re-run with warmup restored.
