@@ -1,0 +1,23 @@
+Test 3: Multi-Seed Robustness -- seed 2025
+==============================================================
+Model      : GraphCodeBERT text-only
+Start from : microsoft/graphcodebert-base  (cold start, public weights)
+Training   : 512 tokens, 10 epochs / patience 2, lr 2e-05
+Evaluation : 384 tokens
+Test set   : 18,541 samples, duplicate-filtered
+Stopped    : early stopping at epoch 6 (after 6 epochs)
+
+Accuracy   : 87.9348%
+ROC-AUC    : 0.9582
+F1         : 0.8745
+FN / FP    : 1,362 / 875
+
+Per-epoch validation accuracy:
+  epoch  1: val_acc=87.1288%  train_loss=0.3085  (1.48h)
+  epoch  2: val_acc=87.9415%  train_loss=0.2553  (2.95h)
+  epoch  3: val_acc=88.4978%  train_loss=0.2226  (4.41h)
+  epoch  4: val_acc=88.8479%  train_loss=0.1898  (5.88h)
+  epoch  5: val_acc=88.7104%  train_loss=0.1610  (7.34h)
+  epoch  6: val_acc=88.3041%  train_loss=0.1373  (8.80h)
+
+Provenance: test_scripts/test-3-multiseed.ipynb
