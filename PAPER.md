@@ -365,6 +365,36 @@ closing "run this next" message, so the training configuration cannot drift betw
 above 0.5pp. The split cell was verified offline to produce sets byte-identical to
 `split_and_filter.py` — 163,967 / 15,997 / 18,541 — and asserts those three sizes before training.
 
+### Pre-registration — fixed 2026-09-06, before any warmup run existed
+
+**Target n = 5.** Seeds 42, 123, 2025 first; 7 and 2718 afterwards **if GPU time
+permits, regardless of what the first three show**. Reported at whatever n is reached, with
+the critical value for that n stated alongside.
+
+This is written down because the alternative is optional stopping. Running three, looking at
+the p-value, and then adding two more *because the answer was unwelcome* would inflate the
+false-positive rate and void the test. Fixing the target in advance means a later extension is
+sequencing rather than a decision, and the record is dated in git.
+
+**Why n matters more than usual here.** The analysis is a one-sample t-test of the seed
+accuracies against the GCB+DFG checkpoint, and at these sample sizes the critical value
+dominates:
+
+| n | df | t critical | test fails if true sd exceeds | headroom on the observed 0.131pp |
+|:---:|:---:|:---:|:---:|:---:|
+| **3** | 2 | **4.303** | 0.180pp | **1.4×** |
+| 4 | 3 | 3.182 | 0.281pp | 2.1× |
+| **5** | 4 | **2.776** | 0.361pp | **2.8×** |
+
+At n=3 the failure line sits **0.8 standard errors** above the observed sd — inside the
+measurement error, so a null result would not be distinguishable from insufficient power. At
+n=5 it is 3.5 SE away. `test_scripts/aggregate_test3.py` prints this headroom on every run and
+flags it when thin.
+
+**Known limitation either way.** Any n text seeds are compared against a *single* GCB+DFG
+checkpoint, which is itself one draw from a distribution. The fully controlled design puts
+seeds on both arms (~95 GPU hours) and is out of scope; it belongs in Limitations.
+
 **What the result could do to the paper.** If the honest spread comes back **well under 0.41pp**,
 Table 2's GCB finding stands and is better supported than it is today. If it comes back **near or
 above 0.41pp**, the one statistically significant within-backbone result is inside seed noise, and
